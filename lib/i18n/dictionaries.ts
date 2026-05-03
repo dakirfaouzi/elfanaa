@@ -653,4 +653,4 @@ export const dictionaries = {
   },
 } as const satisfies Record<Locale, unknown>;
 
-export type Dictionary = (typeof dictionaries)["en"];
+export type Dictionary = (typeof dictionaries)[keyof typeof dictionaries];
