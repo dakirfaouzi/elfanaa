@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ELFANAA — local stack
+# ─────────────────────────────────────────────────────────────────────────────
+# Three services, one network:
+#   • elfanaa_database  — Postgres 16 with a named volume for durable data
+#   • elfanaa_api       — FastAPI (./backend), reads/writes Postgres
+#   • elfanaa_web       — Next.js storefront, talks to the API via the
+#                         private docker network or directly via NEXT_PUBLIC_API_BASE_URL
+#
+# Run the stack:
+#   docker compose up --build
+#
+# Run only the database (when developing the apps locally):
+#   docker compose up elfanaa_database -d
+#
+# EasyPanel deploys these as three separate services. Use this file as the
+# ground-truth env contract for the EasyPanel "compose" or "Source: Dockerfile"
+# templates.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  elfanaa_database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-elfanaa}
+      POSTGRES_USER: ${POSTGRES_USER:-elfanaa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elfanaa}
+    volumes:
+      - elfanaa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elfanaa -d elfanaa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      # Expose locally for tooling (DBeaver / TablePlus). EasyPanel does
+      # not expose this port publicly — it stays on the private network.
+      - "5432:5432"
+
+  elfanaa_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      elfanaa_database:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://elfanaa:elfanaa@elfanaa_database:5432/elfanaa}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,https://elfanaa.com}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      ORDERS_WEBHOOK_URL: ${ORDERS_WEBHOOK_URL:-}
+      SHIPPING_WEBHOOK_URL: ${SHIPPING_WEBHOOK_URL:-}
+      GOOGLE_SHEETS_WEBHOOK_URL: ${GOOGLE_SHEETS_WEBHOOK_URL:-}
+      GOOGLE_SHEETS_API_KEY: ${GOOGLE_SHEETS_API_KEY:-}
+      META_PIXEL_ID: ${META_PIXEL_ID:-}
+      META_CAPI_ACCESS_TOKEN: ${META_CAPI_ACCESS_TOKEN:-}
+      TIKTOK_PIXEL_ID: ${TIKTOK_PIXEL_ID:-}
+      TIKTOK_EVENTS_ACCESS_TOKEN: ${TIKTOK_EVENTS_ACCESS_TOKEN:-}
+      SNAPCHAT_PIXEL_ID: ${SNAPCHAT_PIXEL_ID:-}
+      SNAPCHAT_CAPI_ACCESS_TOKEN: ${SNAPCHAT_CAPI_ACCESS_TOKEN:-}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        ["CMD", "python", "-c",
+         "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  elfanaa_web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      elfanaa_api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elfanaa.com}
+      NEXT_PUBLIC_DEFAULT_LOCALE: ar
+      NEXT_PUBLIC_CURRENCY: SAR
+      # Storefront posts to the API directly. In production behind EasyPanel,
+      # set this to https://api.elfanaa.com so the browser bypasses Next.js.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
+      NEXT_PUBLIC_TIKTOK_PIXEL_ID: ${NEXT_PUBLIC_TIKTOK_PIXEL_ID:-}
+      NEXT_PUBLIC_SNAPCHAT_PIXEL_ID: ${NEXT_PUBLIC_SNAPCHAT_PIXEL_ID:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  elfanaa_pgdata:
+    driver: local
