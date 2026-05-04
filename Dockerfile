@@ -65,7 +65,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+# NOTE: We intentionally don't ship a Docker HEALTHCHECK. Traefik (EasyPanel's
+# reverse proxy) probes the container by attempting a real TCP connection to
+# the destination port, which is sufficient for routing decisions. A Docker
+# HEALTHCHECK that hard-codes a port would silently fail the moment the host
+# overrides PORT (e.g. EasyPanel injects PORT=80) and the orchestrator would
+# then refuse to route traffic to a perfectly healthy container.
 
 CMD ["node", "server.js"]
