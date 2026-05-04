@@ -25,14 +25,28 @@ export function Drawer({
   footer,
 }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Latch the latest onClose handler in a ref so the keydown effect's
+  // dependency array doesn't include the parent's per-render arrow
+  // function. Otherwise every keystroke in any nested input would yank
+  // focus back to the panel shell — same footgun we hit in Modal.tsx.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
     document.addEventListener("keydown", onKey);
-    panelRef.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+  }, [open]);
 
   return (
     <div

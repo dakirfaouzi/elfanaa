@@ -30,14 +30,34 @@ export function Modal({
   size = "md",
 }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Latch the latest onClose handler in a ref so the keydown effect can
+  // resolve it without taking a hard dependency. The parent passes a fresh
+  // arrow function on every render — including it in the dep array would
+  // re-run the effect on every keystroke and yank focus back to the modal
+  // shell, which made every typed character require a fresh click.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
+  // Escape-to-close. Independent of the focus effect so the listener
+  // attaches once per "open" cycle and never fires the focus jump.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
     document.addEventListener("keydown", onKey);
-    ref.current?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
+
+  // Initial focus on the dialog shell. Runs exactly once per open
+  // transition — never on subsequent re-renders, so an input with focus
+  // keeps it across the parent's keystroke-driven re-renders.
+  useEffect(() => {
+    if (!open) return;
+    ref.current?.focus();
+  }, [open]);
 
   return (
     <div
