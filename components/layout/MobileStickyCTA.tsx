@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ShoppingBag } from "lucide-react";
-import { useCart, useCartHydrated } from "@/hooks/useCart";
+import {
+  useCartHydrated,
+  useCartItemCount,
+  useCartSubtotal,
+} from "@/hooks/useCart";
 import { useUI } from "@/hooks/useUI";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { useLocale } from "@/hooks/useLocale";
@@ -28,8 +32,8 @@ type MobileStickyCTAProps = {
  */
 export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStickyCTAProps) {
   const { t } = useLocale();
-  const itemCount = useCart((s) => s.itemCount());
-  const subtotal = useCart((s) => s.subtotal());
+  const itemCount = useCartItemCount();
+  const subtotal = useCartSubtotal();
   const hydrated = useCartHydrated();
   const openCheckout = useUI((s) => s.openCheckout);
   const cartOpen = useUI((s) => s.cartOpen);

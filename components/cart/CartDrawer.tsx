@@ -8,14 +8,14 @@ import { CartSummary } from "./CartSummary";
 import { FreeShippingBar } from "./FreeShippingBar";
 import { CrossSellSlot } from "./CrossSellSlot";
 import { useUI } from "@/hooks/useUI";
-import { useCart, selectResolvedLines } from "@/hooks/useCart";
+import { useResolvedCartLines } from "@/hooks/useCart";
 import { useLocale } from "@/hooks/useLocale";
 
 export function CartDrawer() {
   const { t } = useLocale();
   const open = useUI((s) => s.cartOpen);
   const close = useUI((s) => s.closeCart);
-  const lines = useCart(selectResolvedLines);
+  const lines = useResolvedCartLines();
 
   const isEmpty = lines.length === 0;
 

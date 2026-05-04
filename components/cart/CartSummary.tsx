@@ -2,7 +2,11 @@
 
 import { ShieldCheck, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { useCart, selectResolvedLines } from "@/hooks/useCart";
+import {
+  useCartItemCount,
+  useCartSubtotal,
+  useResolvedCartLines,
+} from "@/hooks/useCart";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { useLocale } from "@/hooks/useLocale";
 import { useUI } from "@/hooks/useUI";
@@ -10,9 +14,9 @@ import { trackCommerce } from "@/lib/analytics";
 
 export function CartSummary() {
   const { t } = useLocale();
-  const subtotal = useCart((s) => s.subtotal());
-  const itemCount = useCart((s) => s.itemCount());
-  const lines = useCart(selectResolvedLines);
+  const subtotal = useCartSubtotal();
+  const itemCount = useCartItemCount();
+  const lines = useResolvedCartLines();
   const openCheckout = useUI((s) => s.openCheckout);
   const format = useFormatPrice();
 

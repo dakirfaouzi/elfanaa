@@ -1,14 +1,13 @@
 "use client";
 
-import { useCart } from "@/hooks/useCart";
+import { useCartSubtotal, useFreeShippingProgress } from "@/hooks/useCart";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { useLocale } from "@/hooks/useLocale";
-import { siteConfig } from "@/data/site";
 
 export function FreeShippingBar() {
   const { t } = useLocale();
-  const subtotal = useCart((s) => s.subtotal());
-  const progress = useCart((s) => s.freeShippingProgress());
+  const subtotal = useCartSubtotal();
+  const progress = useFreeShippingProgress();
   const format = useFormatPrice();
 
   const remaining = Math.max(0, progress.threshold - subtotal.amount);

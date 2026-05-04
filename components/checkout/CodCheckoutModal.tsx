@@ -7,7 +7,10 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { useUI } from "@/hooks/useUI";
-import { useCart, selectResolvedLines } from "@/hooks/useCart";
+import {
+  useCartSubtotal,
+  useResolvedCartLines,
+} from "@/hooks/useCart";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { useLocale } from "@/hooks/useLocale";
 import { lineTotal } from "@/lib/pricing";
@@ -51,8 +54,8 @@ export function CodCheckoutModal() {
   const open = useUI((s) => s.checkoutOpen);
   const close = useUI((s) => s.closeCheckout);
 
-  const lines = useCart(selectResolvedLines);
-  const subtotal = useCart((s) => s.subtotal());
+  const lines = useResolvedCartLines();
+  const subtotal = useCartSubtotal();
 
   const [screen, setScreen] = useState<CheckoutScreen>("form");
   const [status, setStatus] = useState<Status>("idle");
@@ -489,8 +492,8 @@ function CheckoutScarcityBanner() {
 
 function OrderSummary() {
   const { locale, t } = useLocale();
-  const lines = useCart(selectResolvedLines);
-  const subtotal = useCart((s) => s.subtotal());
+  const lines = useResolvedCartLines();
+  const subtotal = useCartSubtotal();
   const format = useFormatPrice();
 
   return (

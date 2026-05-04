@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Cart, CartLine, Money } from "@/lib/types";
@@ -158,4 +158,67 @@ export function selectResolvedLines(state: CartState): ResolvedLine[] {
       return product ? { ...line, product } : null;
     })
     .filter((l): l is ResolvedLine => Boolean(l));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stable derived hooks
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Reading derived state straight off the store with selectors that build a
+// fresh object on every call — e.g. `useCart((s) => s.subtotal())` — produces
+// a new reference each render. Zustand's default `Object.is` comparator then
+// schedules a re-render, the selector runs again, the cycle repeats, and
+// React eventually throws #185 ("Maximum update depth exceeded").
+//
+// The hooks below are the single source of truth for derived cart values.
+// They subscribe to the *primitive* underlying slice (`cart.lines`) — which
+// only changes when the cart actually mutates — and use `useMemo` to derive
+// the object/array shape consumers need with stable referential identity.
+
+/** Total quantity across all cart lines (primitive — already stable). */
+export function useCartItemCount(): number {
+  return useCart((s) => s.cart.lines.reduce((acc, l) => acc + l.quantity, 0));
+}
+
+/** Memoised cart subtotal as `Money`. New reference only when lines change. */
+export function useCartSubtotal(): Money {
+  const lines = useCart((s) => s.cart.lines);
+  const currency = useCart((s) => s.cart.currency);
+  return useMemo<Money>(() => {
+    const amount = lines.reduce((acc, l) => {
+      const product = getProductById(l.productId);
+      if (!product) return acc;
+      return acc + lineTotal(product, l.quantity).amount;
+    }, 0);
+    return { amount, currency };
+  }, [lines, currency]);
+}
+
+/** Memoised free-shipping progress { current, threshold, ratio }. */
+export function useFreeShippingProgress(): {
+  current: number;
+  threshold: number;
+  ratio: number;
+} {
+  const subtotal = useCartSubtotal();
+  return useMemo(() => {
+    const threshold = siteConfig.freeShippingThreshold;
+    const current = subtotal.amount;
+    return { current, threshold, ratio: Math.min(1, current / threshold) };
+  }, [subtotal.amount]);
+}
+
+/** Memoised resolved cart lines with `product` joined in. */
+export function useResolvedCartLines(): ResolvedLine[] {
+  const lines = useCart((s) => s.cart.lines);
+  return useMemo(
+    () =>
+      lines
+        .map((line) => {
+          const product = getProductById(line.productId);
+          return product ? { ...line, product } : null;
+        })
+        .filter((l): l is ResolvedLine => Boolean(l)),
+    [lines]
+  );
 }

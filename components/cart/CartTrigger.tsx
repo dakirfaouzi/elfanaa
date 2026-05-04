@@ -1,13 +1,13 @@
 "use client";
 
 import { ShoppingBag } from "lucide-react";
-import { useCart, useCartHydrated } from "@/hooks/useCart";
+import { useCartHydrated, useCartItemCount } from "@/hooks/useCart";
 import { useUI } from "@/hooks/useUI";
 import { useLocale } from "@/hooks/useLocale";
 
 export function CartTrigger() {
   const openCart = useUI((s) => s.openCart);
-  const itemCount = useCart((s) => s.itemCount());
+  const itemCount = useCartItemCount();
   const hydrated = useCartHydrated();
   const { t } = useLocale();
 
