@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.routes import health, orders
+from app.api.routes import geo, health, orders
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.migrations import run_migrations
@@ -79,6 +79,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(orders.router)
+    app.include_router(geo.router)
     return app
 
 

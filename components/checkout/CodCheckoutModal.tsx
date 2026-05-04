@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Phone, Truck, Check, Activity, Flame } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Check,
+  Flame,
+  Phone,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
@@ -26,10 +34,11 @@ import {
   type UpsellStatus,
 } from "@/lib/order-receipt";
 import type { CodOrderInput } from "@/lib/types";
+import { fetchGeoVerdict, type GeoVerdict } from "@/lib/geo";
 import { PostPurchaseUpsell } from "./PostPurchaseUpsell";
 
 type CheckoutScreen = "form" | "upsell";
-type Status = "idle" | "submitting" | "error";
+type Status = "idle" | "submitting" | "error" | "geo_blocked";
 type FormState = { fullName: string; phone: string };
 type Touched = Record<keyof FormState, boolean>;
 
@@ -63,6 +72,7 @@ export function CodCheckoutModal() {
   const [touched, setTouched] = useState<Touched>(initialTouched);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [purchasedProductIds, setPurchasedProductIds] = useState<string[]>([]);
+  const [geo, setGeo] = useState<GeoVerdict | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
   const errors = useMemo(() => validateForm(form, t), [form, t]);
@@ -82,6 +92,18 @@ export function CodCheckoutModal() {
         value: subtotal,
       });
       requestAnimationFrame(() => firstFieldRef.current?.focus());
+
+      // Fire-and-forget geo probe. The result is purely advisory — the
+      // submit handler still posts to the server, which runs the
+      // authoritative MaxMind check and is the only thing that can
+      // actually reject the order.
+      let cancelled = false;
+      fetchGeoVerdict().then((verdict) => {
+        if (!cancelled) setGeo(verdict);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -144,7 +166,26 @@ export function CodCheckoutModal() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        // Surface a dedicated geo-block UX for 403 + `geo_blocked`. Other
+        // 4xx/5xx fall through to the generic "error" state.
+        if (res.status === 403) {
+          let code: string | undefined;
+          try {
+            const body = (await res.json()) as {
+              detail?: { error?: string };
+            };
+            code = body?.detail?.error;
+          } catch {
+            /* ignore body parse error */
+          }
+          if (code === "geo_blocked") {
+            setStatus("geo_blocked");
+            return;
+          }
+        }
+        throw new Error(String(res.status));
+      }
       // Two backends return slightly different receipt shapes; normalise
       // here so the thank-you page only ever sees the OrderReceipt type.
       const raw = (await res.json()) as ApiOrderResponse;
@@ -202,7 +243,12 @@ export function CodCheckoutModal() {
           <FormFooter
             onSubmit={submit}
             status={status}
-            disabled={!isValid || lines.length === 0}
+            disabled={
+              !isValid ||
+              lines.length === 0 ||
+              status === "geo_blocked" ||
+              geo?.allowed === false
+            }
             label={`${t.checkout.placeOrder} · ${formatPrice(subtotal.amount, subtotal.currency, locale)}`}
             placing={t.checkout.placing}
           />
@@ -212,6 +258,7 @@ export function CodCheckoutModal() {
       {screen === "form" && (
         <div className="grid gap-8 md:grid-cols-[1fr_300px]">
           <div className="space-y-5">
+            <GeoNoticeBanner geo={geo} blocked={status === "geo_blocked"} />
             <CheckoutScarcityBanner />
             <Field
               label={t.checkout.fullName}
@@ -471,6 +518,41 @@ function ReassuranceList() {
  * doesn't visibly tick on re-render. When real-time presence is wired
  * (Vercel KV / Pusher), swap this for a live counter.
  */
+/**
+ * Banner shown above the checkout form when MaxMind says the customer's
+ * IP is outside KSA, an anonymising proxy / VPN, or a hosting provider —
+ * or when the server already rejected an order with `geo_blocked`.
+ *
+ * `geo` is the soft client probe (`/geo/me`); `blocked` is set after the
+ * server returns 403 + `geo_blocked` on submit. Either signal renders
+ * the same banner; the submit button is disabled by the parent.
+ */
+function GeoNoticeBanner({
+  geo,
+  blocked,
+}: {
+  geo: GeoVerdict | null;
+  blocked: boolean;
+}) {
+  const { t } = useLocale();
+  const softBlock = geo?.allowed === false;
+  if (!softBlock && !blocked) return null;
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-3 text-sm"
+    >
+      <AlertTriangle className="size-4 shrink-0 text-warning" aria-hidden />
+      <div className="space-y-0.5">
+        <p className="font-medium text-ink">{t.checkout.geoBlockedTitle}</p>
+        <p className="text-[12px] leading-relaxed text-muted">
+          {t.checkout.geoBlockedBody}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function CheckoutScarcityBanner() {
   const { t } = useLocale();
   // Stable per-session number — keeps the count from changing on

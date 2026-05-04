@@ -184,6 +184,39 @@ Visit:
 | `META_PIXEL_ID` / `META_CAPI_ACCESS_TOKEN` | no | Meta CAPI.                                                          |
 | `TIKTOK_PIXEL_ID` / `TIKTOK_EVENTS_ACCESS_TOKEN` | no | TikTok Events API.                                                |
 | `SNAPCHAT_PIXEL_ID` / `SNAPCHAT_CAPI_ACCESS_TOKEN` | no | Snapchat CAPI.                                                  |
+| `MAXMIND_ACCOUNT_ID` / `MAXMIND_LICENSE_KEY` | no | MaxMind GeoIP2 Insights credentials. Required only when `ENABLE_IP_FRAUD_CHECK=true`. |
+| `ENABLE_IP_FRAUD_CHECK`             | no       | `true` to gate non-KSA / VPN / proxy / hosting-IP orders. Default `false` (allow-all). |
+| `ALLOWED_COUNTRIES`                 | no       | Comma-separated ISO-3166 alpha-2 codes. Default `SA`.                  |
+| `WHITELISTED_PHONES`                | no       | Comma-separated E.164 phones that bypass the IP gate (QA / founder / ops). |
+
+### IP fraud gate — MaxMind GeoIP2
+
+The backend hardens COD against fraud (the highest-risk payment method)
+by gating each `POST /orders` against MaxMind's GeoIP2 Insights API:
+
+- Requests from outside `ALLOWED_COUNTRIES` (default `SA`) are rejected with
+  `403 geo_blocked`.
+- Requests from anonymising proxies, VPNs, Tor exit nodes, and hosting
+  providers are rejected with the same code.
+- Whitelisted phones bypass every check — useful for the founder's roaming
+  device, QA, and ops.
+- The check fails **open**: a MaxMind outage never blocks real customers;
+  the failure is logged with the IP for ops to review.
+- Results are cached in-process for one hour per IP, so a single buyer
+  refreshing the checkout never burns more than one MaxMind query.
+
+The storefront also calls `GET /geo/me` when the checkout modal opens to
+surface a soft "we ship within KSA only" banner — purely advisory; the
+authoritative gate runs server-side.
+
+To enable in production:
+
+1. Sign up at <https://www.maxmind.com> and subscribe to **GeoIP2 Insights**.
+2. Generate a license key (Account → Manage License Keys).
+3. Set `MAXMIND_ACCOUNT_ID`, `MAXMIND_LICENSE_KEY`, and
+   `ENABLE_IP_FRAUD_CHECK=true` in EasyPanel → `elfanaa_api` → Environment.
+4. Redeploy the backend. Watch logs for any `order rejected by ip fraud gate`
+   entries — they include `country` + `reason` for forensic analysis.
 
 ---
 

@@ -36,6 +36,7 @@ from app.schemas.order import (
     UpsellAcceptIn,
 )
 from app.services.catalog import Product, get_product
+from app.services.ip_intelligence import check_ip, is_phone_whitelisted
 from app.services.pricing import line_total
 from app.services.pixels import PixelEvent, PixelUser, dispatch_purchase
 from app.services.webhooks import (
@@ -74,6 +75,38 @@ async def create_order(
     if not phone_check.ok or not phone_check.e164:
         raise OrderError("invalid_phone", f"phone:{phone_check.reason or 'invalid'}", 422)
 
+    # IP fraud gate. Whitelisted phones bypass the check (QA, founder, ops).
+    # The check is fail-open: MaxMind outages never block real customers.
+    geo: Optional[Dict[str, Any]] = None
+    if not is_phone_whitelisted(phone_check.e164):
+        ip_check = await check_ip(client_ip)
+        geo = {
+            "country": ip_check.country,
+            "city": ip_check.city,
+            "is_anonymous": ip_check.is_anonymous,
+            "is_hosting": ip_check.is_hosting,
+            "allow": ip_check.allow,
+            "reason": ip_check.reason,
+        }
+        if not ip_check.allow:
+            log.warning(
+                "order rejected by ip fraud gate",
+                extra={
+                    "ip": ip_check.ip,
+                    "country": ip_check.country,
+                    "reason": ip_check.reason,
+                    "phone_e164": phone_check.e164,
+                },
+            )
+            raise OrderError(
+                "geo_blocked",
+                # Customer-facing message stays neutral — never reveal which
+                # signal tripped (country / VPN / hosting). Adversaries who
+                # know the exact reason iterate around it faster.
+                "shipping unavailable for this region",
+                403,
+            )
+
     repriced = _reprice_cart(payload.cart.lines)
     if not repriced:
         raise OrderError("empty_cart", "cart contains no valid products", 422)
@@ -97,6 +130,7 @@ async def create_order(
             "user_agent": user_agent,
             "referer": referer,
             "tracking": payload.context.model_dump() if payload.context else {},
+            "geo": geo,
         },
     )
     for item in repriced:

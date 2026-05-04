@@ -106,6 +106,9 @@ export const dictionaries = {
       socialProof: "أكثر من ٦٠٠ عميل ذهبوا قبلك",
       activityNow: "{count} شخص يكتبون بياناتهم الحين",
       stockBadge: "الكميات محدودة — ثبّت طلبك",
+      geoBlockedTitle: "نوصل داخل المملكة العربية السعودية فقط",
+      geoBlockedBody:
+        "خدمة الدفع عند الاستلام مفعّلة حالياً للعناوين داخل السعودية. لو كنت داخل المملكة وتشوف هذه الرسالة، جرّب إيقاف برنامج VPN ثم أعد التحميل.",
     },
     upsell: {
       eyebrow: "عرض خاص لهذا الطلب فقط",
@@ -431,6 +434,9 @@ export const dictionaries = {
       socialProof: "Over 600 customers have ordered before you",
       activityNow: "{count} people are filling this form right now",
       stockBadge: "Limited stock — secure your order",
+      geoBlockedTitle: "We currently ship within Saudi Arabia only",
+      geoBlockedBody:
+        "Cash on delivery is enabled for KSA addresses only. If you're inside Saudi Arabia and seeing this, try disabling your VPN and reloading the page.",
     },
     upsell: {
       eyebrow: "One-time offer for this order",

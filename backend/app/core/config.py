@@ -74,6 +74,26 @@ class Settings(BaseSettings):
     snapchat_pixel_id: str | None = None
     snapchat_capi_access_token: str | None = None
 
+    # ── MaxMind GeoIP2 — used to gate non-KSA / VPN / proxy traffic ─────────
+    # We use the paid GeoIP2 Insights Web Service when both the account id
+    # and the license key are present. Without them the service is a silent
+    # no-op (allow-all) so local dev never has to talk to MaxMind.
+    maxmind_account_id: str | None = None
+    maxmind_license_key: str | None = None
+
+    # Master toggle: if false the order endpoint never calls MaxMind, even
+    # if credentials are configured. Lets ops disable the gate during
+    # MaxMind incidents without redeploying.
+    enable_ip_fraud_check: bool = False
+
+    # ISO-3166 alpha-2 country codes that may place an order. Single-country
+    # by default because COD logistics are KSA-only at launch.
+    allowed_countries: CsvList = ["SA"]
+
+    # Phones that bypass the IP gate entirely (E.164, comma-separated).
+    # Useful for QA, dev devices roaming on hotel Wi-Fi, founder testing.
+    whitelisted_phones: CsvList = []
+
     _LOCAL_DEV_DB_URL: str = (
         "postgresql+asyncpg://elfanaa:elfanaa@elfanaa_database:5432/elfanaa"
     )
