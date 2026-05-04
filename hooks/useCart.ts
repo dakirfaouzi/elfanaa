@@ -123,15 +123,25 @@ export const useCart = create<CartState>()(
  * Subscribes to persist-middleware hydration. Returns `true` once the store
  * has reconciled with localStorage so consumers can guard SSR/CSR badge
  * flicker without forcing a hard `'use client'` on the entire tree.
+ *
+ * IMPORTANT — initial value MUST be `false`, not `useCart.persist.hasHydrated()`.
+ * Zustand's persist middleware is synchronous in the browser, so by the time
+ * React renders for the first time on the client, `hasHydrated()` may already
+ * be `true`. On the server it is always `false`. Branching off that during the
+ * initial render produces a server/client divergence and React throws #418
+ * the moment the cart actually contains items. Flipping the flag exclusively
+ * inside `useEffect` makes the first paint identical on both runtimes; the
+ * post-mount re-render then reveals the cart badge.
  */
 export function useCartHydrated(): boolean {
-  const [hydrated, setHydrated] = useState<boolean>(() =>
-    useCart.persist.hasHydrated()
-  );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (useCart.persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
     const unsubFinish = useCart.persist.onFinishHydration(() => setHydrated(true));
-    if (useCart.persist.hasHydrated()) setHydrated(true);
     return () => unsubFinish();
   }, []);
 
