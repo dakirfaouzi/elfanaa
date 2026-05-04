@@ -21,7 +21,7 @@ export function BrandStory() {
         <div className="grid items-center gap-10 md:grid-cols-12 md:gap-16">
           <figure className="relative order-2 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft shadow-card md:order-1 md:col-span-5">
             <Image
-              src="https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=1400&q=85"
+              src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=85"
               alt={t.home.storyEyebrow}
               fill
               sizes="(min-width: 768px) 40vw, 100vw"

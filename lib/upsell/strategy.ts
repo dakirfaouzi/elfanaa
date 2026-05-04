@@ -71,29 +71,35 @@ export const POST_PURCHASE_TIMER_SECONDS = 12;
  * Hand-tuned "products from collection X pair well with Y" map.
  *
  * This deliberately AVOIDS suggesting same-category competitors — Aftersell's
- * common-mistake research: showing a sofa next to a sofa kills relevance.
- * The map encodes editorial taste; treat it as merchandising config, not code.
+ * common-mistake research: showing a serum next to another serum kills relevance.
+ * The map encodes editorial taste for Health & Beauty; treat it as
+ * merchandising config, not code.
+ *
+ * Routine logic:
+ *   skincare → grooming (full face routine) + haircare (full self-care routine)
+ *   grooming → skincare (natural cross-sell) + haircare (complete men's routine)
+ *   haircare → skincare (complete women's routine) + grooming (cross-gender recommendation)
  */
 const COMPLEMENT_MAP: Record<string, string[]> = {
-  living: ["lighting", "decor"],
-  lighting: ["living", "decor"],
-  decor: ["coffee", "lighting"],
-  coffee: ["decor"],
-  garden: ["lighting", "decor"],
+  skincare: ["grooming", "haircare"],
+  grooming: ["skincare", "haircare"],
+  haircare: ["skincare", "grooming"],
+  wellness: ["skincare", "haircare"],
 };
 
 /**
  * Editorial overrides — pin a specific upsell for a specific cart product.
  *   `editorialOverrides["p_001"] = "p_002"` means "if cart contains the
- *   majlis cushion, force the courtyard lantern as the post-purchase offer".
+ *   glow serum, force the grooming oil as the post-purchase offer".
  *
  * Keys are productIds in the cart, values are the productId to offer.
  * Looked up before the scoring algorithm runs.
  *
- * For the launch trio: the cushion buyer most often imagines an evening
- * scene → lantern. The lantern buyer is mid-decorating → vase. The vase
- * buyer is styling a quiet corner → cushion. A complete cyclic merchandising
- * map across the three signature products.
+ * For the launch trio (Health & Beauty):
+ *   Glow serum buyer → most likely to want the grooming oil (complete face routine).
+ *   Grooming oil buyer → most likely to want the glow serum (skin complement).
+ *   Hair mask buyer → most likely to want the glow serum (full self-care upgrade).
+ * Cyclic cross-routine merchandising across the three signature products.
  */
 const editorialOverrides: Record<string, string> = {
   p_001: "p_002",

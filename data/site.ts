@@ -8,13 +8,13 @@ import type { LocalizedString } from "@/lib/types";
  * all read from here. A future rebrand only needs to touch this file plus the
  * `brand` keys inside `lib/i18n/dictionaries.ts`.
  *
- * About the name — الفناء (Al-Fanaa)
+ * About the name — فناء (Fanaa)
  * --------------------------------
- * "الفناء" is the inner courtyard of the traditional Arabian home — the
- * open-air heart where the family gathers, where coffee is brewed, where the
- * breeze finds its way inside. We picked the name because it owns the brand's
- * positioning in a single Arabic word: outdoor living, calm space, and the
- * premium lifestyle that comes from a home that breathes.
+ * "فناء" carries a layered meaning in Arabic: a courtyard (the open heart of
+ * a home), and a Sufi concept of inner dissolution — losing the self to find
+ * a deeper truth. For a Health & Beauty brand, this translates beautifully:
+ * "Your beauty starts from within." The name is premium, minimal, and
+ * authentically Arabic — matching the brand's KSA-first positioning.
  */
 export const siteConfig = {
   /** Display name shown in the header, footer, metadata, and emails. */
@@ -32,8 +32,8 @@ export const siteConfig = {
    * resist using it — overuse is what cheapens a tagline.
    */
   tagline: {
-    ar: "تفاصيل تصنع الفخامة",
-    en: "Details craft luxury.",
+    ar: "أصلك يطلع من جوّاك",
+    en: "Your beauty starts from within.",
   } satisfies LocalizedString,
 
   /**
@@ -42,8 +42,8 @@ export const siteConfig = {
    * across every preview surface (Google, WhatsApp, X, LinkedIn).
    */
   promise: {
-    ar: "قطع مختارة بحرفية لفناء بيتك ومجلسه وحديقته — توصيل وتركيب خلال يومين في السعودية.",
-    en: "Hand-picked pieces for your courtyard, majlis, and garden — delivered and installed within two days across Saudi.",
+    ar: "منتجات عناية مختبرة، مصممة للمناخ السعودي، توصّل لبابك وما تدفع قبل ما تشوفها.",
+    en: "Lab-tested skincare formulated for the Saudi climate — delivered to your door, pay on arrival.",
   } satisfies LocalizedString,
 
   /**

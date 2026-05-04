@@ -31,8 +31,8 @@ export function HomeHero() {
     <section className="relative overflow-hidden bg-brand-soft">
       <div className="relative h-[78vh] min-h-[560px] w-full md:h-[88vh] md:min-h-[640px]">
         <Image
-          src="https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=2400&q=85"
-          alt="A sunlit Saudi courtyard with low-slung seating, warm linen, and a calm afternoon light"
+          src="https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=2400&q=85"
+          alt="Premium health and beauty products on a clean surface with warm natural light"
           fill
           priority
           sizes="100vw"
