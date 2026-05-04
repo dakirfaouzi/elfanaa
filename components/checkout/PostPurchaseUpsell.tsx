@@ -54,28 +54,31 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
 
   const [status, setStatus] = useState<AcceptStatus>("idle");
 
-  const { secondsLeft, progress, expired } = useCountdown(POST_PURCHASE_TIMER_SECONDS, {
-    autoStart: Boolean(upsell),
-    onExpire: () => {
-      // Honest urgency — the offer is now gone, but we don't auto-redirect.
-      // The user reads the "expired" state and taps "Continue to confirmation".
-      if (upsell) {
-        track("upsell_expired", {
-          item_id: upsell.product.id,
-          surface: "post_purchase",
-          order_id: orderId,
-        });
-      }
-    },
-  });
-
-  // Cancel pending continue if the parent unmounts mid-celebration.
+  // Cancel pending continue if the parent unmounts mid-celebration / mid-expiry.
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
       if (transitionTimer.current) clearTimeout(transitionTimer.current);
     };
   }, []);
+
+  const { secondsLeft, progress, expired } = useCountdown(POST_PURCHASE_TIMER_SECONDS, {
+    autoStart: Boolean(upsell),
+    onExpire: () => {
+      if (!upsell) return;
+      track("upsell_expired", {
+        item_id: upsell.product.id,
+        surface: "post_purchase",
+        order_id: orderId,
+      });
+      // Honest expiry → auto-advance to thank-you. The customer briefly
+      // sees the "offer ended" card (so the urgency was real, not a UI
+      // trick), then we move them along without making them click again.
+      // 1500ms is long enough to read the two-line expired card and
+      // short enough that nobody feels stuck.
+      transitionTimer.current = setTimeout(() => onComplete("expired"), 1500);
+    },
+  });
 
   // Track the impression once when an offer mounts (not on re-renders).
   useEffect(() => {
@@ -262,45 +265,48 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
 
       <div className="space-y-2.5">
         {!expired ? (
-          <Button
-            onClick={accept}
-            size="lg"
-            fullWidth
-            loading={status === "submitting"}
-            disabled={status === "accepted"}
-            iconStart={
-              status === "accepted" ? (
-                <Check className="size-4" />
-              ) : (
-                <Sparkles className="size-4" />
-              )
-            }
-          >
-            {status === "accepted"
-              ? t.upsell.addedBadge
-              : `${t.upsell.accept} · ${format(offerPrice)}`}
-          </Button>
+          <>
+            <Button
+              onClick={accept}
+              size="lg"
+              fullWidth
+              loading={status === "submitting"}
+              disabled={status === "accepted"}
+              iconStart={
+                status === "accepted" ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )
+              }
+            >
+              {status === "accepted"
+                ? t.upsell.addedBadge
+                : `${t.upsell.accept} · ${format(offerPrice)}`}
+            </Button>
+
+            <button
+              type="button"
+              onClick={decline}
+              disabled={status === "accepted" || status === "submitting"}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium text-muted transition-colors hover:text-ink disabled:opacity-40"
+            >
+              <X className="size-3.5" />
+              {t.upsell.declineWithTimer}
+            </button>
+
+            <p className="text-center text-[11px] text-muted/80">
+              {t.upsell.noPaymentChange}
+            </p>
+          </>
         ) : (
+          // Post-expiry state — no buttons. The countdown's onExpire
+          // hook auto-advances to the thank-you page; the customer just
+          // reads the "offer ended" card briefly while we transition.
           <ExpiredCard
             title={t.upsell.timerExpired}
             body={t.upsell.timerExpiredBody}
           />
-        )}
-
-        <button
-          type="button"
-          onClick={decline}
-          disabled={status === "accepted" || status === "submitting"}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium text-muted transition-colors hover:text-ink disabled:opacity-40"
-        >
-          {!expired && <X className="size-3.5" />}
-          {expired ? t.upsell.declineExpired : t.upsell.declineWithTimer}
-        </button>
-
-        {!expired && (
-          <p className="text-center text-[11px] text-muted/80">
-            {t.upsell.noPaymentChange}
-          </p>
         )}
       </div>
     </div>
