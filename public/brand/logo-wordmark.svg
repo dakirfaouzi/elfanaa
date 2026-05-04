@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ELFANAA - Wordmark (text only)
+  ------------------------------
+  Secondary lockup. Use when the mark is redundant: stationery already
+  branded with the arch, in long-form signatures, or as a footer rule.
+  Arabic letterforms are XML numeric character references so the file
+  stays pure ASCII and survives any toolchain re-encoding.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" role="img" aria-label="Elfanaa">
+  <text x="160" y="68" text-anchor="middle" fill="#1E1812" font-family="'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', serif" font-size="60" font-weight="700" direction="rtl">&#x0627;&#x0644;&#x0641;&#x0646;&#x0627;&#x0621;</text>
+</svg>

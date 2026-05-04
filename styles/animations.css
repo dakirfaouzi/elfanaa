@@ -1,0 +1,29 @@
+/* Micro-interaction utilities — premium feel */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.hover-lift {
+  transition: transform 320ms var(--ease-premium),
+    box-shadow 320ms var(--ease-premium);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(var(--color-brand) / 0.25);
+}
+
+/* Logical-property safe progress bar fill */
+.progress-fill {
+  transition: inline-size 480ms var(--ease-premium);
+}

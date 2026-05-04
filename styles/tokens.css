@@ -1,0 +1,71 @@
+/**
+ * Design tokens — single source of truth for ELFANAA's visual language.
+ *
+ * Palette story: limestone × oud × antique brass.
+ *
+ * Inspired by the inner courtyard of the traditional Saudi home —
+ * sun-bleached limestone walls, the deep walnut of well-kept doors, the
+ * antique brass of an old coffee tray. Every value is hand-picked to feel
+ * warm, unhurried, and *expensive without trying*.
+ *
+ * Format note: values are space-separated R G B triplets so Tailwind can
+ * compose alpha through `rgb(var(--token) / <alpha-value>)`. Never bake
+ * alpha into the token itself.
+ */
+:root {
+  /* ── Surfaces ───────────────────────────────────────────────────────── */
+  --color-bg: 250 246 238;          /* Cream porcelain — warm off-white   */
+  --color-surface: 247 242 234;     /* Linen — cards, drawers, modals     */
+  --color-brand-soft: 240 232 218;  /* Limestone wash — eyebrow chips     */
+
+  /* ── Ink & text ─────────────────────────────────────────────────────── */
+  --color-ink: 30 24 18;            /* Deep oud — warmer than pure black  */
+  --color-muted: 110 96 78;         /* Soft umber — readable secondary    */
+  --color-line: 226 217 200;        /* Sand mist — hairline borders       */
+
+  /* ── Brand ──────────────────────────────────────────────────────────── */
+  --color-brand: 30 24 18;          /* Deep oud as the primary CTA        */
+  --color-brand-ink: 250 246 238;   /* Cream printed on dark              */
+  --color-accent: 180 137 74;       /* Antique brass — links, hover hints */
+
+  /* ── Semantic (tuned to feel of the palette, not stock UI kit) ──────── */
+  --color-success: 75 102 56;       /* Date-palm olive                    */
+  --color-warning: 182 121 25;      /* Amber dusk                         */
+  --color-danger: 164 69 63;        /* Saffron rose — never alarm-red     */
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  --header-h: 64px;
+  --header-h-lg: 76px;
+  --max-w: 1440px;
+
+  /* ── Motion ─────────────────────────────────────────────────────────── */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/**
+ * RTL fine-tuning — Arabic numerals share the tabular feature so cart
+ * totals and timers don't shift when digits change.
+ */
+[dir="rtl"] {
+  font-feature-settings: "ss01", "tnum";
+}
+
+/**
+ * Print stylesheet — used by the thank-you page's "Print receipt" button.
+ * Strips backgrounds and hides the sticky header/footer so receipts print
+ * onto a clean A4 page.
+ */
+@media print {
+  :root {
+    --color-bg: 255 255 255;
+    --color-surface: 255 255 255;
+    --color-brand-soft: 245 245 245;
+  }
+  header,
+  footer {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

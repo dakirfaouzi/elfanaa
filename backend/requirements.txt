@@ -1,0 +1,25 @@
+# ELFANAA backend dependencies
+# Pinned to known-good major versions; let the lock-file (uv pip / pip-tools)
+# pin patch versions in CI.
+
+# Web framework
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
+
+# Settings & validation
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+greenlet==3.1.1
+
+# HTTP client (outbound webhooks + pixel CAPIs)
+httpx==0.27.2
+
+# Phone validation
+phonenumbers==8.13.49
+
+# Password / signing helpers (HMAC for webhook signatures)
+# stdlib `hmac` is enough; no extra dep.

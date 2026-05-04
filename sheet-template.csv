@@ -1,0 +1,4 @@
+received_at,order_id,full_name,phone,phone_e164,items,item_count,subtotal_sar,upsell_sar,total_sar,currency,payment_method,locale,source
+2026-05-03T16:00:00Z,ord_a1b2c3d4e5f6,محمد العتيبي,0512345678,+966512345678,وسادة مجلس أرضية × 3 (349 SAR),3,349.00,99.00,448.00,SAR,cod,ar,https://elfanaa.com/products/majlis-floor-cushion
+2026-05-03T16:14:22Z,ord_b2c3d4e5f6a7,سارة الشهري,0556789012,+966556789012,فانوس الفناء × 2 (279 SAR) · مزهرية سيراميك × 1 (199 SAR),3,478.00,0.00,478.00,SAR,cod,ar,https://elfanaa.com/products/courtyard-lantern
+2026-05-03T16:33:48Z,ord_c3d4e5f6a7b8,Ahmed Al-Qahtani,0598765432,+966598765432,Majlis Floor Cushion × 1 (199 SAR),1,199.00,0.00,199.00,SAR,cod,en,direct
