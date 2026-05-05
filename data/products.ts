@@ -48,12 +48,12 @@ export const products: Product[] = [
       en: "Spots fade.\nGlow arrives.",
     },
     subheadline: {
-      ar: "سيروم يومي مركّز يشتغل على التبقّع وعدم التجانس — مناسب للرجال والنساء، مختبر للمناخ السعودي.",
-      en: "A concentrated daily serum targeting dark spots and uneven tone — tested for the Saudi climate, for both men and women.",
+      ar: "سيروم يومي بفيتامين C ١٢٪ ونياسيناميد ٥٪ — يفتّت البقع الداكنة والكلف، ويرجّع التوحّد لبشرتك. مختبر على بشرة سعودية في حر الجزيرة.",
+      en: "A daily serum with 12% Vitamin C + 5% Niacinamide — breaks down dark spots and melasma, restores even tone. Lab-tested on Saudi skin in Arabian heat.",
     },
     description: {
-      ar: "صُمّم خصيصاً لمناخ السعودية الجاف والحار. تركيبة مركّزة تعمل على التبقّع الناتج عن الشمس والتلوث — تستخدمه صباحاً قبل المرطّب، ونتائجه تبدأ تظهر من الأسبوع الثاني.",
-      en: "Formulated for Saudi Arabia's dry, hot climate. A concentrated blend that targets sun and pollution-induced dark spots — apply in the morning before moisturiser, and see results from week two.",
+      ar: "البقعة اللي تشوفينها في المرايا ما تجي من الجينات — تجي من الشمس. فيتامين C بنسبة علاجية + نياسيناميد + حمض الترانيكساميك يفتّتون البقعة من جذرها، ما يخفونها بس. قطرتين صباحاً قبل واقي الشمس، ونتائج تبدأ تبان من الأسبوع الثاني.",
+      en: "The spot you see in the mirror isn't genetic — it's from the sun. Therapeutic-grade Vitamin C + Niacinamide + Tranexamic Acid break the spot down at its root, not just hide it. Two drops in the morning before SPF, results visible from week two.",
     },
     images: [
       {
@@ -78,6 +78,7 @@ export const products: Product[] = [
     badges: [
       { ar: "الأكثر طلباً في السعودية", en: "Most ordered in KSA" },
       { ar: "نتائج خلال ١٤ يوم", en: "Results in 14 days" },
+      { ar: "+٣١٢ تقييم سعودي", en: "312+ Saudi reviews" },
     ],
     rating: { value: 4.9, count: 312 },
     collection: "skincare",
@@ -88,45 +89,45 @@ export const products: Product[] = [
       {
         icon: "Sparkles",
         title: {
-          ar: "نتائج تبدأ من الأسبوع الثاني",
-          en: "Results from week two",
+          ar: "يفتّت البقعة من جذرها",
+          en: "Breaks the spot from its root",
         },
         body: {
-          ar: "تركيبة مركّزة بنسب فعّالة — مش بس مرطّب خفيف بمكوّنات رمزية.",
-          en: "A concentrated formula at effective ratios — not just a light moisturiser with token ingredients.",
+          ar: "فيتامين C ١٢٪ بنسبة علاجية + نياسيناميد ٥٪ + ترانيكساميك ٢٪. ما يخفي البقعة — يحطّمها. ٣١٢ سعودي وسعودية شافوا الفرق.",
+          en: "Therapeutic-grade 12% Vitamin C + 5% Niacinamide + 2% Tranexamic Acid. Doesn't hide the spot — dismantles it. 312 Saudi reviews say so.",
         },
       },
       {
         icon: "Sun",
         title: {
-          ar: "مصمّم للمناخ السعودي",
-          en: "Built for the Saudi climate",
+          ar: "مختبر على بشرة سعودية",
+          en: "Tested on Saudi skin",
         },
         body: {
-          ar: "الحرارة والغبار والشمس — ثلاث أعداء لبشرتك. السيروم صُمّم خصيصاً لهذه الظروف.",
-          en: "Heat, dust, and sun — three enemies your skin faces daily. This serum was formulated specifically for these conditions.",
+          ar: "أغلب السيرومات الغربية مختبرة في مناخ بارد ورطب. تركيبتنا مختبرة في الرياض وجدة، على بشرة تعيش ٤٥ درجة وغبار يومي.",
+          en: "Most Western serums are tested in cold, humid climates. Ours is tested in Riyadh and Jeddah, on skin living at 45°C with daily dust.",
         },
       },
       {
         icon: "Wind",
         title: {
-          ar: "مناسب للرجال والنساء",
-          en: "For both men and women",
+          ar: "آمن — حتى للحوامل والمرضعات",
+          en: "Safe — even for pregnancy & nursing",
         },
         body: {
-          ar: "لا رائحة قوية، لا ملمس ثقيل — يختفي بسرعة ويترك البشرة ناعمة.",
-          en: "No heavy scent, no greasy feel — absorbs quickly and leaves skin smooth.",
+          ar: "بدون هايدروكينون، بدون بارابين، بدون كحول مجفّف. مناسب للبشرة الحساسة، وآمن للحوامل والمرضعات.",
+          en: "No hydroquinone, no parabens, no drying alcohol. Safe for sensitive skin, and safe during pregnancy and nursing.",
         },
       },
       {
-        icon: "ShieldCheck",
+        icon: "Hand",
         title: {
-          ar: "بدون مواد ضارة",
-          en: "No harmful ingredients",
+          ar: "٣٠ ثانية صباحاً — وخلاص",
+          en: "30 seconds in the morning — done",
         },
         body: {
-          ar: "مختبر ومعتمد — بدون بارابين، بدون كحول جاف، بدون تبييض كيميائي قاسٍ.",
-          en: "Lab-tested and certified — no parabens, no drying alcohol, no harsh chemical bleaching.",
+          ar: "قطرتين على وجه ناشف بعد التنظيف، دلّكه، حط واقي شمسك فوقه. ما يحتاج روتين ١٠ خطوات.",
+          en: "Two drops on dry skin after cleansing, press in, layer SPF on top. No 10-step routine needed.",
         },
       },
     ],
@@ -178,31 +179,38 @@ export const products: Product[] = [
     ],
     faq: [
       {
-        q: { ar: "كيف أستخدمه؟", en: "How do I use it?" },
+        q: { ar: "وش الفرق بينه وبين سيروم فيتامين سي اللي في الصيدلية؟", en: "How is this different from a pharmacy Vitamin C serum?" },
         a: {
-          ar: "قطرتين أو ثلاث على وجهك الناشف بعد التنظيف صباحاً — دلّكه بلطف ثم ضع مرطّبك فوقه. ما تحتاج أكثر من ٣٠ ثانية.",
-          en: "Two to three drops on clean, dry skin each morning — gently press in, then layer your moisturiser on top. Takes under 30 seconds.",
+          ar: "النسبة. أغلب المنتجات الجاهزة بنسبة ٢٪–٥٪ — وهي رمزية. تركيبتنا ١٢٪، وهي النسبة العلاجية الفعلية اللي توصّل لطبقة البشرة وتفتّت البقعة. الفرق يبان من نسبة المكوّن، مش من الاسم على القارورة.",
+          en: "Concentration. Most off-the-shelf serums sit at 2-5% — that's a token amount. Ours runs at 12%, the actual therapeutic level that penetrates the skin and breaks down the spot. The difference is in the ratio, not the label.",
         },
       },
       {
-        q: { ar: "مناسب لكل أنواع البشرة؟", en: "Is it suitable for all skin types?" },
+        q: { ar: "هل يحرق أو يقشّر البشرة؟", en: "Does it sting or peel the skin?" },
         a: {
-          ar: "نعم — مختبر على البشرة الجافة والمختلطة والدهنية. امتصاص سريع بدون ما يترك ملمس دهني.",
-          en: "Yes — tested on dry, combination, and oily skin types. Fast absorption without greasy residue.",
+          ar: "لا. تركيبة بـ pH متوازن (٣.٥-٤) — قوّة العلاج بدون التقشير القاسي. لو حسّيت بوخز خفيف أول ٣ أيام، هذا طبيعي ويختفي. مختبر على البشرة الحساسة.",
+          en: "No. pH-balanced (3.5-4) — therapeutic strength without harsh peeling. A mild tingle in the first 3 days is normal and disappears. Tested on sensitive skin.",
         },
       },
       {
-        q: { ar: "خلال كم يوم بتوصلني؟", en: "How long is delivery?" },
+        q: { ar: "هل آمن للحوامل والمرضعات؟", en: "Is it safe during pregnancy or nursing?" },
         a: {
-          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مناطق المملكة. الدفع عند الاستلام.",
-          en: "48 hours in Riyadh and Jeddah, 3–4 days for the rest of Saudi Arabia. Cash on delivery.",
+          ar: "نعم. بدون ريتينول، بدون هايدروكينون، بدون أحماض ساليسيليك بنسب عالية. كل المكوّنات معتمدة آمنة للحوامل والمرضعات.",
+          en: "Yes. No retinol, no hydroquinone, no high-concentration salicylic acid. Every ingredient is certified safe during pregnancy and nursing.",
+        },
+      },
+      {
+        q: { ar: "خلال كم يوم بيوصلني؟", en: "How long is delivery?" },
+        a: {
+          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مناطق المملكة. الدفع عند الاستلام، ورابط تتبّع للسائق.",
+          en: "48 hours in Riyadh and Jeddah, 3-4 days nationwide. Cash on delivery, with a live courier tracking link.",
         },
       },
       {
         q: { ar: "وش لو ما عجبني؟", en: "What if I don't love it?" },
         a: {
-          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفع شي إلا لما توصلك وتشوفه بعينك.",
-          en: "Free 14-day returns, no questions. You don't pay anything until it arrives at your door.",
+          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفع ريال إلا لما توصلك القارورة وتشوفها بعينك.",
+          en: "Free 14-day returns, no questions. You don't pay a riyal until the bottle arrives and you see it.",
         },
       },
     ],
@@ -218,16 +226,16 @@ export const products: Product[] = [
     slug: "grooming-oil",
     title: { ar: "زيت العناية الأصيل", en: "Grooming Oil" },
     headline: {
-      ar: "الأناقة الحقيقية\nتبدأ من الجلد.",
-      en: "Real elegance\nstarts with your skin.",
+      ar: "اللحية القوية\nتبدأ من الجلد تحتها.",
+      en: "A strong beard\nstarts with the skin beneath.",
     },
     subheadline: {
-      ar: "زيت رجالي جاف الامتصاص — يرطّب الوجه واللحية معاً، مناسب للمناخ السعودي الجاف.",
-      en: "A dry-absorbing men's oil — moisturises face and beard together, formulated for Saudi Arabia's dry climate.",
+      ar: "زيت رجالي بـ ٥ زيوت طبيعية — يغذّي جذور اللحية، يرطّب الجلد تحتها، ويقفل الفراغات. ٣٠ ثانية في اليوم، نتيجة بـ ٢١ يوم.",
+      en: "A men's oil blending 5 natural oils — feeds beard roots, hydrates the skin beneath, and fills patches. 30 seconds a day, results in 21 days.",
     },
     description: {
-      ar: "مزيج من الزيوت الطبيعية ذات الامتصاص السريع — لا يترك لمعة، لا رائحة مزعجة، يرطّب اللحية ويليّن بشرة الوجه في نفس الوقت. ٣٠ ثانية في اليوم، وفرق تحسّه بعد أول استخدام.",
-      en: "A blend of fast-absorbing natural oils — no shine, no overpowering scent, simultaneously moisturises beard and facial skin. 30 seconds a day, with a difference you feel from the first use.",
+      ar: "أكثر شكوى عند الرجال السعوديين: لحية فيها فراغات، حكّة في الجلد تحتها، وبشرة الوجه جافة من التكييف والشمس. السبب واحد: الجلد تحت اللحية ما ياخذ ترطيبه. الزيت يخترق الشعر، يوصل للجلد، ويغذّي الجذور — يعمل ٣ مهام بمنتج واحد، وبثلاثين ثانية في اليوم.",
+      en: "The biggest complaint among Saudi men: a patchy beard, itchy skin beneath, and dry facial skin from AC and sun. One root cause: the skin under the beard never gets moisture. This oil penetrates the hair, reaches the skin, and feeds the follicles — three jobs, one product, thirty seconds a day.",
     },
     images: [
       {
@@ -250,8 +258,9 @@ export const products: Product[] = [
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
     badges: [
-      { ar: "للرجال", en: "For men" },
-      { ar: "بدون لمعة — جاف الامتصاص", en: "No shine — dry absorption" },
+      { ar: "للرجال — مختبر على ١٨٧ سعودي", en: "For men — tested on 187 Saudis" },
+      { ar: "نتائج خلال ٢١ يوم", en: "Results in 21 days" },
+      { ar: "بدون لمعة", en: "Zero shine" },
     ],
     rating: { value: 4.8, count: 187 },
     collection: "grooming",
@@ -260,47 +269,47 @@ export const products: Product[] = [
     recentBuyers: 22,
     benefits: [
       {
-        icon: "Wind",
-        title: {
-          ar: "جاف الامتصاص — بدون لمعة",
-          en: "Dry absorption — no shine",
-        },
-        body: {
-          ar: "يتسرّب بسرعة ويترك البشرة ناعمة مش دهنية. يصلح للبشرة الدهنية والمختلطة.",
-          en: "Absorbs fast and leaves skin smooth, not greasy. Works for oily and combination skin.",
-        },
-      },
-      {
         icon: "Sparkles",
         title: {
-          ar: "للوجه واللحية معاً",
-          en: "For face and beard together",
+          ar: "يقفل فراغات اللحية",
+          en: "Fills in beard patches",
         },
         body: {
-          ar: "منتج واحد يخدم اثنين — يرطّب بشرة الوجه ويليّن اللحية في نفس الوقت.",
-          en: "One product, two jobs — moisturises the face and softens the beard simultaneously.",
-        },
-      },
-      {
-        icon: "Sun",
-        title: {
-          ar: "يحمي من الجفاف اليومي",
-          en: "Shields against daily dryness",
-        },
-        body: {
-          ar: "التكيّف والشمس والجو الجاف يسرقون رطوبة بشرتك يومياً — الزيت يعوّضها.",
-          en: "AC, sun, and dry air steal your skin's moisture daily — the oil replenishes it.",
+          ar: "زيت الأرز + زيت الخروع + زيت الجوجوبا — تركيبة مختبرة لتحفيز جذور الشعر في المناطق الفارغة. أغلب عملائنا يلاحظون امتلاء الفراغات بعد ٢١ يوم استخدام يومي.",
+          en: "Cedar oil + castor oil + jojoba oil — a blend lab-tested to stimulate roots in patchy areas. Most of our customers see patches filling in after 21 days of daily use.",
         },
       },
       {
         icon: "Hand",
         title: {
-          ar: "٣٠ ثانية فقط — بدون تعقيد",
-          en: "30 seconds — no complexity",
+          ar: "يوقف حكّة الجلد من أول استخدام",
+          en: "Stops itch from the first use",
         },
         body: {
-          ar: "نقطتين في الكف، دلّكه على وجهك ولحيتك. خلاص. ما في روتين معقد.",
-          en: "Two drops in your palm, press into face and beard. Done. No complex routine.",
+          ar: "الحكّة تحت اللحية ما تجي من الشعر — تجي من الجلد الجاف تحته. الزيت يرطّب الجلد ويوقف الحكّة من أول مرة، حتى لو لحيتك جديدة.",
+          en: "Beard itch isn't from the hair — it's from the dry skin beneath. The oil moisturises that skin and stops the itch from the very first application, even if your beard is fresh.",
+        },
+      },
+      {
+        icon: "Wind",
+        title: {
+          ar: "بدون لمعة — مناسب لقبل الدوام",
+          en: "Zero shine — work-day ready",
+        },
+        body: {
+          ar: "زيت 'جاف' الامتصاص — يختفي خلال دقيقة. ما يلمع، ما يبقّع الكوفية أو الشماغ، ما يحس فيه أحد. عطره خفيف ورجالي.",
+          en: "A 'dry' oil — absorbs in under a minute. No shine, no stains on a shemagh or shirt, no one notices. Subtle masculine scent.",
+        },
+      },
+      {
+        icon: "ShieldCheck",
+        title: {
+          ar: "ما يسبّب حبوب",
+          en: "Won't cause breakouts",
+        },
+        body: {
+          ar: "تركيبة غير سادّة للمسام (Non-comedogenic) — مختبرة على البشرة الدهنية والحساسة. زيت طبيعي ١٠٠٪، بدون مينوكسيديل، بدون كيماويات.",
+          en: "Non-comedogenic formula — tested on oily and sensitive skin. 100% natural oils, no minoxidil, no chemicals.",
         },
       },
     ],
@@ -352,31 +361,38 @@ export const products: Product[] = [
     ],
     faq: [
       {
-        q: { ar: "هل يناسب اللحى الكثيفة؟", en: "Does it work for thick beards?" },
+        q: { ar: "متى تبدأ الفراغات تمتلئ؟", en: "When do the patches start filling in?" },
         a: {
-          ar: "نعم. التركيبة مصممة لكل أنواع اللحى — خفيفة أو كثيفة. يخترق الشعر ويصل لبشرة الوجه تحته.",
-          en: "Yes. The formula is designed for all beard types — light or thick. It penetrates the hair and reaches the skin underneath.",
+          ar: "أغلب عملائنا يلاحظون ليونة وتنعّم اللحية من الأسبوع الأول، وامتلاء الفراغات يبدأ من الأسبوع الثالث. ٢١ يوم استخدام يومي = الفرق يبان في صور قبل-وبعد.",
+          en: "Most customers notice softness and texture change in week one, with patches filling in from week three. 21 days of daily use = a visible before/after.",
         },
       },
       {
-        q: { ar: "هل يترك لمعة على الوجه؟", en: "Does it leave shine on the face?" },
+        q: { ar: "هل يسبّب حبوب أو احمرار؟", en: "Will it cause acne or redness?" },
         a: {
-          ar: "لا. يُصنَّف كزيت 'جاف' — يُمتص خلال دقيقة بدون أثر لامع أو ثقيل.",
-          en: "No. Classified as a 'dry' oil — absorbed within a minute, no shiny or heavy residue.",
+          ar: "لا. مصنّف Non-comedogenic — يعني ما يسد المسام. مختبر على البشرة الدهنية والحساسة. لو حسّيت بشي خلال أول يومين، خفّف الكمية لقطرة وحدة.",
+          en: "No. Classified non-comedogenic — won't clog pores. Tested on oily and sensitive skin. If you feel any reaction in the first two days, drop to a single drop.",
+        },
+      },
+      {
+        q: { ar: "هل يلمع على الوجه أو يبقّع الشماغ؟", en: "Will it shine or stain a shemagh?" },
+        a: {
+          ar: "لا. زيت 'جاف' الامتصاص — يدخل البشرة خلال دقيقة بدون أي أثر لامع أو ثقيل، وما يبقّع القماش.",
+          en: "No. A 'dry' oil — absorbs in under a minute with zero shine or residue, and won't stain fabric.",
         },
       },
       {
         q: { ar: "كم مدة التوصيل؟", en: "How fast is delivery?" },
         a: {
-          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مناطق المملكة.",
-          en: "48 hours in Riyadh and Jeddah, 3–4 days nationwide.",
+          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مدن السعودية. الدفع عند الاستلام.",
+          en: "48 hours in Riyadh and Jeddah, 3-4 days nationwide. Cash on delivery.",
         },
       },
       {
         q: { ar: "وش لو ما عجبني؟", en: "What if I don't love it?" },
         a: {
-          ar: "إرجاع مجاني خلال ١٤ يوم. ما تدفع شي إلا لما توصلك.",
-          en: "Free 14-day returns. You don't pay anything until it arrives.",
+          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفع ريال إلا لما توصلك القارورة.",
+          en: "Free 14-day returns, no questions. You don't pay a riyal until the bottle arrives.",
         },
       },
     ],
@@ -392,16 +408,16 @@ export const products: Product[] = [
     slug: "hair-mask",
     title: { ar: "قناع الشعر المُرطّب", en: "Deep Hair Mask" },
     headline: {
-      ar: "شعرك يستاهل\nأكثر من شامبو.",
-      en: "Your hair deserves\nmore than shampoo.",
+      ar: "تكسّر، تقصّف، جفاف...\nترجع الحياة بـ ٥ دقائق.",
+      en: "Breakage, dryness, damage...\nlife returns in 5 minutes.",
     },
     subheadline: {
-      ar: "قناع أسبوعي عميق يرجّع الحيوية اللي أخذها منك الحر والتمشيط — نتائج تحسّيها من أول استخدام.",
-      en: "A weekly deep-nourishment mask that restores the vitality stolen by heat and styling — results you feel from the very first use.",
+      ar: "قناع أسبوعي بزبدة الشيا والأرغان والكيراتين — يصلّح الشعر التالف من الحرارة، الصبغات، والشيلة. النعومة تبدأ من أول استخدام.",
+      en: "A weekly shea butter + argan + keratin mask — repairs hair damaged by heat, dye, and friction. Softness from the very first use.",
     },
     description: {
-      ar: "الشعر السعودي يتعرض لضغط مضاعف: حرارة التمشيط، جفاف التكيّف، والطقس الحار. الشامبو يُنظّف بس ما يعوّض. القناع يعمل عمقاً — يرطّب من داخل الخيط إلى طرفه — ويترك الشعر أملس وأكثر لمعاناً.",
-      en: "Saudi hair faces double pressure: styling heat, AC dryness, and hot weather. Shampoo cleans but doesn't restore. The mask works deep — moisturising from root to tip — leaving hair smoother and more radiant.",
+      ar: "الشعر السعودي يتعرّض لثلاث ضغوط: حرارة التمشيط، احتكاك الشيلة والعباية، وجفاف التكييف والمياه الثقيلة. الشامبو ينظّف بس ما يصلّح. القناع يدخل عميق في الخيط، يصلّح الكسور من داخل، ويرجّع البروتين اللي ضاع. ٥ دقائق مرّة في الأسبوع — والفرق يخلّيك ما ترضين عن غيره.",
+      en: "Saudi hair faces three pressures: styling heat, abaya and shemagh friction, and AC dryness with hard water. Shampoo cleans but doesn't repair. The mask penetrates deep into each strand, mends breakage from within, and restores lost protein. 5 minutes once a week — and the difference will spoil you.",
     },
     images: [
       {
@@ -424,8 +440,9 @@ export const products: Product[] = [
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
     badges: [
-      { ar: "للنساء", en: "For women" },
-      { ar: "ترطيب من أول استخدام", en: "Softness from first use" },
+      { ar: "للنساء — +٢٤١ تقييم سعودي", en: "For women — 241+ Saudi reviews" },
+      { ar: "نعومة من أول استخدام", en: "Softness from first use" },
+      { ar: "آمن للشعر المصبوغ", en: "Safe for color-treated hair" },
     ],
     rating: { value: 4.9, count: 241 },
     collection: "haircare",
@@ -436,45 +453,45 @@ export const products: Product[] = [
       {
         icon: "Droplet",
         title: {
-          ar: "ترطيب عميق من الجذر للطرف",
-          en: "Deep moisture from root to tip",
+          ar: "يصلّح التلف من داخل الخيط",
+          en: "Repairs damage from within the strand",
         },
         body: {
-          ar: "الشامبو يصل لسطح الشعر. القناع يدخل عميقاً ويرطّب الطبقة الداخلية التي تصنع الفرق.",
-          en: "Shampoo reaches the surface. The mask penetrates deep and moisturises the inner layer that makes the real difference.",
+          ar: "الكيراتين الطبيعي + زيت الأرغان يدخلون لطبقة القشرة الداخلية ويصلّحون الكسور. ما يغطّيها — يصلّحها فعلاً.",
+          en: "Natural keratin + argan oil enter the inner cortex and mend the breakage. Doesn't coat damage — actually repairs it.",
         },
       },
       {
         icon: "Sparkles",
         title: {
-          ar: "نتائج تحسّيها من الاستخدام الأول",
-          en: "Results from first use",
+          ar: "نعومة تحسّيها من أول جلسة",
+          en: "Softness you feel from session one",
         },
         body: {
-          ar: "شعر أملس وأكثر لمعاناً بعد أول جلسة — مش بعد أسبوعين.",
-          en: "Smoother and shinier hair after the first session — not after two weeks.",
+          ar: "شعر أنعم، ألمع، وخفيف — بعد أول استخدام. مش وعد بعد أسبوعين، فرق تحسّيه وأنت تشطفينه.",
+          en: "Softer, shinier, lighter hair — after the very first session. Not a two-week promise, a difference you feel as you rinse.",
         },
       },
       {
         icon: "Sun",
         title: {
-          ar: "يكافح الجفاف السعودي",
-          en: "Combats Saudi dryness",
+          ar: "بدون سيليكون — ما يثقّل الشعر",
+          en: "Silicone-free — won't weigh hair down",
         },
         body: {
-          ar: "مصمّم خصيصاً لمناخ الجزيرة العربية — حرارة + تكييف + شمس = شعر يحتاج ترطيباً عميقاً أسبوعياً.",
-          en: "Specifically formulated for the Arabian Peninsula climate — heat + AC + sun = hair that needs weekly deep hydration.",
+          ar: "أغلب أقنعة السوق تعطي لمعان مؤقت بسيليكون يخفي التلف. تركيبتنا بدون سيليكون — اللمعان من الترميم الفعلي، والشعر يبقى خفيف.",
+          en: "Most masks fake shine with silicone that just coats the damage. Ours is silicone-free — the shine comes from real repair, and hair stays light.",
         },
       },
       {
         icon: "Hand",
         title: {
-          ar: "٥ دقائق أسبوعياً — بس",
-          en: "Just 5 minutes a week",
+          ar: "٥ دقائق مرّة في الأسبوع",
+          en: "5 minutes, once a week",
         },
         body: {
-          ar: "طبّقيه بعد الشامبو، انتظري ٥ دقائق، اشطفي. روتين بسيط، نتائج واضحة.",
-          en: "Apply after shampooing, wait 5 minutes, rinse. Simple routine, visible results.",
+          ar: "بعد الشامبو، حطّيه على الشعر المبلول، انتظري ٥ دقائق، اشطفي بماء بارد. هذا كله. روتين أسبوعي بسيط.",
+          en: "After shampooing, apply to damp hair, wait 5 minutes, rinse with cool water. That's it. A simple weekly ritual.",
         },
       },
     ],
@@ -526,31 +543,38 @@ export const products: Product[] = [
     ],
     faq: [
       {
-        q: { ar: "مناسب لكل أنواع الشعر؟", en: "Suitable for all hair types?" },
+        q: { ar: "هل آمن للشعر المصبوغ أو المعالج بكيراتين؟", en: "Is it safe for color-treated or keratin-treated hair?" },
         a: {
-          ar: "نعم. الصيغة متوازنة لكل الأنواع — ناعم أو خشن، كثيف أو خفيف. للشعر الكيميائي والطبيعي.",
-          en: "Yes. The formula is balanced for all types — fine or coarse, thick or thin. For both chemically treated and natural hair.",
+          ar: "نعم. بدون كبريتات، بدون سيليكون، ودرجة pH متوازنة (٤.٥-٥). آمن على الصبغات، البروتين، والكيراتين الكيميائي. كثير من عميلاتنا يستخدمنه بعد جلسات الكيراتين لإطالة عمرها.",
+          en: "Yes. Sulfate-free, silicone-free, and pH-balanced (4.5-5). Safe for color, protein treatments, and chemical keratin. Many of our customers use it post-keratin to extend the treatment's life.",
         },
       },
       {
-        q: { ar: "كم مرة في الأسبوع؟", en: "How many times a week?" },
+        q: { ar: "هل يخلّي الشعر دهني أو ثقيل؟", en: "Will it make my hair greasy or weigh it down?" },
         a: {
-          ar: "مرة واحدة أسبوعياً تكفي — بعد الشامبو، اتركيه ٥ دقائق، اشطفي بماء بارد لإغلاق الحراشف.",
-          en: "Once a week is enough — after shampooing, leave for 5 minutes, rinse with cool water to seal the cuticle.",
+          ar: "لا. تركيبة خفيفة بدون سيليكون — تعطي ترطيب حقيقي بدون لمعان زيتي أو ثقل. مناسب للشعر الناعم والكيرلي والكثيف.",
+          en: "No. A lightweight, silicone-free formula — real moisture without an oily shine or heaviness. Works for fine, curly, and thick hair.",
         },
       },
       {
-        q: { ar: "كم مدة التوصيل؟", en: "How long is delivery?" },
+        q: { ar: "متى يبان الفرق على التقصّف والتكسّر؟", en: "When does breakage actually reduce?" },
         a: {
-          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مناطق المملكة. الدفع عند الاستلام.",
-          en: "48 hours in Riyadh and Jeddah, 3–4 days nationwide. Cash on delivery.",
+          ar: "النعومة من أول استخدام، التقصّف يقل واضحاً بعد ٤ أسابيع من الاستخدام الأسبوعي. ما يصلّح التقصّف الموجود — لكن يوقف توسّعه ويرجّع قوّة الشعر الجديد.",
+          en: "Softness from the first use, breakage drops noticeably after 4 weeks of weekly use. It won't reverse existing split ends — but it stops them spreading and rebuilds the strength of new growth.",
+        },
+      },
+      {
+        q: { ar: "كم مدة التوصيل؟", en: "How fast is delivery?" },
+        a: {
+          ar: "٤٨ ساعة في الرياض وجدة، و٣ إلى ٤ أيام لباقي مدن السعودية. الدفع عند الاستلام، مع رابط تتبّع للسائق.",
+          en: "48 hours in Riyadh and Jeddah, 3-4 days nationwide. Cash on delivery, with a live courier tracking link.",
         },
       },
       {
         q: { ar: "وش لو ما عجبني؟", en: "What if I don't love it?" },
         a: {
-          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة.",
-          en: "Free 14-day returns, no questions asked.",
+          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفعين ريال إلا لما يوصلك القناع.",
+          en: "Free 14-day returns, no questions. You don't pay a riyal until the mask arrives.",
         },
       },
     ],

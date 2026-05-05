@@ -10,11 +10,17 @@ import { pickLocalized } from "@/lib/format";
 import { track } from "@/lib/analytics";
 
 /**
- * "Shop by Feeling" — mood-led category entry, Pottery Barn / Article style.
+ * "هذا أنا" — problem-identification tiles.
  *
- * Layout: 4 tiles, 2-up on mobile, 4-up on desktop, taller cards (4:5)
- * to mimic editorial photography. Image fills the card; label sits in the
- * thumb-zone with a subtle gradient.
+ * Each tile is a self-recognition moment in the customer's own
+ * words. The label is the PROBLEM, the caption is the SOLUTION,
+ * the click routes to the product. This is the canonical Saudi
+ * DR moment — "this is me" — and it's what converts cold traffic
+ * into a click far better than a generic "Shop by category" tray.
+ *
+ * Layout: 4 tiles, 2-up on mobile, 4-up on desktop, taller cards
+ * (4:5) to read as editorial photography. The label sits in the
+ * thumb-zone with a gradient so the words always win over the photo.
  */
 export function ShopByFeeling() {
   const { t, locale } = useLocale();
@@ -30,9 +36,7 @@ export function ShopByFeeling() {
             {t.home.shopByFeelingTitle}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted md:text-base">
-            {locale === "ar"
-              ? "فناء يحلّها — منتجات مختبرة، مناسبة للمناخ السعودي."
-              : "Elfanaa solves both — products tested for the Saudi climate."}
+            {t.home.shopByFeelingBody}
           </p>
         </header>
 

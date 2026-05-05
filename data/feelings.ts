@@ -1,17 +1,25 @@
 import type { LocalizedString } from "@/lib/types";
 
 /**
- * "Shop by Goal" entry points — Health & Beauty edition.
+ * "هذا أنا" — problem-identification tiles (Health & Beauty edition).
  *
- * Goal-led navigation (Hims / The Ordinary pattern). Each tile maps to a
- * collection slug. Keep the list TIGHT — 4 tiles, covering the 4 main
- * care goals for KSA customers: glow, grooming, hair, wellness.
+ * Each tile names a *problem the customer is already living with*, then
+ * routes them to the product that solves it. This is the classic Saudi
+ * direct-response "هذا أنا" moment — the user reads a tile, feels seen,
+ * and clicks. The label is the PROBLEM, the caption is the SOLUTION,
+ * the CTA is the PRODUCT.
+ *
+ * Order is intentional:
+ *   1. Skincare (broadest pain — sun spots / dullness)
+ *   2. Grooming (men identity, narrow & strong)
+ *   3. Haircare (women, abaya + heat damage)
+ *   4. Routine bundle (highest-AOV path — the offer-led tile)
  */
 export type Feeling = {
   id: string;
-  /** Short Arabic goal label that anchors the tile. */
+  /** The problem statement — short, specific, customer's own words. */
   label: LocalizedString;
-  /** One-line subline shown on hover / under label. */
+  /** The solution one-liner — names the product implicitly, names the result. */
   caption: LocalizedString;
   href: string;
   image: { src: string; alt: LocalizedString };
@@ -19,50 +27,50 @@ export type Feeling = {
 
 export const feelings: Feeling[] = [
   {
-    id: "glow",
-    label: { ar: "إشراق البشرة", en: "Skin glow" },
+    id: "spots",
+    label: { ar: "بقع وكلف الشمس", en: "Sun spots & melasma" },
     caption: {
-      ar: "سيروم مركّز يشتغل على التبقّع وعدم التجانس — مناسب للرجال والنساء.",
-      en: "A concentrated serum targeting dark spots and uneven tone — for both men and women.",
+      ar: "بقع داكنة من الشمس؟ بشرة باهتة؟ سيرومنا يبدأ شغله من اليوم الأول.",
+      en: "Dark spots from the sun? Dull skin? Our serum starts working from day one.",
     },
     href: "/shop?collection=skincare",
     image: {
       src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1400&q=80",
-      alt: { ar: "عناية بالبشرة وإشراق", en: "Skincare and glow" },
+      alt: { ar: "بشرة بحاجة للإشراق", en: "Skin needing glow" },
     },
   },
   {
-    id: "grooming",
-    label: { ar: "عناية الرجال", en: "Men's care" },
+    id: "beard",
+    label: { ar: "فراغات اللحية", en: "Patchy beard" },
     caption: {
-      ar: "زيت العناية الأصيل — للوجه واللحية معاً، يختفي بدون لمعة.",
-      en: "The original grooming oil — for face and beard, absorbs without shine.",
+      ar: "فراغات في اللحية؟ بشرة جافة وحكّة؟ زيتنا يحلّها بـ ٣٠ ثانية في اليوم.",
+      en: "Patchy beard? Dry, itchy skin underneath? Our oil fixes it in 30 seconds a day.",
     },
     href: "/shop?collection=grooming",
     image: {
       src: "https://images.unsplash.com/photo-1621607512022-6aecc4fed814?w=1400&q=80",
-      alt: { ar: "عناية رجالية", en: "Men's grooming" },
+      alt: { ar: "عناية رجالية باللحية", en: "Men's beard care" },
     },
   },
   {
-    id: "hair",
-    label: { ar: "عناية الشعر", en: "Hair care" },
+    id: "damage",
+    label: { ar: "تلف وتقصّف الشعر", en: "Damaged & breaking hair" },
     caption: {
-      ar: "قناع أسبوعي عميق يرجّع الحيوية — نتائج من أول استخدام.",
-      en: "A weekly deep mask that restores vitality — results from the first use.",
+      ar: "تكسّر، جفاف، تساقط من الحرارة والتصفيف؟ القناع يرجّع الحيوية من أول جلسة.",
+      en: "Breakage, dryness, fallout from heat and styling? The mask brings life back from session one.",
     },
     href: "/shop?collection=haircare",
     image: {
       src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=80",
-      alt: { ar: "شعر صحي ومشرق", en: "Healthy shiny hair" },
+      alt: { ar: "شعر بحاجة لترطيب", en: "Hair needing repair" },
     },
   },
   {
-    id: "routine",
-    label: { ar: "الروتين الكامل", en: "Full routine" },
+    id: "bundle",
+    label: { ar: "الكل في روتين واحد", en: "All in one routine" },
     caption: {
-      ar: "اطلب الثلاثة معاً بـ ٣٤٩ ريال — الأكثر توفيراً والأكثر طلباً.",
-      en: "Order all three for 349 SAR — best value, most ordered.",
+      ar: "اطلب الثلاثة بـ ٣٤٩ ريال — وفّر ٢٤٨ ريال. الأكثر مبيعاً.",
+      en: "Order all three for 349 SAR — save 248. Our best-selling routine.",
     },
     href: "/shop",
     image: {

@@ -26,7 +26,7 @@ export function BestSellers({ products }: BestSellersProps) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
               {t.home.bestSellersEyebrow}
             </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl lg:text-5xl">
+            <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.12] tracking-tight md:text-4xl lg:text-5xl">
               {t.home.bestSellersTitle}
             </h2>
           </div>
