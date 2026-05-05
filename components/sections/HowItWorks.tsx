@@ -1,85 +1,121 @@
 "use client";
 
-import { ShoppingBag, ClipboardList, PhoneCall, Truck, BadgeCheck } from "lucide-react";
+import { Beaker, Sun, Droplets, Shield, Zap } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
 
 /**
- * "How it works" — COD reframed as an advantage.
+ * "The Mechanism" — clinical ingredient breakdown.
  *
- * The customer's #1 objection on a KSA DTC store isn't price, it's
- * trust. This section answers it head-on: 5 numbered steps that show
- * exactly what happens, with the payment moment placed *last* (after
- * physical inspection). That sequencing is the whole conversion idea.
+ * This replaces a generic "how COD works" timeline with a section
+ * that builds AUTHORITY. Premium skincare brands (The Ordinary,
+ * Paula's Choice, Drunk Elephant) sell on mechanisms, not just outcomes.
  *
- * Layout:
- *   • Mobile (1 col):  vertical timeline, dot per step
- *   • Tablet (2 cols): two rows of cards
- *   • Desktop (5 cols): horizontal timeline with connecting hairline
- *
- * Visually distinct from the surrounding sections — sits on the surface
- * tone rather than alabaster bg, so the rhythm of the page breaks here
- * and the eye lands on the trust message.
+ * Structure: 3 columns showing the core active ingredient categories,
+ * what they do at a cellular level, and why they work specifically
+ * in the KSA environment (heat, UV, hard water).
  */
 export function HowItWorks() {
-  const { t } = useLocale();
-  const steps = [
-    { Icon: ShoppingBag, title: t.howItWorks.step1Title, body: t.howItWorks.step1Body },
-    { Icon: ClipboardList, title: t.howItWorks.step2Title, body: t.howItWorks.step2Body },
-    { Icon: PhoneCall, title: t.howItWorks.step3Title, body: t.howItWorks.step3Body },
-    { Icon: Truck, title: t.howItWorks.step4Title, body: t.howItWorks.step4Body },
-    { Icon: BadgeCheck, title: t.howItWorks.step5Title, body: t.howItWorks.step5Body },
-  ];
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
+
+  const mechanisms = isAr
+    ? [
+        {
+          Icon: Beaker,
+          ingredient: "فيتامين C ١٢٪",
+          action: "يوقف إنتاج الميلانين",
+          explanation:
+            "النسبة العلاجية (١٢٪) تخترق البشرة وتمنع إنزيم التيروزيناز من تكوين بقع جديدة. أغلب المنتجات تستخدم ٢-٥٪ فقط — وهي نسبة تجميلية لا علاجية.",
+        },
+        {
+          Icon: Shield,
+          ingredient: "مركب السيراميد",
+          action: "يبني جدار الحماية",
+          explanation:
+            "٥ أنواع من السيراميد تعيد بناء طبقة الدهون بين خلايا البشرة. هذه الطبقة هي ما يمنع تبخر الماء — التكييف والمياه الثقيلة يدمرانها يومياً.",
+        },
+        {
+          Icon: Droplets,
+          ingredient: "كيراتين نباتي + أرغان",
+          action: "يرمّم بنية الشعرة",
+          explanation:
+            "الكيراتين النباتي يملأ الفراغات في قشرة الشعرة المكسورة، وزيت الأرغان يقفل السطح. النتيجة: شعر أقوى من أول جلسة، بدون سيليكون يخفي التلف.",
+        },
+      ]
+    : [
+        {
+          Icon: Beaker,
+          ingredient: "12% Vitamin C",
+          action: "Stops melanin production",
+          explanation:
+            "Therapeutic concentration (12%) penetrates the skin and inhibits tyrosinase — the enzyme that forms new spots. Most products use 2-5%, a cosmetic dose, not a clinical one.",
+        },
+        {
+          Icon: Shield,
+          ingredient: "Ceramide Complex",
+          action: "Builds a protective wall",
+          explanation:
+            "5 types of ceramides rebuild the lipid layer between skin cells. This layer prevents water evaporation — AC and hard water destroy it daily in Saudi Arabia.",
+        },
+        {
+          Icon: Droplets,
+          ingredient: "Vegan Keratin + Argan",
+          action: "Repairs hair structure",
+          explanation:
+            "Vegan keratin fills gaps in the broken hair cortex, and argan oil seals the surface. Result: stronger hair from session one, without silicone masking the damage.",
+        },
+      ];
 
   return (
-    <section className="bg-surface py-20 md:py-32" aria-labelledby="how-it-works-heading">
+    <section className="bg-ink py-20 text-bg md:py-28" aria-labelledby="mechanism-heading">
+      {/* Subtle radial accent */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-40 [background:radial-gradient(ellipse_at_50%_0%,rgba(186,110,92,0.2),transparent_60%)]"
+      />
+
       <Container>
-        <header className="mx-auto mb-16 max-w-2xl text-center md:mb-20">
-          <div className="inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
-            <span className="text-accent/60">04</span>
-            <span className="h-px w-6 bg-line" aria-hidden />
-            <span className="text-accent">{t.howItWorks.eyebrow}</span>
+        <header className="mx-auto mb-14 max-w-2xl text-center md:mb-20">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent ring-1 ring-accent/25">
+            <Zap className="size-3.5" />
+            {isAr ? "المنهجية العلمية" : "Clinical Methodology"}
           </div>
           <h2
-            id="how-it-works-heading"
-            className="mt-4 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]"
+            id="mechanism-heading"
+            className="mt-5 whitespace-pre-line text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl"
           >
-            {t.howItWorks.title}
+            {isAr
+              ? "كيف تشتغل التركيبات؟"
+              : "How do the formulas work?"}
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted md:text-base">
-            {t.howItWorks.body}
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-bg/70 md:text-base">
+            {isAr
+              ? "كل منتج مبني على مكوّن فعّال بنسبة علاجية — ليس تجميلية. هذا الفرق بين 'محتمل يشتغل' و'مثبت علمياً'."
+              : "Every product is built on an active ingredient at a therapeutic dose — not a cosmetic one. That's the difference between 'might work' and 'clinically proven'."}
           </p>
         </header>
 
-        <div className="relative">
-          {/* Horizontal connecting hairline — desktop only, sits behind the dots */}
-          <div
-            aria-hidden
-            className="absolute start-[10%] end-[10%] top-8 hidden h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent lg:block"
-          />
-
-          <ol className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
-            {steps.map(({ Icon, title, body }, i) => (
-              <li key={i} className="relative flex flex-col items-center text-center">
-                {/* Numbered dot — bg ring keeps the connecting hairline behind it */}
-                <div className="relative z-10 mb-6 grid size-16 place-items-center rounded-full bg-bg shadow-card ring-1 ring-accent/25">
-                  <Icon className="size-5 text-accent" strokeWidth={1.6} />
-                  <span
-                    className="absolute -top-2 end-[-8px] grid size-7 place-items-center rounded-full bg-accent text-[11px] font-bold text-bg shadow-sm rtl:end-auto rtl:start-[-8px]"
-                    aria-hidden
-                  >
-                    {i + 1}
-                  </span>
-                </div>
-                <h3 className="text-[15px] font-semibold tracking-tight text-ink md:text-base">
-                  {title}
-                </h3>
-                <p className="mt-2 max-w-[230px] text-[13px] leading-relaxed text-muted md:text-sm">
-                  {body}
-                </p>
-              </li>
-            ))}
-          </ol>
+        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
+          {mechanisms.map(({ Icon, ingredient, action, explanation }, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-bg/10 bg-bg/[0.04] p-7 backdrop-blur-sm md:p-8"
+            >
+              <div className="mb-5 grid size-12 place-items-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/25">
+                <Icon className="size-5" strokeWidth={1.6} />
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+                {ingredient}
+              </p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight text-bg md:text-xl">
+                {action}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-bg/70">
+                {explanation}
+              </p>
+            </div>
+          ))}
         </div>
       </Container>
     </section>

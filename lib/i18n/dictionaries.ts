@@ -261,11 +261,11 @@ export const dictionaries = {
       cod: "ادفع عند الاستلام في كل مدن السعودية",
     },
     testimonials: {
-      eyebrow: "نتائج موثّقة، أسماء حقيقية",
-      title: "+٢٤٠٠ سعودي وسعودية\nشافوا الفرق.",
-      body: "من الرياض إلى أبها، من جدة إلى حائل — تجارب موثّقة، نتائج تستاهل التجربة، ودفع عند الاستلام.",
+      eyebrow: "نتائج مثبتة — أسماء ومدن حقيقية",
+      title: "+٢٤٠٠ عميل\nرأوا الفرق خلال ١٤ يوم.",
+      body: "تجارب حقيقية من الرياض، جدة، الدمام، وتبوك. كل تقييم مرتبط بطلب مؤكد — ليس تقييمات مشتراة.",
       ratingTitle: "متوسط ٤٫٩ من ٥",
-      ratingSubtitle: "من ٧٤٠ تقييم سعودي",
+      ratingSubtitle: "من ٧٤٠ تقييم موثّق",
     },
     howItWorks: {
       eyebrow: "كيف يشتغل",
@@ -618,11 +618,11 @@ export const dictionaries = {
       cod: "Cash on delivery across Saudi Arabia",
     },
     testimonials: {
-      eyebrow: "Verified results, real names",
-      title: "2,400+ Saudis\nsaw the difference.",
-      body: "From Riyadh to Abha, from Jeddah to Hail — verified experiences, results worth trying, cash on delivery.",
+      eyebrow: "Proven results — real names and cities",
+      title: "2,400+ clients\nsaw the difference in 14 days.",
+      body: "Real experiences from Riyadh, Jeddah, Dammam, and Tabuk. Every review tied to a confirmed order — not purchased reviews.",
       ratingTitle: "4.9 / 5 average",
-      ratingSubtitle: "From 740 Saudi reviews",
+      ratingSubtitle: "From 740 verified reviews",
     },
     howItWorks: {
       eyebrow: "How it works",

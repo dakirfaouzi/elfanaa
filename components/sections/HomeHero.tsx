@@ -68,12 +68,12 @@ export function HomeHero() {
             </p>
 
             {/* 2 · Headline — Pain + Cause */}
-            <h1 className="text-balance whitespace-pre-line font-display text-[44px] font-semibold leading-[0.98] tracking-[-0.02em] md:text-[72px] lg:text-[92px]">
+            <h1 className="text-balance whitespace-pre-line font-display text-[40px] font-semibold leading-[1.02] tracking-[-0.02em] md:text-[64px] lg:text-[80px]">
               {t.home.heroTitle}
             </h1>
 
             {/* 3 · Subheadline — Solution + Result */}
-            <p className="max-w-[580px] text-[15px] leading-relaxed text-bg/85 md:text-[19px]">
+            <p className="max-w-[560px] text-[15px] leading-relaxed text-bg/80 md:text-[18px]">
               {t.home.heroSubtitle}
             </p>
 

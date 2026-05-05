@@ -1,86 +1,106 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Thermometer, FlaskConical, Truck, BarChart3 } from "lucide-react";
 import { Container } from "@/components/layout/Container";
-import { Flourish } from "@/components/brand";
 import { useLocale } from "@/hooks/useLocale";
-import { siteConfig } from "@/data/site";
-import { pickLocalized } from "@/lib/format";
 
 /**
- * Editorial brand story — split image + text, with a wordmark watermark.
+ * "Why Fanaa is Different" — the differentiation section.
  *
- * The wordmark "فناء" is rendered in massive low-opacity Naskh behind
- * the image column. It bleeds slightly off the edge of the section so
- * the brand name appears at scale mid-scroll — a recurring identity
- * moment, not a logo print. This is the move every premium DTC brand
- * uses on their about-the-product page (Aesop, Tata Harper, Glossier).
+ * This replaces the old "Brand Story" editorial block. Brand stories
+ * are vanity; differentiators sell. This section answers the one
+ * question every Saudi buyer asks: "ليش أشتري منكم مو من أمازون؟"
  *
- * The numbered eyebrow ("05 — حكايتنا") plus the Flourish above the
- * H2 anchors this section into the page's editorial rhythm.
+ * Structure: 4 pillars, each with an icon, a short headline, and
+ * one sentence of proof. No fluff, no adjectives — just the
+ * competitive moat stated plainly.
  */
 export function BrandStory() {
-  const { t, locale } = useLocale();
-  const wordmark = pickLocalized(siteConfig.name, locale);
+  const { locale } = useLocale();
   const isAr = locale === "ar";
 
+  const pillars = isAr
+    ? [
+        {
+          Icon: Thermometer,
+          title: "مصمّم لمناخ ٤٥°",
+          body: "كل تركيبة مختبرة في الرياض وجدة — في حرارة حقيقية، مياه ثقيلة، وتكييف مستمر. ليس في مختبر أوروبي بارد.",
+        },
+        {
+          Icon: FlaskConical,
+          title: "نسب علاجية، مو تجميلية",
+          body: "فيتامين C بـ ١٢٪ (وليس ٢٪). سيراميد ٥ أنواع (وليس نوع واحد). نختار النسبة اللي تشتغل، مو اللي تكلّف أقل.",
+        },
+        {
+          Icon: Truck,
+          title: "ادفع بس لمّا تشوفه",
+          body: "الدفع عند الاستلام، إرجاع مجاني ١٤ يوم. ما نبيعك وعود — نبيعك نتيجة تشوفها بعينك قبل ما تدفع ريال.",
+        },
+        {
+          Icon: BarChart3,
+          title: "٢٤٠٠+ عميل. ٤.٩ تقييم.",
+          body: "مش أرقام تسويقية — أسماء حقيقية، مدن حقيقية، تجارب موثّقة. كل تقييم مرتبط بطلب مؤكد.",
+        },
+      ]
+    : [
+        {
+          Icon: Thermometer,
+          title: "Formulated for 45°C",
+          body: "Every formula tested in Riyadh and Jeddah — in real heat, hard water, and constant AC. Not in a cold European lab.",
+        },
+        {
+          Icon: FlaskConical,
+          title: "Therapeutic, not cosmetic doses",
+          body: "12% Vitamin C (not 2%). 5 types of ceramides (not one). We choose the dose that works, not the one that costs less.",
+        },
+        {
+          Icon: Truck,
+          title: "Pay only when you see it",
+          body: "Cash on delivery, free 14-day returns. We don't sell promises — we sell results you verify with your own eyes before paying.",
+        },
+        {
+          Icon: BarChart3,
+          title: "2,400+ clients. 4.9 rating.",
+          body: "Not marketing numbers — real names, real cities, verified experiences. Every review tied to a confirmed order.",
+        },
+      ];
+
   return (
-    <section className="relative overflow-hidden bg-bg py-24 md:py-36">
-      {/* ─────────── Wordmark watermark — recurring brand identity ─────────── */}
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute top-1/2 select-none whitespace-nowrap text-[180px] font-bold leading-none tracking-tight text-accent/[0.045] md:text-[280px] lg:text-[360px] ${
-          isAr
-            ? "-translate-y-1/2 right-[-6%] font-arabic-display"
-            : "-translate-y-1/2 left-[-4%] font-display"
-        }`}
-      >
-        {wordmark}
-      </span>
-
+    <section className="bg-surface py-20 md:py-28" aria-labelledby="diff-heading">
       <Container>
-        <div className="relative grid items-center gap-12 md:grid-cols-12 md:gap-16">
-          <figure className="relative order-2 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft shadow-card md:order-1 md:col-span-5">
-            <Image
-              src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1400&q=85"
-              alt={t.home.storyEyebrow}
-              fill
-              sizes="(min-width: 768px) 40vw, 100vw"
-              className="object-cover object-center"
-            />
-          </figure>
+        <header className="mx-auto mb-14 max-w-2xl text-center md:mb-18">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
+            {isAr ? "ليش فناء مختلف؟" : "Why Fanaa is different"}
+          </p>
+          <h2
+            id="diff-heading"
+            className="mt-4 text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl"
+          >
+            {isAr
+              ? "ليست علامة تجارية أخرى.\nإنها منهجية مختلفة."
+              : "Not another brand.\nA different methodology."}
+          </h2>
+        </header>
 
-          <div className="order-1 space-y-6 md:order-2 md:col-span-7 md:ps-8">
-            <Flourish width={88} className="text-accent" />
-
-            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
-              <span className="text-accent/60">05</span>
-              <span className="h-px w-6 bg-line" aria-hidden />
-              <span className="text-accent">{t.home.storyEyebrow}</span>
-            </div>
-
-            <p className="text-base text-muted md:text-lg">{t.home.storyTitle}</p>
-
-            <h2 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
-              {t.home.storyHook}
-            </h2>
-
-            <p className="max-w-xl text-base leading-relaxed text-muted md:text-[17px]">
-              {t.home.storyBody}
-            </p>
-
-            <Link
-              href="/about"
-              className="group inline-flex items-center gap-2 pt-2 text-sm font-medium text-ink"
+        <div className="grid gap-6 sm:grid-cols-2 lg:gap-8">
+          {pillars.map(({ Icon, title, body }, i) => (
+            <div
+              key={i}
+              className="flex gap-5 rounded-xl border border-line bg-bg p-6 shadow-sm md:p-8"
             >
-              <span className="border-b border-ink/40 pb-0.5 transition-colors group-hover:border-accent group-hover:text-accent">
-                {t.home.storyCta}
-              </span>
-              <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-accent ring-1 ring-accent/20">
+                <Icon className="size-5" strokeWidth={1.6} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold tracking-tight text-ink md:text-lg">
+                  {title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {body}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </Container>
     </section>
