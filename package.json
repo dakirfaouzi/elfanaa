@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:og": "node scripts/generate-og.mjs"
   },
   "dependencies": {
     "next": "^15.0.3",
