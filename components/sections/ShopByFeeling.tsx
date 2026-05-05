@@ -23,12 +23,17 @@ export function ShopByFeeling() {
     <section className="py-16 md:py-24">
       <Container>
         <header className="mb-10 max-w-2xl md:mb-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
             {t.home.shopByFeelingEyebrow}
           </p>
           <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl lg:text-5xl">
             {t.home.shopByFeelingTitle}
           </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted md:text-base">
+            {locale === "ar"
+              ? "فناء يحلّها — منتجات مختبرة، مناسبة للمناخ السعودي."
+              : "Elfanaa solves both — products tested for the Saudi climate."}
+          </p>
         </header>
 
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
