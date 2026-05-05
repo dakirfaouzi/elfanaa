@@ -6,6 +6,7 @@ import { ProductBenefits } from "@/components/product/ProductBenefits";
 import { ProductLifestyle } from "@/components/product/ProductLifestyle";
 import { ProductReviews } from "@/components/product/ProductReviews";
 import { ProductFAQ } from "@/components/product/ProductFAQ";
+import { ProductIngredients } from "@/components/product/ProductIngredients";
 import { ProductDetails } from "./ProductDetails";
 import { RelatedProducts } from "@/components/sections/RelatedProducts";
 import { getProductBySlug, getRelatedProducts, products } from "@/data/products";
@@ -69,6 +70,8 @@ export default async function ProductPage({ params }: Props) {
       </Container>
 
       <ProductBenefits product={product} />
+
+      <ProductIngredients product={product} />
 
       <ProductLifestyle product={product} />
 

@@ -20,7 +20,7 @@ const C = siteConfig.currency;
  * `backend/app/services/catalog.py`; CRO copy lives only here because
  * the backend re-prices but does NOT render copy.
  *
- * Collections: skincare · grooming · haircare
+ * Collections: face · hair · routine
  */
 
 const TIER_OFFER = {
@@ -32,10 +32,9 @@ const TIER_OFFER = {
   unit: { amount: 19900, currency: C },
 } as const;
 
-
 export const products: Product[] = [
   /* ──────────────────────────────────────────────────────────
-   * P_001  سيروم الإشراق — Glow Serum  [Unisex · Skincare]
+   * P_001  سيروم الإشراق — Glow Serum  [Face]
    * Problem: dark spots, dull skin from KSA sun + pollution
    * Solution: concentrated daily serum, visible results in 2 weeks
    * ────────────────────────────────────────────────────────── */
@@ -44,7 +43,7 @@ export const products: Product[] = [
     slug: "glow-serum",
     title: { ar: "سيروم الإشراق", en: "Glow Serum" },
     headline: {
-      ar: "ذهب التبقّع،\nجه الإشراق.",
+      ar: "ذهب التبقّع،\nجاء الإشراق.",
       en: "Spots fade.\nGlow arrives.",
     },
     subheadline: {
@@ -57,11 +56,11 @@ export const products: Product[] = [
     },
     images: [
       {
-        src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=85",
         alt: { ar: "سيروم الإشراق — فناء", en: "Fanaa Glow Serum" },
       },
       {
-        src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=1400&q=85",
         alt: { ar: "تفاصيل السيروم", en: "Serum texture detail" },
       },
       {
@@ -81,10 +80,15 @@ export const products: Product[] = [
       { ar: "+٣١٢ تقييم سعودي", en: "312+ Saudi reviews" },
     ],
     rating: { value: 4.9, count: 312 },
-    collection: "skincare",
+    collection: "face",
     upsellIds: ["p_002", "p_003"],
     stockLeft: 14,
     recentBuyers: 31,
+    ingredients: [
+      { name: { ar: "فيتامين C (١٢٪)", en: "Vitamin C (12%)" }, role: { ar: "تفتيح البقع الداكنة وتوحيد اللون", en: "Brightens dark spots and evens tone" } },
+      { name: { ar: "نياسيناميد (٥٪)", en: "Niacinamide (5%)" }, role: { ar: "تقوية حاجز البشرة وتقليل المسام", en: "Strengthens skin barrier and minimizes pores" } },
+      { name: { ar: "حمض الترانيكساميك (٢٪)", en: "Tranexamic Acid (2%)" }, role: { ar: "منع تكوّن تصبغات جديدة", en: "Prevents formation of new pigmentation" } },
+    ],
     benefits: [
       {
         icon: "Sparkles",
@@ -109,7 +113,7 @@ export const products: Product[] = [
         },
       },
       {
-        icon: "Wind",
+        icon: "ShieldCheck",
         title: {
           ar: "آمن — حتى للحوامل والمرضعات",
           en: "Safe — even for pregnancy & nursing",
@@ -120,7 +124,7 @@ export const products: Product[] = [
         },
       },
       {
-        icon: "Hand",
+        icon: "Clock",
         title: {
           ar: "٣٠ ثانية صباحاً — وخلاص",
           en: "30 seconds in the morning — done",
@@ -144,17 +148,6 @@ export const products: Product[] = [
         verified: true,
       },
       {
-        name: { ar: "خالد الشهري", en: "Khalid Al-Shahri" },
-        city: { ar: "جدة", en: "Jeddah" },
-        rating: 5,
-        body: {
-          ar: "ما كنت أتوقع إن رجل يحتاج سيروم. صراحة فرّق — البشرة صارت أنظف وأكثر حيوية. اشتريت ثلاث.",
-          en: "Didn't think a man needed serum. Honestly it made a difference — skin feels cleaner and more alive. Bought three.",
-        },
-        date: "2026-04-02",
-        verified: true,
-      },
-      {
         name: { ar: "نورة العتيبي", en: "Noura Al-Otaibi" },
         city: { ar: "الدمام", en: "Dammam" },
         rating: 5,
@@ -166,14 +159,14 @@ export const products: Product[] = [
         verified: true,
       },
       {
-        name: { ar: "فيصل القحطاني", en: "Faisal Al-Qahtani" },
-        city: { ar: "الخبر", en: "Khobar" },
-        rating: 4,
+        name: { ar: "لمياء الشهري", en: "Lamya Al-Shahri" },
+        city: { ar: "جدة", en: "Jeddah" },
+        rating: 5,
         body: {
-          ar: "نتائج ممتازة. أتمنى لو يجي بحجم أكبر. راضٍ جداً عن التجربة.",
-          en: "Excellent results. Wish it came in a larger size. Very satisfied with the experience.",
+          ar: "ما كنت أتوقع النتيجة بهالسرعة. الكلف خف بنسبة ٧٠٪ في شهر. طلبت العرض الثلاثي.",
+          en: "Didn't expect results this fast. Melasma faded by 70% in a month. Ordered the trio bundle.",
         },
-        date: "2026-03-05",
+        date: "2026-04-02",
         verified: true,
       },
     ],
@@ -217,110 +210,115 @@ export const products: Product[] = [
   },
 
   /* ──────────────────────────────────────────────────────────
-   * P_002  زيت العناية الأصيل — Grooming Oil  [Men · Grooming]
-   * Problem: dry skin + rough beard from KSA heat, AC, hard water
-   * Solution: fast-absorbing face + beard oil, 30-second daily routine
+   * P_002  كريم ترميم الحاجز — Barrier Repair Cream  [Face]
+   * Problem: dry skin, compromised barrier from KSA heat, AC, hard water
+   * Solution: deep ceramide hydration, locks in the serum
    * ────────────────────────────────────────────────────────── */
   {
     id: "p_002",
-    slug: "grooming-oil",
-    title: { ar: "زيت العناية الأصيل", en: "Grooming Oil" },
+    slug: "barrier-cream",
+    title: { ar: "كريم ترميم الحاجز", en: "Barrier Repair Cream" },
     headline: {
-      ar: "اللحية القوية\nتبدأ من الجلد تحتها.",
-      en: "A strong beard\nstarts with the skin beneath.",
+      ar: "الجفاف ليس نوع بشرة.\nإنه حاجز مكسور.",
+      en: "Dryness isn't a skin type.\nIt's a broken barrier.",
     },
     subheadline: {
-      ar: "زيت رجالي بـ ٥ زيوت طبيعية — يغذّي جذور اللحية، يرطّب الجلد تحتها، ويقفل الفراغات. ٣٠ ثانية في اليوم، نتيجة بـ ٢١ يوم.",
-      en: "A men's oil blending 5 natural oils — feeds beard roots, hydrates the skin beneath, and fills patches. 30 seconds a day, results in 21 days.",
+      ar: "كريم يومي غني بـ ٥ أنواع من السيراميد وحمض الهيالورونيك. يرمّم حاجز البشرة المتضرر من التكييف والشمس، ويقفل الترطيب لـ ٢٤ ساعة.",
+      en: "A daily cream rich in 5 types of Ceramides and Hyaluronic Acid. Repairs the skin barrier damaged by AC and sun, locking in moisture for 24 hours.",
     },
     description: {
-      ar: "أكثر شكوى عند الرجال السعوديين: لحية فيها فراغات، حكّة في الجلد تحتها، وبشرة الوجه جافة من التكييف والشمس. السبب واحد: الجلد تحت اللحية ما ياخذ ترطيبه. الزيت يخترق الشعر، يوصل للجلد، ويغذّي الجذور — يعمل ٣ مهام بمنتج واحد، وبثلاثين ثانية في اليوم.",
-      en: "The biggest complaint among Saudi men: a patchy beard, itchy skin beneath, and dry facial skin from AC and sun. One root cause: the skin under the beard never gets moisture. This oil penetrates the hair, reaches the skin, and feeds the follicles — three jobs, one product, thirty seconds a day.",
+      ar: "أكثر شكوى في السعودية: بشرة تشرب المرطبات وتبقى جافة. السبب؟ التكييف المستمر والمياه الثقيلة يكسرون 'حاجز' البشرة، فتتبخر السوائل. هذا الكريم لا يرطب سطحياً فقط، بل يبني جداراً من السيراميد يمنع فقدان الماء. الخطوة الثانية الأساسية بعد السيروم.",
+      en: "The biggest complaint in KSA: skin drinks moisturizers and stays dry. The cause? Constant AC and hard water break the skin's 'barrier', letting fluids evaporate. This cream doesn't just hydrate the surface; it builds a ceramide wall to prevent water loss. The essential second step after your serum.",
     },
     images: [
       {
-        src: "https://images.unsplash.com/photo-1621607512022-6aecc4fed814?w=1400&q=85",
-        alt: { ar: "زيت العناية الأصيل", en: "Fanaa Grooming Oil" },
+        src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1400&q=85",
+        alt: { ar: "كريم ترميم الحاجز", en: "Fanaa Barrier Cream" },
       },
       {
-        src: "https://images.unsplash.com/photo-1559599101-f09722fb4948?w=1400&q=85",
-        alt: { ar: "عناية رجالية", en: "Men's grooming" },
+        src: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=1400&q=85",
+        alt: { ar: "قوام الكريم", en: "Cream texture" },
       },
       {
         src: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1400&q=85",
-        alt: { ar: "روتين العناية الرجالية", en: "Men's skincare routine" },
+        alt: { ar: "عناية يومية", en: "Daily care" },
       },
     ],
     lifestyleImage: {
-      src: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=1600&q=85",
-      alt: { ar: "رجل يهتم بمظهره", en: "Man who takes care of his appearance" },
+      src: "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=1600&q=85",
+      alt: { ar: "بشرة مرطبة وصحية", en: "Hydrated healthy skin" },
     },
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
     badges: [
-      { ar: "للرجال — مختبر على ١٨٧ سعودي", en: "For men — tested on 187 Saudis" },
-      { ar: "نتائج خلال ٢١ يوم", en: "Results in 21 days" },
-      { ar: "بدون لمعة", en: "Zero shine" },
+      { ar: "ترطيب ٢٤ ساعة", en: "24-hour hydration" },
+      { ar: "بدون عطور", en: "Fragrance-free" },
+      { ar: "مختبر طبياً", en: "Clinically tested" },
     ],
     rating: { value: 4.8, count: 187 },
-    collection: "grooming",
+    collection: "face",
     upsellIds: ["p_001", "p_003"],
     stockLeft: 9,
     recentBuyers: 22,
+    ingredients: [
+      { name: { ar: "مركب السيراميد (٥ أنواع)", en: "Ceramide Complex (5 types)" }, role: { ar: "إعادة بناء جدار البشرة الواقي", en: "Rebuilds the skin's protective wall" } },
+      { name: { ar: "حمض الهيالورونيك", en: "Hyaluronic Acid" }, role: { ar: "سحب الماء لداخل الخلايا", en: "Draws water into the cells" } },
+      { name: { ar: "زبدة الشيا النقية", en: "Pure Shea Butter" }, role: { ar: "تنعيم السطح ومنع التبخر", en: "Softens surface and prevents evaporation" } },
+    ],
     benefits: [
       {
-        icon: "Sparkles",
+        icon: "Shield",
         title: {
-          ar: "يقفل فراغات اللحية",
-          en: "Fills in beard patches",
+          ar: "يبني جدار حماية",
+          en: "Builds a protective wall",
         },
         body: {
-          ar: "زيت الأرز + زيت الخروع + زيت الجوجوبا — تركيبة مختبرة لتحفيز جذور الشعر في المناطق الفارغة. أغلب عملائنا يلاحظون امتلاء الفراغات بعد ٢١ يوم استخدام يومي.",
-          en: "Cedar oil + castor oil + jojoba oil — a blend lab-tested to stimulate roots in patchy areas. Most of our customers see patches filling in after 21 days of daily use.",
+          ar: "السيراميد هو الإسمنت اللي يمسك خلايا بشرتك. تركيبتنا تعوّض السيراميد المفقود بسبب الجو، وتمنع جفاف البشرة.",
+          en: "Ceramides are the cement holding your skin cells together. Our formula replaces ceramides lost to the weather, preventing skin dehydration.",
         },
       },
       {
-        icon: "Hand",
+        icon: "Droplets",
         title: {
-          ar: "يوقف حكّة الجلد من أول استخدام",
-          en: "Stops itch from the first use",
+          ar: "يقفل ترطيب السيروم",
+          en: "Locks in serum hydration",
         },
         body: {
-          ar: "الحكّة تحت اللحية ما تجي من الشعر — تجي من الجلد الجاف تحته. الزيت يرطّب الجلد ويوقف الحكّة من أول مرة، حتى لو لحيتك جديدة.",
-          en: "Beard itch isn't from the hair — it's from the dry skin beneath. The oil moisturises that skin and stops the itch from the very first application, even if your beard is fresh.",
+          ar: "السيروم يعالج، والكريم يحميه. استخدامه بعد سيروم الإشراق يضاعف النتيجة ويضمن عدم تبخر المواد الفعالة.",
+          en: "The serum treats, the cream protects. Using it after the Glow Serum doubles the result and ensures active ingredients don't evaporate.",
         },
       },
       {
         icon: "Wind",
         title: {
-          ar: "بدون لمعة — مناسب لقبل الدوام",
-          en: "Zero shine — work-day ready",
+          ar: "بدون عطور — للبشرة الحساسة",
+          en: "Fragrance-free — for sensitive skin",
         },
         body: {
-          ar: "زيت 'جاف' الامتصاص — يختفي خلال دقيقة. ما يلمع، ما يبقّع الكوفية أو الشماغ، ما يحس فيه أحد. عطره خفيف ورجالي.",
-          en: "A 'dry' oil — absorbs in under a minute. No shine, no stains on a shemagh or shirt, no one notices. Subtle masculine scent.",
+          ar: "العطور تهيّج الحاجز المكسور. كريمنا خالي تماماً من العطور والزيوت العطرية، ليريح البشرة المتهيجة فوراً.",
+          en: "Fragrances irritate a broken barrier. Our cream is completely free of fragrances and essential oils, instantly soothing irritated skin.",
         },
       },
       {
-        icon: "ShieldCheck",
+        icon: "CheckCircle",
         title: {
-          ar: "ما يسبّب حبوب",
-          en: "Won't cause breakouts",
+          ar: "لا يسد المسام",
+          en: "Non-comedogenic",
         },
         body: {
-          ar: "تركيبة غير سادّة للمسام (Non-comedogenic) — مختبرة على البشرة الدهنية والحساسة. زيت طبيعي ١٠٠٪، بدون مينوكسيديل، بدون كيماويات.",
-          en: "Non-comedogenic formula — tested on oily and sensitive skin. 100% natural oils, no minoxidil, no chemicals.",
+          ar: "رغم ترطيبه العميق، تركيبته مدروسة لتسمح للبشرة بالتنفس ولا تسبب ظهور الحبوب.",
+          en: "Despite its deep hydration, the formula is designed to let skin breathe and won't cause breakouts.",
         },
       },
     ],
     reviews: [
       {
-        name: { ar: "أحمد الزهراني", en: "Ahmed Al-Zahrani" },
+        name: { ar: "أمل الزهراني", en: "Amal Al-Zahrani" },
         city: { ar: "الرياض", en: "Riyadh" },
         rating: 5,
         body: {
-          ar: "كنت أظن إن هذا المنتجات مو لي. جرّبته وصدق اللحية صارت أكثر نعومة والبشرة شبه الشعر تحسّن. طلبت ثلاث.",
-          en: "Thought these products weren't for me. Tried it and honestly the beard is softer and my skin under the beard improved. Ordered three.",
+          ar: "أخيراً لقيت كريم يخلي وجهي مرطب لليوم الثاني. تكييف الدوام كان يدمر بشرتي، هذا الكريم أنقذني.",
+          en: "Finally found a cream that keeps my face hydrated until the next day. Office AC was destroying my skin, this cream saved me.",
         },
         date: "2026-04-20",
         verified: true,
@@ -330,55 +328,44 @@ export const products: Product[] = [
         city: { ar: "جدة", en: "Jeddah" },
         rating: 5,
         body: {
-          ar: "الزيت ممتاز — يختفي بدون ما يحسسك إنك مطليت وجهك. ريحته طبيعية مريحة. ما توقعت الفرق يكون هذا الحجم.",
-          en: "Excellent oil — disappears without making you feel like you've coated your face. Natural relaxing scent. Didn't expect the difference to be this big.",
+          ar: "ممتاز جداً بعد الحلاقة أو التعرض للشمس. يمتص بسرعة ولا يترك لمعة مزعجة. أستخدمه أنا وزوجتي.",
+          en: "Excellent after shaving or sun exposure. Absorbs quickly and doesn't leave an annoying shine. My wife and I both use it.",
         },
         date: "2026-04-06",
         verified: true,
       },
       {
-        name: { ar: "محمد الغامدي", en: "Mohammed Al-Ghamdi" },
+        name: { ar: "منى الغامدي", en: "Mona Al-Ghamdi" },
         city: { ar: "أبها", en: "Abha" },
         rating: 5,
         body: {
-          ar: "وصل بسرعة والتغليف محترم. اللحية صارت أكثر لمعاناً وانتظاماً. واضح إن المنتج مدروس.",
-          en: "Arrived quickly, professional packaging. Beard is noticeably shinier and better-shaped. The product is clearly well thought out.",
+          ar: "وصل بسرعة والتغليف محترم. خفف الاحمرار اللي كان يجيني من الجفاف. واضح إن المنتج مدروس.",
+          en: "Arrived quickly, professional packaging. Reduced the redness I used to get from dryness. The product is clearly well thought out.",
         },
         date: "2026-03-22",
-        verified: true,
-      },
-      {
-        name: { ar: "سعد العنزي", en: "Saad Al-Anzi" },
-        city: { ar: "تبوك", en: "Tabuk" },
-        rating: 4,
-        body: {
-          ar: "تجربة ممتازة. أتمنى يكون فيه نسخة بدون رائحة لمن يحبون ذلك.",
-          en: "Great experience overall. Wish there was an unscented version for those who prefer it.",
-        },
-        date: "2026-03-08",
         verified: true,
       },
     ],
     faq: [
       {
-        q: { ar: "متى تبدأ الفراغات تمتلئ؟", en: "When do the patches start filling in?" },
+        q: { ar: "متى أستخدمه في روتيني؟", en: "When do I use it in my routine?" },
         a: {
-          ar: "أغلب عملائنا يلاحظون ليونة وتنعّم اللحية من الأسبوع الأول، وامتلاء الفراغات يبدأ من الأسبوع الثالث. ٢١ يوم استخدام يومي = الفرق يبان في صور قبل-وبعد.",
-          en: "Most customers notice softness and texture change in week one, with patches filling in from week three. 21 days of daily use = a visible before/after.",
+          ar: "مرتين يومياً. صباحاً بعد السيروم وقبل واقي الشمس، ومساءً كآخر خطوة لترميم البشرة أثناء النوم.",
+          en: "Twice daily. Morning after serum and before SPF, and evening as the final step to repair skin while you sleep.",
         },
       },
       {
         q: { ar: "هل يسبّب حبوب أو احمرار؟", en: "Will it cause acne or redness?" },
         a: {
-          ar: "لا. مصنّف Non-comedogenic — يعني ما يسد المسام. مختبر على البشرة الدهنية والحساسة. لو حسّيت بشي خلال أول يومين، خفّف الكمية لقطرة وحدة.",
-          en: "No. Classified non-comedogenic — won't clog pores. Tested on oily and sensitive skin. If you feel any reaction in the first two days, drop to a single drop.",
+          ar: "لا. مصنّف Non-comedogenic — يعني ما يسد المسام. مختبر على البشرة المعرضة للحبوب والحساسة.",
+          en: "No. Classified non-comedogenic — won't clog pores. Tested on acne-prone and sensitive skin.",
         },
       },
       {
-        q: { ar: "هل يلمع على الوجه أو يبقّع الشماغ؟", en: "Will it shine or stain a shemagh?" },
+        q: { ar: "هل يلمع على الوجه؟", en: "Will it shine on the face?" },
         a: {
-          ar: "لا. زيت 'جاف' الامتصاص — يدخل البشرة خلال دقيقة بدون أي أثر لامع أو ثقيل، وما يبقّع القماش.",
-          en: "No. A 'dry' oil — absorbs in under a minute with zero shine or residue, and won't stain fabric.",
+          ar: "يعطي لمسة نضارة طبيعية (Dewy finish) بدون لمعان زيتي ثقيل. يمتص خلال دقائق.",
+          en: "Gives a natural dewy finish without heavy oily shine. Absorbs within minutes.",
         },
       },
       {
@@ -399,30 +386,30 @@ export const products: Product[] = [
   },
 
   /* ──────────────────────────────────────────────────────────
-   * P_003  قناع الشعر المُرطّب — Deep Hair Mask  [Women · Haircare]
-   * Problem: dry, damaged hair from heat styling + abaya + KSA climate
+   * P_003  قناع الترميم العميق — Deep Repair Mask  [Hair]
+   * Problem: dry, damaged hair from heat styling + hard water + KSA climate
    * Solution: weekly deep mask, visible softness from first use
    * ────────────────────────────────────────────────────────── */
   {
     id: "p_003",
     slug: "hair-mask",
-    title: { ar: "قناع الشعر المُرطّب", en: "Deep Hair Mask" },
+    title: { ar: "قناع الترميم العميق", en: "Deep Repair Mask" },
     headline: {
       ar: "تكسّر، تقصّف، جفاف...\nترجع الحياة بـ ٥ دقائق.",
       en: "Breakage, dryness, damage...\nlife returns in 5 minutes.",
     },
     subheadline: {
-      ar: "قناع أسبوعي بزبدة الشيا والأرغان والكيراتين — يصلّح الشعر التالف من الحرارة، الصبغات، والشيلة. النعومة تبدأ من أول استخدام.",
-      en: "A weekly shea butter + argan + keratin mask — repairs hair damaged by heat, dye, and friction. Softness from the very first use.",
+      ar: "قناع أسبوعي بزبدة الشيا والأرغان والكيراتين — يصلّح الشعر التالف من الحرارة، الصبغات، والمياه الثقيلة. النعومة تبدأ من أول استخدام.",
+      en: "A weekly shea butter + argan + keratin mask — repairs hair damaged by heat, dye, and hard water. Softness from the very first use.",
     },
     description: {
-      ar: "الشعر السعودي يتعرّض لثلاث ضغوط: حرارة التمشيط، احتكاك الشيلة والعباية، وجفاف التكييف والمياه الثقيلة. الشامبو ينظّف بس ما يصلّح. القناع يدخل عميق في الخيط، يصلّح الكسور من داخل، ويرجّع البروتين اللي ضاع. ٥ دقائق مرّة في الأسبوع — والفرق يخلّيك ما ترضين عن غيره.",
-      en: "Saudi hair faces three pressures: styling heat, abaya and shemagh friction, and AC dryness with hard water. Shampoo cleans but doesn't repair. The mask penetrates deep into each strand, mends breakage from within, and restores lost protein. 5 minutes once a week — and the difference will spoil you.",
+      ar: "الشعر في السعودية يتعرّض لثلاث ضغوط: حرارة التمشيط، المياه الثقيلة (المالحة)، وجفاف التكييف. الشامبو ينظّف بس ما يصلّح. القناع يدخل عميق في الخيط، يصلّح الكسور من داخل، ويرجّع البروتين اللي ضاع. ٥ دقائق مرّة في الأسبوع — والفرق يخلّيك ما ترضى بغيره.",
+      en: "Hair in Saudi faces three pressures: styling heat, hard (salty) water, and AC dryness. Shampoo cleans but doesn't repair. The mask penetrates deep into each strand, mends breakage from within, and restores lost protein. 5 minutes once a week — and the difference will spoil you.",
     },
     images: [
       {
         src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=85",
-        alt: { ar: "قناع الشعر المُرطّب — فناء", en: "Fanaa Deep Hair Mask" },
+        alt: { ar: "قناع الترميم العميق — فناء", en: "Fanaa Deep Repair Mask" },
       },
       {
         src: "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=1400&q=85",
@@ -435,20 +422,25 @@ export const products: Product[] = [
     ],
     lifestyleImage: {
       src: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=1600&q=85",
-      alt: { ar: "امرأة بشعر صحي", en: "Woman with healthy hair" },
+      alt: { ar: "شعر صحي وقوي", en: "Healthy strong hair" },
     },
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
     badges: [
-      { ar: "للنساء — +٢٤١ تقييم سعودي", en: "For women — 241+ Saudi reviews" },
+      { ar: "للشعر التالف والمصبوغ", en: "For damaged & colored hair" },
       { ar: "نعومة من أول استخدام", en: "Softness from first use" },
-      { ar: "آمن للشعر المصبوغ", en: "Safe for color-treated hair" },
+      { ar: "+٢٤١ تقييم سعودي", en: "241+ Saudi reviews" },
     ],
     rating: { value: 4.9, count: 241 },
-    collection: "haircare",
+    collection: "hair",
     upsellIds: ["p_001", "p_002"],
     stockLeft: 11,
     recentBuyers: 26,
+    ingredients: [
+      { name: { ar: "كيراتين نباتي", en: "Vegan Keratin" }, role: { ar: "تعبئة الفراغات في بنية الشعرة", en: "Fills gaps in hair structure" } },
+      { name: { ar: "زيت الأرغان العضوي", en: "Organic Argan Oil" }, role: { ar: "تنعيم وإعطاء لمعان طبيعي", en: "Softens and gives natural shine" } },
+      { name: { ar: "زبدة الشيا", en: "Shea Butter" }, role: { ar: "ترطيب عميق وحماية من التقصف", en: "Deep hydration and split-end protection" } },
+    ],
     benefits: [
       {
         icon: "Droplet",
@@ -464,11 +456,11 @@ export const products: Product[] = [
       {
         icon: "Sparkles",
         title: {
-          ar: "نعومة تحسّيها من أول جلسة",
+          ar: "نعومة تحسّها من أول جلسة",
           en: "Softness you feel from session one",
         },
         body: {
-          ar: "شعر أنعم، ألمع، وخفيف — بعد أول استخدام. مش وعد بعد أسبوعين، فرق تحسّيه وأنت تشطفينه.",
+          ar: "شعر أنعم، ألمع، وخفيف — بعد أول استخدام. مش وعد بعد أسبوعين، فرق تحسّه وأنت تشطفه.",
           en: "Softer, shinier, lighter hair — after the very first session. Not a two-week promise, a difference you feel as you rinse.",
         },
       },
@@ -484,13 +476,13 @@ export const products: Product[] = [
         },
       },
       {
-        icon: "Hand",
+        icon: "Clock",
         title: {
           ar: "٥ دقائق مرّة في الأسبوع",
           en: "5 minutes, once a week",
         },
         body: {
-          ar: "بعد الشامبو، حطّيه على الشعر المبلول، انتظري ٥ دقائق، اشطفي بماء بارد. هذا كله. روتين أسبوعي بسيط.",
+          ar: "بعد الشامبو، حطّه على الشعر المبلول، انتظر ٥ دقائق، اشطف بماء بارد. هذا كله. روتين أسبوعي بسيط.",
           en: "After shampooing, apply to damp hair, wait 5 minutes, rinse with cool water. That's it. A simple weekly ritual.",
         },
       },
@@ -519,18 +511,7 @@ export const products: Product[] = [
         verified: true,
       },
       {
-        name: { ar: "لمياء الشهري", en: "Lamya Al-Shahri" },
-        city: { ar: "الدمام", en: "Dammam" },
-        rating: 5,
-        body: {
-          ar: "السعر منطقي مقارنة بما تقدّمه. وصل سريع والتغليف أنيق. بطلبه كل شهر.",
-          en: "Fair price for what it delivers. Arrived fast and elegantly packaged. I'll order it every month.",
-        },
-        date: "2026-03-25",
-        verified: true,
-      },
-      {
-        name: { ar: "منى القحطاني", en: "Mona Al-Qahtani" },
+        name: { ar: "محمد القحطاني", en: "Mohammed Al-Qahtani" },
         city: { ar: "تبوك", en: "Tabuk" },
         rating: 4,
         body: {
@@ -545,7 +526,7 @@ export const products: Product[] = [
       {
         q: { ar: "هل آمن للشعر المصبوغ أو المعالج بكيراتين؟", en: "Is it safe for color-treated or keratin-treated hair?" },
         a: {
-          ar: "نعم. بدون كبريتات، بدون سيليكون، ودرجة pH متوازنة (٤.٥-٥). آمن على الصبغات، البروتين، والكيراتين الكيميائي. كثير من عميلاتنا يستخدمنه بعد جلسات الكيراتين لإطالة عمرها.",
+          ar: "نعم. بدون كبريتات، بدون سيليكون، ودرجة pH متوازنة (٤.٥-٥). آمن على الصبغات، البروتين، والكيراتين الكيميائي. كثير من عملائنا يستخدمونه بعد جلسات الكيراتين لإطالة عمرها.",
           en: "Yes. Sulfate-free, silicone-free, and pH-balanced (4.5-5). Safe for color, protein treatments, and chemical keratin. Many of our customers use it post-keratin to extend the treatment's life.",
         },
       },
@@ -573,7 +554,7 @@ export const products: Product[] = [
       {
         q: { ar: "وش لو ما عجبني؟", en: "What if I don't love it?" },
         a: {
-          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفعين ريال إلا لما يوصلك القناع.",
+          ar: "إرجاع مجاني خلال ١٤ يوم بدون أسئلة. ما تدفع ريال إلا لما يوصلك القناع.",
           en: "Free 14-day returns, no questions. You don't pay a riyal until the mask arrives.",
         },
       },
@@ -605,7 +586,11 @@ export function getRelatedProducts(productId: string, limit = 4): Product[] {
  * Curated bestseller list — kept distinct from a raw rating sort so
  * merchandising stays in our hands.
  */
-export const bestSellerIds = ["p_001", "p_002", "p_003"] as const;
+export const bestSellerIds = [
+  "p_001",
+  "p_002",
+  "p_003",
+] as const;
 export function getBestSellers(): Product[] {
   return getProductsByIds([...bestSellerIds]);
 }

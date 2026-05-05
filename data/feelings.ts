@@ -1,81 +1,58 @@
 import type { LocalizedString } from "@/lib/types";
 
 /**
- * "هذا أنا" — problem-identification tiles (Health & Beauty edition).
+ * "هذا أنا" — problem-identification tiles (Clinical Beauty edition).
  *
  * Each tile names a *problem the customer is already living with*, then
- * routes them to the product that solves it. This is the classic Saudi
- * direct-response "هذا أنا" moment — the user reads a tile, feels seen,
- * and clicks. The label is the PROBLEM, the caption is the SOLUTION,
- * the CTA is the PRODUCT.
- *
- * Order is intentional:
- *   1. Skincare (broadest pain — sun spots / dullness)
- *   2. Grooming (men identity, narrow & strong)
- *   3. Haircare (women, abaya + heat damage)
- *   4. Routine bundle (highest-AOV path — the offer-led tile)
+ * routes them to the product that solves it. The label is the PROBLEM,
+ * the caption is the SOLUTION.
  */
 export type Feeling = {
   id: string;
-  /** The problem statement — short, specific, customer's own words. */
   label: LocalizedString;
-  /** The solution one-liner — names the product implicitly, names the result. */
   caption: LocalizedString;
   href: string;
   image: { src: string; alt: LocalizedString };
-  /**
-   * Render this tile as a *branded card* (wordmark + offer line, no image).
-   * Reserved for the bundle/routine tile — turns the highest-AOV slot into
-   * a recurring brand-identity moment instead of an extra stock photo.
-   */
   branded?: boolean;
-  /**
-   * Headline-style figure shown on a branded card (e.g. "349 SAR").
-   * Only used when `branded` is true.
-   */
   amount?: LocalizedString;
-  /**
-   * Save-amount badge shown on a branded card (e.g. "Save 248 SAR").
-   * Only used when `branded` is true.
-   */
   saveBadge?: LocalizedString;
 };
 
 export const feelings: Feeling[] = [
   {
     id: "spots",
-    label: { ar: "بقع وكلف الشمس", en: "Sun spots & melasma" },
+    label: { ar: "بقع وتصبغات", en: "Spots & Pigmentation" },
     caption: {
-      ar: "بقع داكنة من الشمس؟ بشرة باهتة؟ سيرومنا يبدأ شغله من اليوم الأول.",
-      en: "Dark spots from the sun? Dull skin? Our serum starts working from day one.",
+      ar: "بشرة باهتة وبقع داكنة؟ السيروم يفتتها من الجذور.",
+      en: "Dull skin and dark spots? The serum breaks them down at the root.",
     },
-    href: "/shop?collection=skincare",
+    href: "/shop?collection=face",
     image: {
       src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1400&q=80",
       alt: { ar: "بشرة بحاجة للإشراق", en: "Skin needing glow" },
     },
   },
   {
-    id: "beard",
-    label: { ar: "فراغات اللحية", en: "Patchy beard" },
+    id: "barrier",
+    label: { ar: "جفاف وحاجز متضرر", en: "Dryness & Broken Barrier" },
     caption: {
-      ar: "فراغات في اللحية؟ بشرة جافة وحكّة؟ زيتنا يحلّها بـ ٣٠ ثانية في اليوم.",
-      en: "Patchy beard? Dry, itchy skin underneath? Our oil fixes it in 30 seconds a day.",
+      ar: "بشرة تشرب المرطبات وتبقى جافة؟ كريم السيراميد يبني جدار الحماية.",
+      en: "Skin drinks moisturizers but stays dry? The ceramide cream builds a protective wall.",
     },
-    href: "/shop?collection=grooming",
+    href: "/shop?collection=face",
     image: {
-      src: "https://images.unsplash.com/photo-1621607512022-6aecc4fed814?w=1400&q=80",
-      alt: { ar: "عناية رجالية باللحية", en: "Men's beard care" },
+      src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1400&q=80",
+      alt: { ar: "عناية بحاجز البشرة", en: "Skin barrier care" },
     },
   },
   {
     id: "damage",
-    label: { ar: "تلف وتقصّف الشعر", en: "Damaged & breaking hair" },
+    label: { ar: "تلف وتقصّف الشعر", en: "Damaged & Breaking Hair" },
     caption: {
-      ar: "تكسّر، جفاف، تساقط من الحرارة والتصفيف؟ القناع يرجّع الحيوية من أول جلسة.",
-      en: "Breakage, dryness, fallout from heat and styling? The mask brings life back from session one.",
+      ar: "تكسّر وجفاف من الحرارة والمياه؟ القناع يرجّع الحيوية من أول جلسة.",
+      en: "Breakage and dryness from heat and water? The mask brings life back from session one.",
     },
-    href: "/shop?collection=haircare",
+    href: "/shop?collection=hair",
     image: {
       src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=80",
       alt: { ar: "شعر بحاجة لترطيب", en: "Hair needing repair" },
@@ -83,16 +60,15 @@ export const feelings: Feeling[] = [
   },
   {
     id: "bundle",
-    label: { ar: "الروتين الكامل", en: "The full routine" },
+    label: { ar: "روتين التجديد الشامل", en: "The Revival Routine" },
     caption: {
-      ar: "السيروم + الزيت + القناع. الأكثر مبيعاً.",
-      en: "Serum + oil + mask. Our best-selling bundle.",
+      ar: "السيروم + الكريم + القناع. روتينك الكامل.",
+      en: "Serum + Cream + Mask. Your complete routine.",
     },
     href: "/shop",
     branded: true,
     amount: { ar: "٣٤٩ ر.س", en: "349 SAR" },
     saveBadge: { ar: "وفّر ٢٤٨", en: "Save 248" },
-    /* Image kept as a fallback only — the branded variant ignores it. */
     image: {
       src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=80",
       alt: { ar: "روتين العناية الكامل", en: "Complete care routine" },

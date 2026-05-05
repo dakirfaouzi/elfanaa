@@ -5,35 +5,31 @@ const byCollection = (slug: string) =>
   products.filter((p) => p.collection === slug).map((p) => p.id);
 
 /**
- * Collections at launch — Health & Beauty edition.
- *
- * Three categories, one per signature product. Each slug matches the
- * `collection` field in `data/products.ts` so nav links filter to a
- * non-empty result.
+ * Collections at launch — Clinical Skin & Hair Revival.
  *
  * Order is intentional:
- *   1. Skincare  — broadest appeal, unisex, the hero category.
- *   2. Haircare  — second-most-trafficked H&B category in KSA.
- *   3. Grooming  — narrower (men's), placed last to anchor the men's path.
+ *   1. Face — the core of the brand (Serum + Cream).
+ *   2. Hair — the secondary category.
+ *   3. Routine — the bundle collection.
  */
 export const collections: Collection[] = [
   {
-    id: "c_skincare",
-    slug: "skincare",
-    title: { ar: "العناية بالبشرة", en: "Skincare" },
-    productIds: byCollection("skincare"),
+    id: "c_face",
+    slug: "face",
+    title: { ar: "عناية الوجه", en: "Face Care" },
+    productIds: byCollection("face"),
   },
   {
-    id: "c_haircare",
-    slug: "haircare",
-    title: { ar: "العناية بالشعر", en: "Haircare" },
-    productIds: byCollection("haircare"),
+    id: "c_hair",
+    slug: "hair",
+    title: { ar: "عناية الشعر", en: "Hair Care" },
+    productIds: byCollection("hair"),
   },
   {
-    id: "c_grooming",
-    slug: "grooming",
-    title: { ar: "العناية الرجالية", en: "Men's grooming" },
-    productIds: byCollection("grooming"),
+    id: "c_routine",
+    slug: "routine",
+    title: { ar: "الروتين المتكامل", en: "The Routine" },
+    productIds: products.map((p) => p.id), // All products
   },
 ];
 

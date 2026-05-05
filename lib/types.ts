@@ -103,6 +103,16 @@ export type Product = {
    */
   stockLeft?: number;
   recentBuyers?: number;
+
+  /**
+   * Key active ingredients for the clinical/premium positioning.
+   */
+  ingredients?: ProductIngredient[];
+};
+
+export type ProductIngredient = {
+  name: LocalizedString;
+  role: LocalizedString;
 };
 
 export type ProductBenefit = {
