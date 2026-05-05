@@ -16,6 +16,7 @@ import {
   UpsellAcceptedBanner,
 } from "@/components/thankyou";
 import { useCart } from "@/hooks/useCart";
+import { useUI } from "@/hooks/useUI";
 import { useLocale } from "@/hooks/useLocale";
 import { loadReceipt, type OrderReceipt } from "@/lib/order-receipt";
 import { resolveCartCrossSells } from "@/data/upsells";
@@ -47,6 +48,7 @@ export default function ThankYouPage({ params }: { params: Promise<Params> }) {
   const [hydrated, setHydrated] = useState(false);
 
   const clearCart = useCart((s) => s.clear);
+  const closeAllUI = useUI((s) => s.closeAll);
 
   useEffect(() => {
     setReceipt(loadReceipt(orderId));
@@ -54,7 +56,12 @@ export default function ThankYouPage({ params }: { params: Promise<Params> }) {
     // Cart is now an artifact of a completed order — close the loop on the
     // client. The order itself is durable on the server side.
     clearCart();
-  }, [orderId, clearCart]);
+    // Defensive cleanup. The checkout flow already closes its own modal
+    // before navigating, but if anything (a stray toggle, a back-nav from
+    // mid-funnel) left a surface open, kill it here so the buyer lands on
+    // a clean confirmation page with no popups in their face.
+    closeAllUI();
+  }, [orderId, clearCart, closeAllUI]);
 
   // Compute IDs to exclude from "Recommendations" so we don't show the same
   // cross-sells twice in a row.

@@ -119,6 +119,8 @@ export const dictionaries = {
         "خدمة الدفع عند الاستلام مفعّلة حالياً للعناوين داخل السعودية. لو كنت داخل المملكة وتشوف هذه الرسالة، جرّب إيقاف برنامج VPN ثم أعد التحميل.",
     },
     upsell: {
+      confirmedBadge: "تم تأكيد طلبك",
+      confirmedHint: "بنتصل بك لتأكيد العنوان. ما تدفع شي إلا عند الاستلام.",
       eyebrow: "عرض خاص بعد الطلب فقط — لا يتكرر",
       title: "أضفه بـ ٩٩ ريال الحين — هذا العرض ما يرجع.",
       subtitle: "اخترناه لأنه يكمّل روتينك ويزيد نتيجتك. الوقت ينتهي.",
@@ -481,6 +483,8 @@ export const dictionaries = {
         "Cash on delivery is enabled for KSA addresses only. If you're inside Saudi Arabia and seeing this, try disabling your VPN and reloading the page.",
     },
     upsell: {
+      confirmedBadge: "Order confirmed",
+      confirmedHint: "We'll call to confirm your address. You only pay on delivery.",
       eyebrow: "Exclusive post-order offer — never repeated",
       title: "Add it for 99 SAR right now — this offer won't come back.",
       subtitle: "Hand-picked to complete your routine and boost your results. Time is running out.",

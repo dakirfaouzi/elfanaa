@@ -17,7 +17,7 @@ export function CartSummary() {
   const subtotal = useCartSubtotal();
   const itemCount = useCartItemCount();
   const lines = useResolvedCartLines();
-  const openCheckout = useUI((s) => s.openCheckout);
+  const goToCheckout = useUI((s) => s.goToCheckout);
   const format = useFormatPrice();
 
   const onCheckout = () => {
@@ -25,7 +25,7 @@ export function CartSummary() {
       products: lines.map((l) => l.product),
       value: subtotal,
     });
-    openCheckout();
+    goToCheckout();
   };
 
   return (

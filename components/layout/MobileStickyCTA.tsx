@@ -35,7 +35,7 @@ export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStick
   const itemCount = useCartItemCount();
   const subtotal = useCartSubtotal();
   const hydrated = useCartHydrated();
-  const openCheckout = useUI((s) => s.openCheckout);
+  const goToCheckout = useUI((s) => s.goToCheckout);
   const cartOpen = useUI((s) => s.cartOpen);
   const checkoutOpen = useUI((s) => s.checkoutOpen);
   const format = useFormatPrice();
@@ -65,7 +65,7 @@ export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStick
       {hasItems ? (
         <button
           type="button"
-          onClick={openCheckout}
+          onClick={goToCheckout}
           className="pointer-events-auto flex h-[52px] w-full items-center justify-between gap-3 rounded-md bg-ink px-5 text-bg shadow-elevated active:scale-[0.99]"
         >
           <span className="inline-flex items-center gap-2 text-sm font-medium">

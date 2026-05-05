@@ -35,6 +35,7 @@ import {
 } from "@/lib/order-receipt";
 import type { CodOrderInput } from "@/lib/types";
 import { fetchGeoVerdict, type GeoVerdict } from "@/lib/geo";
+import { useCart } from "@/hooks/useCart";
 import { PostPurchaseUpsell } from "./PostPurchaseUpsell";
 
 type CheckoutScreen = "form" | "upsell";
@@ -62,9 +63,11 @@ export function CodCheckoutModal() {
   const { locale, t } = useLocale();
   const open = useUI((s) => s.checkoutOpen);
   const close = useUI((s) => s.closeCheckout);
+  const closeAll = useUI((s) => s.closeAll);
 
   const lines = useResolvedCartLines();
   const subtotal = useCartSubtotal();
+  const clearCart = useCart((s) => s.clear);
 
   const [screen, setScreen] = useState<CheckoutScreen>("form");
   const [status, setStatus] = useState<Status>("idle");
@@ -123,7 +126,20 @@ export function CodCheckoutModal() {
 
   const submit = async () => {
     setTouched({ fullName: true, phone: true });
-    if (!isValid) return;
+
+    // Always-clickable button → if anything is invalid, surface the inline
+    // errors AND pull the user's eye to the first broken field. This is
+    // what gives the "validate on click" UX its honest feedback loop:
+    // tapping "Place order" never silently does nothing.
+    if (!isValid) {
+      const firstBadKey: keyof FormState = errors.fullName ? "fullName" : "phone";
+      if (typeof document !== "undefined") {
+        const el = document.getElementById(firstBadKey) as HTMLInputElement | null;
+        el?.focus({ preventScroll: false });
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
 
     setStatus("submitting");
     const phoneCheck = validateSaudiPhone(form.phone);
@@ -203,6 +219,12 @@ export function CodCheckoutModal() {
       // The upsell screen may mutate this snapshot if the customer accepts.
       saveReceipt({ ...data.receipt, upsellStatus: "pending" });
 
+      // Order is durable on the server now — clear the local cart immediately
+      // so a stray cart-drawer open (or hard refresh mid-upsell) doesn't show
+      // the buyer items they've already paid for. The upsell screen reads from
+      // the receipt snapshot, not from the cart, so this is safe.
+      clearCart();
+
       setOrderId(data.orderId);
       setPurchasedProductIds(data.productIds);
       setStatus("idle");
@@ -223,7 +245,12 @@ export function CodCheckoutModal() {
     if (orderId && disposition !== "accepted") {
       setUpsellStatus(orderId, disposition);
     }
-    close();
+    // Use the all-in-one closer so the cart drawer can't be left dangling
+    // during the route transition. `closeCheckout()` alone is fine in
+    // theory (cart was already closed by `goToCheckout`), but anything
+    // could have re-opened it (the buyer tapped back, hot reload, etc.) —
+    // belt-and-braces avoids a flash on the way to /thank-you.
+    closeAll();
     if (orderId) {
       router.push(`/thank-you/${encodeURIComponent(orderId)}`);
     }
@@ -243,8 +270,14 @@ export function CodCheckoutModal() {
           <FormFooter
             onSubmit={submit}
             status={status}
+            // Always clickable when the order is *placeable* — validation
+            // errors do NOT disable the button. Clicking with an empty
+            // / invalid form runs `submit()`, which marks every field as
+            // touched and lets the inline error states do the talking.
+            // The only hard blockers are: no items in cart, the server
+            // already rejected this IP, or the soft client probe says the
+            // visitor is outside KSA / on a VPN.
             disabled={
-              !isValid ||
               lines.length === 0 ||
               status === "geo_blocked" ||
               geo?.allowed === false

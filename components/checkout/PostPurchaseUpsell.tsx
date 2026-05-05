@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Timer, Check, X, Clock } from "lucide-react";
+import { Sparkles, Timer, Check, X, Clock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useLocale } from "@/hooks/useLocale";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
@@ -194,6 +194,19 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
 
   return (
     <div className="space-y-6">
+      {/*
+        Order-confirmed bridge. Without this, the upsell reads as
+        "checkout step 2" — the buyer has already paid emotionally and
+        is now being asked to pay again, which feels like a trick. The
+        green confirmation strip reframes the moment: the order is DONE,
+        what follows is a one-time bonus, not another step.
+      */}
+      <OrderConfirmedBridge
+        title={t.upsell.confirmedBadge}
+        body={t.upsell.confirmedHint}
+        orderId={orderId}
+      />
+
       <UrgencyHeader
         expired={expired}
         secondsLeft={secondsLeft}
@@ -388,6 +401,50 @@ function UrgencyHeader({
           className={cn("h-full origin-start transition-[width] duration-100 ease-linear", barColor)}
           style={{ width: `${progress * 100}%` }}
         />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Tiny success strip that frames the upsell as a *bonus* moment, not a
+ * second checkout step. Three signals do the work:
+ *   • Green checkmark medallion → the order is locked in.
+ *   • Order ID (last 6 chars, LTR-forced) → durable proof.
+ *   • COD reassurance line → "you don't pay anything until delivery".
+ */
+function OrderConfirmedBridge({
+  title,
+  body,
+  orderId,
+}: {
+  title: string;
+  body: string;
+  orderId: string;
+}) {
+  const shortId = orderId ? orderId.slice(-6).toUpperCase() : "";
+  return (
+    <div className="flex items-start gap-3 rounded-md border border-success/25 bg-success/5 px-3 py-3">
+      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-success text-bg">
+        <Check className="size-4" strokeWidth={3} />
+      </span>
+      <div className="flex-1 space-y-0.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          {shortId ? (
+            <span
+              className="font-mono text-[11px] text-muted"
+              dir="ltr"
+              aria-label={`Order ID #${shortId}`}
+            >
+              #{shortId}
+            </span>
+          ) : null}
+        </div>
+        <p className="inline-flex items-center gap-1.5 text-[12px] text-muted">
+          <ShieldCheck className="size-3.5 shrink-0 text-success" aria-hidden />
+          {body}
+        </p>
       </div>
     </div>
   );
