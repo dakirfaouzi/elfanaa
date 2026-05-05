@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/layout/Container";
+import { Flourish } from "@/components/brand";
 import { useLocale } from "@/hooks/useLocale";
 import { track } from "@/lib/analytics";
 
@@ -36,18 +37,20 @@ export function UrgencyCta() {
 
       <Container>
         <div className="relative mx-auto max-w-2xl text-center">
+          <Flourish width={88} className="mx-auto mb-6 text-accent" />
+
           {/* Save badge */}
           <span className="inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-accent ring-1 ring-accent/25 backdrop-blur-sm">
             {t.urgencyCta.saveBadge}
           </span>
 
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-bg/60">
+          <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-bg/60">
             {t.urgencyCta.eyebrow}
           </p>
 
           <h2
             id="urgency-heading"
-            className="mt-3 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.08] tracking-tight md:text-5xl lg:text-[58px]"
+            className="mt-3 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.04] tracking-[-0.02em] md:text-5xl lg:text-[64px]"
           >
             {t.urgencyCta.title}
           </h2>

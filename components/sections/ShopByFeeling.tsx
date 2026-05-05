@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
+import { Wordmark, Flourish } from "@/components/brand";
 import { useLocale } from "@/hooks/useLocale";
 import { feelings } from "@/data/feelings";
 import { pickLocalized } from "@/lib/format";
@@ -18,24 +19,30 @@ import { track } from "@/lib/analytics";
  * DR moment — "this is me" — and it's what converts cold traffic
  * into a click far better than a generic "Shop by category" tray.
  *
- * Layout: 4 tiles, 2-up on mobile, 4-up on desktop, taller cards
- * (4:5) to read as editorial photography. The label sits in the
- * thumb-zone with a gradient so the words always win over the photo.
+ * The 4th tile is **branded** rather than imaged: it renders the
+ * wordmark + offer in rose-copper instead of stock photography.
+ * That gives the page a recurring brand-identity moment (the
+ * wordmark literally appears mid-scroll) and turns the highest-
+ * AOV tile into a self-contained offer card — no chair-shaped
+ * stock photo can sneak in.
  */
 export function ShopByFeeling() {
   const { t, locale } = useLocale();
 
   return (
-    <section className="py-16 md:py-24">
+    <section className="bg-bg py-20 md:py-32">
       <Container>
-        <header className="mb-10 max-w-2xl md:mb-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            {t.home.shopByFeelingEyebrow}
-          </p>
-          <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl lg:text-5xl">
+        <header className="mb-12 max-w-2xl md:mb-16">
+          <Flourish width={88} className="mb-5 text-accent" />
+          <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
+            <span className="text-accent/60">01</span>
+            <span className="h-px w-6 bg-line" aria-hidden />
+            <span className="text-accent">{t.home.shopByFeelingEyebrow}</span>
+          </div>
+          <h2 className="mt-4 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
             {t.home.shopByFeelingTitle}
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted md:text-base">
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted md:text-base">
             {t.home.shopByFeelingBody}
           </p>
         </header>
@@ -45,31 +52,77 @@ export function ShopByFeeling() {
             <li key={f.id}>
               <Link
                 href={f.href}
-                onClick={() => track("view_item", { surface: "shop_by_feeling", id: f.id })}
-                className="group relative block aspect-[4/5] overflow-hidden rounded-md bg-brand-soft shadow-card hover-lift focus-ring"
+                onClick={() =>
+                  track("view_item", { surface: "shop_by_feeling", id: f.id })
+                }
+                className="group relative block aspect-[4/5] overflow-hidden rounded-md shadow-card hover-lift focus-ring"
               >
-                <Image
-                  src={f.image.src}
-                  alt={pickLocalized(f.image.alt, locale)}
-                  fill
-                  sizes="(min-width: 1024px) 320px, 50vw"
-                  className="object-cover transition-transform duration-700 ease-premium group-hover:scale-[1.06]"
-                />
-                {/* Bottom gradient to lift label off any image */}
-                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
+                {f.branded ? (
+                  /* ──────────────── Branded card variant ──────────────── */
+                  <div className="relative h-full w-full bg-ink text-bg">
+                    {/* Rose-copper radial — pulls the eye to the wordmark */}
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgba(186,110,92,0.32),transparent_70%)]"
+                    />
+                    <div className="relative flex h-full flex-col items-center justify-between p-6 text-center md:p-7">
+                      {/* Save badge */}
+                      {f.saveBadge ? (
+                        <span className="inline-flex items-center rounded-full bg-accent/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent ring-1 ring-accent/30 backdrop-blur-sm md:text-[11px]">
+                          {pickLocalized(f.saveBadge, locale)}
+                        </span>
+                      ) : null}
 
-                <div className="absolute inset-x-0 bottom-0 p-4 text-bg md:p-5">
-                  <h3 className="font-display text-xl font-semibold tracking-tight md:text-2xl">
-                    {pickLocalized(f.label, locale)}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-bg/80 md:text-[13px]">
-                    {pickLocalized(f.caption, locale)}
-                  </p>
-                  <span className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-bg/95 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:text-[13px]">
-                    {locale === "ar" ? "اكتشف" : "Explore"}
-                    <ArrowLeft className="size-3.5 ltr:rotate-180" />
-                  </span>
-                </div>
+                      {/* Wordmark + offer */}
+                      <div className="my-auto flex flex-col items-center gap-3 md:gap-4">
+                        <Wordmark size="lg" tone="light" />
+                        <Flourish width={72} className="text-accent" />
+                        {f.amount ? (
+                          <p className="font-display text-3xl font-semibold tracking-tight md:text-4xl">
+                            {pickLocalized(f.amount, locale)}
+                          </p>
+                        ) : null}
+                        <p className="max-w-[180px] text-[12px] leading-snug text-bg/75 md:text-[13px]">
+                          {pickLocalized(f.caption, locale)}
+                        </p>
+                      </div>
+
+                      {/* CTA pill */}
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-bg/95 md:text-[13px]">
+                        {pickLocalized(f.label, locale)}
+                        <ArrowLeft className="size-3.5 ltr:rotate-180 transition-transform group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5" />
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* ──────────────── Image card variant ──────────────── */
+                  <>
+                    <div className="absolute inset-0 bg-brand-soft">
+                      <Image
+                        src={f.image.src}
+                        alt={pickLocalized(f.image.alt, locale)}
+                        fill
+                        sizes="(min-width: 1024px) 320px, 50vw"
+                        className="object-cover transition-transform duration-700 ease-premium group-hover:scale-[1.06]"
+                      />
+                    </div>
+                    {/* Bottom gradient to lift label off any image */}
+                    <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
+
+                    <div className="absolute inset-x-0 bottom-0 p-4 text-bg md:p-5">
+                      <h3 className="font-display text-xl font-semibold tracking-tight md:text-2xl">
+                        {pickLocalized(f.label, locale)}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-bg/80 md:text-[13px]">
+                        {pickLocalized(f.caption, locale)}
+                      </p>
+                      <span className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-bg/95 opacity-0 transition-opacity duration-300 group-hover:opacity-100 md:text-[13px]">
+                        {locale === "ar" ? "اكتشف" : "Explore"}
+                        <ArrowLeft className="size-3.5 ltr:rotate-180" />
+                      </span>
+                    </div>
+                  </>
+                )}
               </Link>
             </li>
           ))}

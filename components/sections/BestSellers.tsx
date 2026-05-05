@@ -19,14 +19,16 @@ export function BestSellers({ products }: BestSellersProps) {
   const { t, locale } = useLocale();
 
   return (
-    <section className="bg-surface py-16 md:py-24">
+    <section className="bg-surface py-20 md:py-32">
       <Container>
-        <header className="mb-10 flex items-end justify-between gap-6 md:mb-14">
+        <header className="mb-12 flex items-end justify-between gap-6 md:mb-16">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-              {t.home.bestSellersEyebrow}
-            </p>
-            <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.12] tracking-tight md:text-4xl lg:text-5xl">
+            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
+              <span className="text-accent/60">02</span>
+              <span className="h-px w-6 bg-line" aria-hidden />
+              <span className="text-accent">{t.home.bestSellersEyebrow}</span>
+            </div>
+            <h2 className="mt-4 whitespace-pre-line font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
               {t.home.bestSellersTitle}
             </h2>
           </div>

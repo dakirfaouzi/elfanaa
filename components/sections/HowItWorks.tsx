@@ -32,15 +32,17 @@ export function HowItWorks() {
   ];
 
   return (
-    <section className="bg-surface py-20 md:py-28" aria-labelledby="how-it-works-heading">
+    <section className="bg-surface py-20 md:py-32" aria-labelledby="how-it-works-heading">
       <Container>
-        <header className="mx-auto mb-14 max-w-2xl text-center md:mb-20">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            {t.howItWorks.eyebrow}
-          </p>
+        <header className="mx-auto mb-16 max-w-2xl text-center md:mb-20">
+          <div className="inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
+            <span className="text-accent/60">04</span>
+            <span className="h-px w-6 bg-line" aria-hidden />
+            <span className="text-accent">{t.howItWorks.eyebrow}</span>
+          </div>
           <h2
             id="how-it-works-heading"
-            className="mt-3 whitespace-pre-line font-display text-3xl font-semibold leading-[1.12] tracking-tight md:text-4xl lg:text-5xl"
+            className="mt-4 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]"
           >
             {t.howItWorks.title}
           </h2>
@@ -53,17 +55,17 @@ export function HowItWorks() {
           {/* Horizontal connecting hairline — desktop only, sits behind the dots */}
           <div
             aria-hidden
-            className="absolute start-[10%] end-[10%] top-7 hidden h-px bg-gradient-to-r from-transparent via-line to-transparent lg:block"
+            className="absolute start-[10%] end-[10%] top-8 hidden h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent lg:block"
           />
 
           <ol className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
             {steps.map(({ Icon, title, body }, i) => (
               <li key={i} className="relative flex flex-col items-center text-center">
-                {/* Numbered dot */}
-                <div className="relative z-10 mb-5 grid size-14 place-items-center rounded-full border border-line bg-bg shadow-card">
+                {/* Numbered dot — bg ring keeps the connecting hairline behind it */}
+                <div className="relative z-10 mb-6 grid size-16 place-items-center rounded-full bg-bg shadow-card ring-1 ring-accent/25">
                   <Icon className="size-5 text-accent" strokeWidth={1.6} />
                   <span
-                    className="absolute -top-1.5 end-[-6px] grid size-6 place-items-center rounded-full bg-accent text-[11px] font-bold text-bg shadow-sm rtl:end-auto rtl:start-[-6px]"
+                    className="absolute -top-2 end-[-8px] grid size-7 place-items-center rounded-full bg-accent text-[11px] font-bold text-bg shadow-sm rtl:end-auto rtl:start-[-8px]"
                     aria-hidden
                   >
                     {i + 1}

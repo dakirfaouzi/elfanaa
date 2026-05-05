@@ -5,10 +5,16 @@ import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
 
 /**
- * Trust strip — three pillars rendered as compact, equal-weight cards.
+ * Trust strip — three pillars between the hero and the problem-ID tiles.
  *
- * Research: keep the trust band ≤150px tall, three pillars max, one short
- * sentence each. Goal: answer "is this brand trustworthy?" in <2 seconds.
+ * Each pillar is a *benefit-led* title plus one short body line. The
+ * icons are wrapped in a rose-copper-tinted ring so the whole strip
+ * carries the brand colour at a glance, anchoring the page's identity
+ * before the user scrolls into the editorial sections below.
+ *
+ * Research: keep the trust band ≤150px tall, three pillars max, one
+ * short sentence each. Goal: answer "is this brand trustworthy?" in
+ * < 2 seconds.
  */
 export function TrustStrip() {
   const { t } = useLocale();
@@ -19,22 +25,25 @@ export function TrustStrip() {
   ];
 
   return (
-    <section aria-labelledby="trust-heading" className="border-y border-line bg-surface">
+    <section
+      aria-labelledby="trust-heading"
+      className="border-y border-line bg-surface"
+    >
       <Container>
         <h2 id="trust-heading" className="sr-only">
           {t.home.trustEyebrow}
         </h2>
-        <ul className="grid gap-x-8 gap-y-8 py-10 md:grid-cols-3 md:gap-x-12 md:py-14">
+        <ul className="grid gap-x-8 gap-y-8 py-12 md:grid-cols-3 md:gap-x-12 md:py-16">
           {items.map(({ icon: Icon, title, body }) => (
             <li key={title} className="flex items-start gap-4">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft text-ink">
-                <Icon className="size-5" strokeWidth={1.5} />
+              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/25">
+                <Icon className="size-5" strokeWidth={1.6} />
               </span>
               <div>
-                <h3 className="text-[15px] font-semibold tracking-tight text-ink">
+                <h3 className="text-[15px] font-semibold tracking-tight text-ink md:text-base">
                   {title}
                 </h3>
-                <p className="mt-1 text-sm leading-relaxed text-muted">{body}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{body}</p>
               </div>
             </li>
           ))}

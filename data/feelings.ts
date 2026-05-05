@@ -23,6 +23,22 @@ export type Feeling = {
   caption: LocalizedString;
   href: string;
   image: { src: string; alt: LocalizedString };
+  /**
+   * Render this tile as a *branded card* (wordmark + offer line, no image).
+   * Reserved for the bundle/routine tile — turns the highest-AOV slot into
+   * a recurring brand-identity moment instead of an extra stock photo.
+   */
+  branded?: boolean;
+  /**
+   * Headline-style figure shown on a branded card (e.g. "349 SAR").
+   * Only used when `branded` is true.
+   */
+  amount?: LocalizedString;
+  /**
+   * Save-amount badge shown on a branded card (e.g. "Save 248 SAR").
+   * Only used when `branded` is true.
+   */
+  saveBadge?: LocalizedString;
 };
 
 export const feelings: Feeling[] = [
@@ -67,14 +83,18 @@ export const feelings: Feeling[] = [
   },
   {
     id: "bundle",
-    label: { ar: "الكل في روتين واحد", en: "All in one routine" },
+    label: { ar: "الروتين الكامل", en: "The full routine" },
     caption: {
-      ar: "اطلب الثلاثة بـ ٣٤٩ ريال — وفّر ٢٤٨ ريال. الأكثر مبيعاً.",
-      en: "Order all three for 349 SAR — save 248. Our best-selling routine.",
+      ar: "السيروم + الزيت + القناع. الأكثر مبيعاً.",
+      en: "Serum + oil + mask. Our best-selling bundle.",
     },
     href: "/shop",
+    branded: true,
+    amount: { ar: "٣٤٩ ر.س", en: "349 SAR" },
+    saveBadge: { ar: "وفّر ٢٤٨", en: "Save 248" },
+    /* Image kept as a fallback only — the branded variant ignores it. */
     image: {
-      src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=1400&q=80",
+      src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=80",
       alt: { ar: "روتين العناية الكامل", en: "Complete care routine" },
     },
   },

@@ -25,14 +25,16 @@ export function Testimonials() {
   const picks = pickReviews();
 
   return (
-    <section className="bg-bg py-16 md:py-24">
+    <section className="bg-bg py-20 md:py-32">
       <Container>
-        <div className="grid gap-10 lg:grid-cols-[360px_1fr] lg:gap-16">
+        <div className="grid gap-12 lg:grid-cols-[360px_1fr] lg:gap-16">
           <header className="max-w-md">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-              {t.testimonials.eyebrow}
-            </p>
-            <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.12] tracking-tight md:text-4xl lg:text-5xl">
+            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
+              <span className="text-accent/60">03</span>
+              <span className="h-px w-6 bg-line" aria-hidden />
+              <span className="text-accent">{t.testimonials.eyebrow}</span>
+            </div>
+            <h2 className="mt-4 whitespace-pre-line font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
               {t.testimonials.title}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted md:text-[17px]">
