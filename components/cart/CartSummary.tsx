@@ -47,7 +47,7 @@ export function CartSummary() {
         fullWidth
         disabled={itemCount === 0}
       >
-        {t.common.checkout} · {format(subtotal)}
+        {t.cart.checkoutCta} · {format(subtotal)}
       </Button>
 
       <ul className="flex items-center justify-center gap-5 text-[11px] text-muted">

@@ -32,10 +32,6 @@ const TIER_OFFER = {
   unit: { amount: 19900, currency: C },
 } as const;
 
-const SIGNATURE_BADGE = {
-  ar: "عرض ٣ بسعر مميز",
-  en: "3-pack offer",
-} as const;
 
 export const products: Product[] = [
   /* ──────────────────────────────────────────────────────────
@@ -79,7 +75,10 @@ export const products: Product[] = [
     },
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
-    badges: [SIGNATURE_BADGE, { ar: "الأكثر مبيعاً", en: "Best seller" }],
+    badges: [
+      { ar: "الأكثر طلباً في السعودية", en: "Most ordered in KSA" },
+      { ar: "نتائج خلال ١٤ يوم", en: "Results in 14 days" },
+    ],
     rating: { value: 4.9, count: 312 },
     collection: "skincare",
     upsellIds: ["p_002", "p_003"],
@@ -250,7 +249,10 @@ export const products: Product[] = [
     },
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
-    badges: [SIGNATURE_BADGE, { ar: "للرجال", en: "For men" }],
+    badges: [
+      { ar: "للرجال", en: "For men" },
+      { ar: "بدون لمعة — جاف الامتصاص", en: "No shine — dry absorption" },
+    ],
     rating: { value: 4.8, count: 187 },
     collection: "grooming",
     upsellIds: ["p_001", "p_003"],
@@ -421,7 +423,10 @@ export const products: Product[] = [
     },
     price: TIER_OFFER.unit,
     offerTiers: [...TIER_OFFER.tiers],
-    badges: [SIGNATURE_BADGE, { ar: "للنساء", en: "For women" }],
+    badges: [
+      { ar: "للنساء", en: "For women" },
+      { ar: "ترطيب من أول استخدام", en: "Softness from first use" },
+    ],
     rating: { value: 4.9, count: 241 },
     collection: "haircare",
     upsellIds: ["p_001", "p_002"],

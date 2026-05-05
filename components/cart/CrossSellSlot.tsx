@@ -12,7 +12,7 @@ import { CrossSellCard } from "./CrossSellCard";
  * highest attach-rate without pushing the checkout CTA below the mobile fold.
  */
 export function CrossSellSlot({ max = 2 }: { max?: number }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const items = useCartCrossSells(max);
 
   useEffect(() => {
@@ -24,12 +24,17 @@ export function CrossSellSlot({ max = 2 }: { max?: number }) {
   if (items.length === 0) return null;
 
   return (
-    <section aria-label="Cross-sell" className="border-t border-line px-5 py-4">
-      <header className="mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-          {t.cart.youMightAlsoLike}
-        </h3>
-        <p className="mt-0.5 text-[11px] text-muted/80">{t.cart.crossSellHint}</p>
+    <section aria-label="Cross-sell" className="border-t border-line bg-brand-soft/60 px-5 py-4">
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[13px] font-semibold text-ink">
+            {t.cart.youMightAlsoLike}
+          </h3>
+          <p className="mt-0.5 text-[11px] text-muted">{t.cart.crossSellHint}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-accent/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+          {locale === "ar" ? "وفّر أكثر" : "Save more"}
+        </span>
       </header>
       <div className="space-y-2">
         {items.map((p) => (

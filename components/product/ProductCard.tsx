@@ -99,12 +99,12 @@ export function ProductCard({
                 {justAdded ? (
                   <>
                     <Check className="size-4" />
-                    {locale === "ar" ? "تمت الإضافة" : "Added"}
+                    {locale === "ar" ? "✓ تمت الإضافة" : "✓ Added"}
                   </>
                 ) : (
                   <>
                     <ShoppingBag className="size-4" />
-                    {locale === "ar" ? "إضافة سريعة" : "Quick add"}
+                    {locale === "ar" ? "اطلب الحين" : "Order now"}
                   </>
                 )}
               </button>
@@ -112,21 +112,29 @@ export function ProductCard({
           ) : null}
         </div>
 
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-medium text-ink">{title}</h3>
-            {product.rating ? (
-              <p className="mt-0.5 text-xs text-muted tabular-nums">
-                ★ {product.rating.value.toFixed(1)} · {product.rating.count}
-              </p>
-            ) : null}
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-ink">{title}</h3>
+              {/* Emotional hook — first line of headline, shown in accent colour */}
+              {product.headline && (
+                <p className="mt-0.5 line-clamp-1 text-[12px] font-medium text-accent">
+                  {pickLocalized(product.headline, locale).split("\n")[0]}
+                </p>
+              )}
+              {product.rating ? (
+                <p className="mt-0.5 text-[11px] text-muted tabular-nums">
+                  ★ {product.rating.value.toFixed(1)} · {product.rating.count}
+                </p>
+              ) : null}
+            </div>
+            <Price
+              price={product.price}
+              compareAtPrice={product.compareAtPrice}
+              size="sm"
+              className="shrink-0"
+            />
           </div>
-          <Price
-            price={product.price}
-            compareAtPrice={product.compareAtPrice}
-            size="sm"
-            className="shrink-0"
-          />
         </div>
       </Link>
     </article>
