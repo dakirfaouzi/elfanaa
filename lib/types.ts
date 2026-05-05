@@ -58,8 +58,8 @@ export type Product = {
   /**
    * Strong emotional headline shown on the PDP — overrides the product
    * `title` for the H1. The title still drives metadata and the cart UI;
-   * the headline drives conversion ("Turn your majlis into a story your
-   * guests remember", not "Majlis Floor Cushion").
+   * the headline drives conversion ("Spots fade. Glow arrives.",
+   * not "Glow Serum").
    */
   headline?: LocalizedString;
 

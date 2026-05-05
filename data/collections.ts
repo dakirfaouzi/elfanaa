@@ -5,28 +5,35 @@ const byCollection = (slug: string) =>
   products.filter((p) => p.collection === slug).map((p) => p.id);
 
 /**
- * Collections at launch — one per signature product, plus an "all"
- * landing surface. Keeping the count small keeps the nav calm; a
- * Pottery Barn-redesign finding cited inside `Header.tsx`.
+ * Collections at launch — Health & Beauty edition.
+ *
+ * Three categories, one per signature product. Each slug matches the
+ * `collection` field in `data/products.ts` so nav links filter to a
+ * non-empty result.
+ *
+ * Order is intentional:
+ *   1. Skincare  — broadest appeal, unisex, the hero category.
+ *   2. Haircare  — second-most-trafficked H&B category in KSA.
+ *   3. Grooming  — narrower (men's), placed last to anchor the men's path.
  */
 export const collections: Collection[] = [
   {
-    id: "c_majlis",
-    slug: "majlis",
-    title: { ar: "المجلس", en: "Majlis" },
-    productIds: byCollection("majlis"),
+    id: "c_skincare",
+    slug: "skincare",
+    title: { ar: "العناية بالبشرة", en: "Skincare" },
+    productIds: byCollection("skincare"),
   },
   {
-    id: "c_lighting",
-    slug: "lighting",
-    title: { ar: "الإنارة", en: "Lighting" },
-    productIds: byCollection("lighting"),
+    id: "c_haircare",
+    slug: "haircare",
+    title: { ar: "العناية بالشعر", en: "Haircare" },
+    productIds: byCollection("haircare"),
   },
   {
-    id: "c_decor",
-    slug: "decor",
-    title: { ar: "الديكور", en: "Decor" },
-    productIds: byCollection("decor"),
+    id: "c_grooming",
+    slug: "grooming",
+    title: { ar: "العناية الرجالية", en: "Men's grooming" },
+    productIds: byCollection("grooming"),
   },
 ];
 

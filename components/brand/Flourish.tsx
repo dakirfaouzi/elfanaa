@@ -9,8 +9,9 @@ type Props = Omit<SVGProps<SVGSVGElement>, "width" | "height"> & {
 
 /**
  * The decorative bar separating the wordmark from the tagline in the
- * full lockup. Two rules, two dots, one diamond — the same ornament that
- * sits between "الفناء" and "تفاصيل تصنع الفخامة" on the master logo.
+ * full lockup. A minimal hairline divider with a single rose-copper
+ * centre dot — the same ornament that sits between "فناء" and the
+ * tagline "أصلك يطلع من جوّاك" on the master logo.
  *
  * Lives independently from `<Logo />` so it can be reused inside section
  * eyebrows, certificate copy, and email signatures without dragging the
@@ -29,11 +30,9 @@ export function Flourish({ width = 120, className, ...rest }: Props) {
       {...rest}
     >
       <g stroke="currentColor" strokeWidth="0.6" strokeLinecap="round" fill="currentColor">
-        <line x1="6" y1="5" x2="50" y2="5" stroke="currentColor" />
-        <line x1="70" y1="5" x2="114" y2="5" stroke="currentColor" />
-        <circle cx="53.5" cy="5" r="0.85" stroke="none" />
-        <circle cx="66.5" cy="5" r="0.85" stroke="none" />
-        <path d="M56.5 5 L60 1.5 L63.5 5 L60 8.5 Z" stroke="none" />
+        <line x1="6" y1="5" x2="56" y2="5" stroke="currentColor" />
+        <line x1="64" y1="5" x2="114" y2="5" stroke="currentColor" />
+        <circle cx="60" cy="5" r="1.4" stroke="none" />
       </g>
     </svg>
   );

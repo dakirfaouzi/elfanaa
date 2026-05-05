@@ -18,7 +18,7 @@ export function AboutHero() {
     <section className="relative overflow-hidden bg-brand-soft">
       <div className="relative h-[64vh] min-h-[480px] w-full md:h-[72vh] md:min-h-[560px]">
         <Image
-          src="https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=2400&q=85"
+          src="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=2400&q=85"
           alt={t.about.heroEyebrow}
           fill
           priority

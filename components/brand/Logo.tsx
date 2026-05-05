@@ -46,10 +46,10 @@ type Props = {
    */
   taglineClassName?: string;
   /**
-   * `light` flips the wordmark to cream and softens the mark/tagline so
-   * the lockup reads on dark/photo backgrounds (the homepage hero).
-   * `auto` (default) inherits brand ink for use on cream surfaces, and
-   * paints the mark + tagline in antique brass.
+   * `light` flips the wordmark to alabaster and softens the mark/tagline
+   * so the lockup reads on dark/photo backgrounds (the homepage hero).
+   * `auto` (default) inherits brand ink for use on alabaster surfaces,
+   * and paints the mark + tagline in rose copper.
    */
   tone?: LogoTone;
   /** Render as a non-link — for use inside h1s, OG renders, etc. */
@@ -63,7 +63,7 @@ type Props = {
 };
 
 /**
- * The ELFANAA brand lockup.
+ * The FANAA brand lockup.
  *
  * Why a dedicated component:
  *   • The brand surface needs to feel *identical* across the header,

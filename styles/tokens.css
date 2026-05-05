@@ -1,11 +1,11 @@
 /**
- * Design tokens — single source of truth for ELFANAA's visual language.
+ * Design tokens — single source of truth for FANAA's visual language.
  *
  * Palette story: alabaster × charcoal × rose copper.
  *
- * Health & Beauty brand for Saudi Arabia.
- * The palette carries warmth (KSA context, luxury feel) but shifts the
- * tint from amber/limestone (home decor) to blush/rose (skin, beauty).
+ * Premium Health & Beauty brand for Saudi Arabia. Warm enough to feel
+ * authentically Arabic, clean enough to read as skincare. Every value
+ * is hand-picked to feel premium without trying.
  *
  *   bg         → alabaster white with the faintest blush tint
  *   surface    → blush ivory — cards, drawers, modals
@@ -14,9 +14,6 @@
  *   muted      → warm rose-taupe — readable secondary text
  *   line       → blush mist — hairline borders, dividers
  *   accent     → rose copper — links, hover states, trust badges
- *
- * The shift from brass (furniture) to rose copper (beauty) is the
- * single most important color decision in this palette.
  *
  * Format note: values are space-separated R G B triplets so Tailwind can
  * compose alpha through `rgb(var(--token) / <alpha-value>)`. Never bake

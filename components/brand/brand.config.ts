@@ -1,5 +1,5 @@
 /**
- * ELFANAA — Brand identity rules (single source of truth).
+ * FANAA — Brand identity rules (single source of truth).
  *
  * Everything that describes *how* the brand should be presented lives
  * here. The components in this folder consume these constants; one file
@@ -13,7 +13,7 @@
  *   • Hero:    use the full primary lockup with the *stacked* tagline,
  *              `tone="light"` for legibility on photography.
  *   • Favicon: the icon-only variant (mark) at `app/icon.svg`.
- *   • Body copy: NEVER place the lockup mid-flow — refer to "الفناء" as
+ *   • Body copy: NEVER place the lockup mid-flow — refer to "فناء" as
  *              text, never as an inline image.
  *   • Co-branding: leave clearspace ≥ the height of the mark on every
  *              side. Never crop, recolour outside the approved palette,
@@ -27,7 +27,7 @@
  * Approved palette tokens (see `styles/tokens.css`):
  *   • Wordmark on light surfaces  → `text-ink`
  *   • Wordmark on dark surfaces   → `text-bg`
- *   • Mark + tagline + flourish   → `text-accent` (antique brass)
+ *   • Mark + tagline + flourish   → `text-accent` (rose copper)
  *
  * Forbidden:
  *   • Outlining the wordmark.

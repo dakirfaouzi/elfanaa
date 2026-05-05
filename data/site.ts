@@ -10,18 +10,19 @@ import type { LocalizedString } from "@/lib/types";
  *
  * About the name — فناء (Fanaa)
  * --------------------------------
- * "فناء" carries a layered meaning in Arabic: a courtyard (the open heart of
- * a home), and a Sufi concept of inner dissolution — losing the self to find
- * a deeper truth. For a Health & Beauty brand, this translates beautifully:
- * "Your beauty starts from within." The name is premium, minimal, and
- * authentically Arabic — matching the brand's KSA-first positioning.
+ * "فناء" is a single-word Arabic name for a Health & Beauty brand. In
+ * the Sufi tradition it means "dissolution of the self" — letting go
+ * of what isn't yours so what is yours can show. For a beauty brand
+ * this maps cleanly to the promise: real care, real ingredients, real
+ * confidence. Premium, minimal, authentically Arabic, and short enough
+ * to live cleanly on packaging — three letters do more work than five.
  */
 export const siteConfig = {
   /** Display name shown in the header, footer, metadata, and emails. */
-  name: { ar: "الفناء", en: "ELFANAA" } satisfies LocalizedString,
+  name: { ar: "فناء", en: "FANAA" } satisfies LocalizedString,
 
   /**
-   * Brand tagline — the one line that follows الفناء everywhere.
+   * Brand tagline — the one line that follows فناء everywhere.
    *
    * Used in three places only (consistency rule):
    *   1. Hero lockup, beneath the brand name.

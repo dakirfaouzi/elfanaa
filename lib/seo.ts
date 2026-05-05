@@ -98,29 +98,35 @@ export function pageMetadata(input: PageMetadataInput = {}): Metadata {
 }
 
 /**
- * Site-wide brand keywords. Tuned for KSA home & garden search intent — short,
- * specific, and reflective of the brand's positioning around the courtyard,
- * outdoor living, and premium calm.
+ * Site-wide brand keywords. Tuned for KSA Health & Beauty search intent —
+ * short, specific, and reflective of the brand's positioning around
+ * lab-tested skincare, men's grooming, and women's haircare for the
+ * Arabian Peninsula climate.
  */
 function keywordsFor(locale: Locale): string[] {
   const ar = [
-    "الفناء",
-    "أثاث فناء",
-    "أثاث حديقة",
-    "ديكور بيت",
-    "أثاث خارجي",
-    "مجلس عربي",
-    "ركن قهوة",
-    "تصميم منازل السعودية",
+    "فناء",
+    "عناية بالبشرة السعودية",
+    "سيروم تفتيح",
+    "علاج التبقّع",
+    "زيت لحية",
+    "عناية رجالية",
+    "قناع شعر مرطب",
+    "منتجات تجميل للرجال والنساء",
+    "مستحضرات تجميل ادفع عند الاستلام",
+    "عناية البشرة المناخ السعودي",
   ];
   const en = [
-    "Elfanaa",
-    "Saudi outdoor furniture",
-    "courtyard furniture",
-    "GCC home and garden",
-    "majlis decor",
-    "premium home Saudi Arabia",
-    "patio furniture KSA",
+    "Fanaa",
+    "Saudi skincare",
+    "KSA beauty",
+    "dark spot serum Saudi",
+    "men's beard oil KSA",
+    "deep hair mask Saudi",
+    "lab tested skincare Arabia",
+    "cash on delivery skincare KSA",
+    "Saudi men grooming",
+    "Arabian climate skincare",
   ];
   return locale === "ar" ? ar : en;
 }

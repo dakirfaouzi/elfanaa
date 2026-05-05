@@ -8,7 +8,7 @@ import type { Locale } from "../types";
 export const dictionaries = {
   ar: {
     common: {
-      brand: "الفناء",
+      brand: "فناء",
       tagline: "أصلك يطلع من جوّاك",
       shopNow: "اطلب الآن",
       addToCart: "أضف إلى السلة",
@@ -45,12 +45,12 @@ export const dictionaries = {
       bestSellersEyebrow: "+٢٤٠٠ عميل سعودي جرّبوا وعادوا",
       bestSellersTitle: "الأكثر طلباً — بنتائج تثبت نفسها.",
       bestSellersCta: "تسوّق الكل",
-      storyEyebrow: "حكاية فناء",
+      storyEyebrow: "حكايتنا",
       storyTitle: "جلدك ما يستحق منتجاً صُنع لمناخ ثاني.",
       storyHook: "وش لو كان في منتج صُنع لجلدك أنت؟",
       storyBody:
-        "الحرارة، الغبار، والتكييف — ثلاثة أعداء تسرق رطوبة بشرتك يومياً. جرّبنا منتجات غربية كثيرة ما صُمّمت لهذا المناخ. فقررنا نبني فناء: منتجات عناية مختبرة خصيصاً لظروف الجزيرة العربية. لا مواد ضارة، لا وعود كاذبة — فقط نتائج تحسّها بعينك.",
-      storyCta: "اقرأ حكاية فناء كاملة",
+        "الحرارة، الغبار، والتكييف — ثلاثة أعداء تسرق رطوبة بشرتك يومياً. جرّبنا منتجات غربية كثيرة ما صُمّمت لهذا المناخ. فقررنا نطلق علامة فناء: منتجات عناية مختبرة خصيصاً لظروف الجزيرة العربية. لا مواد ضارة، لا وعود كاذبة — فقط نتائج تحسّها بعينك.",
+      storyCta: "اقرأ حكايتنا كاملة",
       trustEyebrow: "وعدنا لك",
     },
     trust: {
@@ -254,7 +254,7 @@ export const dictionaries = {
     },
     testimonials: {
       eyebrow: "آراء حقيقية",
-      title: "أكثر من ٢٤٠٠ عميل سعودي اختاروا فناء.",
+      title: "أكثر من ٢٤٠٠ عميل سعودي اختاروا علامة فناء.",
       body: "من الرياض إلى جدة إلى الدمام — تجارب حقيقية، نتائج واضحة، ودفع عند الاستلام.",
       ratingTitle: "متوسط ٤٫٩ من ٥",
       ratingSubtitle: "بناءً على ٧٤٠ تقييم",
@@ -279,21 +279,21 @@ export const dictionaries = {
         "كل ما طلبت أكثر، وفّرت أكثر. وحدة بـ ١٩٩، اثنتين بـ ٢٧٩، وثلاث بـ ٣٤٩ ريال — مع توصيل وإرجاع مجاني خلال ١٤ يوم.",
     },
     about: {
-      heroEyebrow: "حكاية فناء",
-      heroTitle: "بنينا فناء لأن\nالمناخ السعودي ما يرحم.",
+      heroEyebrow: "حكايتنا",
+      heroTitle: "أطلقنا فناء لأن\nالمناخ السعودي ما يرحم.",
       heroBody:
-        "الحرارة، الغبار، والتكييف — ثلاثة تحديات يواجهها كل شخص في المملكة كل يوم. جرّبنا منتجات كثيرة ما صُمّمت لهذا المناخ. قررنا نبني فناء.",
+        "الحرارة، الغبار، والتكييف — ثلاثة تحديات يواجهها كل شخص في المملكة كل يوم. جرّبنا منتجات كثيرة ما صُمّمت لهذا المناخ. فقررنا نبدأ من الصفر، ونطلق علامة فناء.",
       manifestoEyebrow: "إيماننا",
       manifestoTitle: "أصلك يطلع من جوّاك.",
       manifestoBody:
-        "ما نؤمن إن الجمال يجي من غطاء. يجي من عناية حقيقية، من مكوّنات مختبرة، من منتج صُنع لجلدك أنت — مو لبشرة أوروبية في مناخ بارد. كل منتج في فناء يمر على ثلاثة أسئلة: هل مكوّناته آمنة ومختبرة؟ هل يصلح للمناخ السعودي؟ هل نتائجه حقيقية؟ ما نطرح منتجاً إلا لما يجاوب عن الثلاثة بنعم.",
+        "ما نؤمن إن الجمال يجي من غطاء. يجي من عناية حقيقية، من مكوّنات مختبرة، من منتج صُنع لجلدك أنت — مو لبشرة أوروبية في مناخ بارد. كل منتج عندنا يمر على ثلاثة أسئلة: هل مكوّناته آمنة ومختبرة؟ هل يصلح للمناخ السعودي؟ هل نتائجه حقيقية؟ ما نطرح منتجاً إلا لما يجاوب عن الثلاثة بنعم.",
       pillarsEyebrow: "ثلاث قواعد، بدون استثناء",
       pillar1Title: "مكونات آمنة ومختبرة",
       pillar1Body:
-        "كل منتج في فناء مختبر ومعتمد — بدون بارابين، بدون تبييض كيميائي قاسٍ، بدون مواد ضارة. نختصر في الهامش، ما نختصر في الجودة.",
+        "كل منتج عندنا مختبر ومعتمد — بدون بارابين، بدون تبييض كيميائي قاسٍ، بدون مواد ضارة. نختصر في الهامش، ما نختصر في الجودة.",
       pillar2Title: "مصمّم للمناخ السعودي",
       pillar2Body:
-        "المنتجات الغربية صُمّمت لمناخ مختلف. فناء يبني تركيباته خصيصاً للحرارة والجفاف والشمس التي يعيشها كل سعودي يومياً.",
+        "المنتجات الغربية صُمّمت لمناخ مختلف. نبني تركيباتنا خصيصاً للحرارة والجفاف والشمس التي يعيشها كل سعودي يومياً.",
       pillar3Title: "نتائج حقيقية لا وعود",
       pillar3Body:
         "ما نبيع بالصور الجميلة — نبيع بتجارب عملائنا الحقيقية. أكثر من ٢٤٠٠ عميل سعودي جرّبوا وعادوا. هذا هو دليلنا.",
@@ -338,7 +338,7 @@ export const dictionaries = {
   },
   en: {
     common: {
-      brand: "ELFANAA",
+      brand: "FANAA",
       tagline: "Your beauty starts from within.",
       shopNow: "Shop now",
       addToCart: "Add to cart",
@@ -375,12 +375,12 @@ export const dictionaries = {
       bestSellersEyebrow: "2,400+ Saudi customers tried and came back",
       bestSellersTitle: "Most ordered — results that prove themselves.",
       bestSellersCta: "Shop all",
-      storyEyebrow: "The Elfanaa story",
+      storyEyebrow: "Our story",
       storyTitle: "Your skin doesn't deserve a product made for a different climate.",
       storyHook: "What if there was a product made for your skin?",
       storyBody:
-        "Heat, dust, and AC — three forces stealing your skin's moisture every day. We tried many Western products not built for this climate. So we built Elfanaa: skincare formulated specifically for the Arabian Peninsula. No harmful ingredients, no empty promises — only results you see with your own eyes.",
-      storyCta: "Read the full Elfanaa story",
+        "Heat, dust, and AC — three forces stealing your skin's moisture every day. We tried many Western products not built for this climate. So we launched Fanaa: skincare formulated specifically for the Arabian Peninsula. No harmful ingredients, no empty promises — only results you see with your own eyes.",
+      storyCta: "Read our full story",
       trustEyebrow: "Our promise",
     },
     trust: {
@@ -579,7 +579,7 @@ export const dictionaries = {
     },
     testimonials: {
       eyebrow: "Real reviews",
-      title: "Over 2,400 Saudi customers chose Elfanaa.",
+      title: "Over 2,400 Saudi customers chose Fanaa.",
       body: "From Riyadh to Jeddah to Dammam — real experiences, visible results, and cash on delivery.",
       ratingTitle: "4.9 / 5 average",
       ratingSubtitle: "Based on 740 reviews",
@@ -604,21 +604,21 @@ export const dictionaries = {
         "The more you order, the more you save. 1 for 199, 2 for 279, 3 for 349 — free shipping and 14-day returns included.",
     },
     about: {
-      heroEyebrow: "The Elfanaa story",
-      heroTitle: "We built Elfanaa because\nthe Saudi climate is unforgiving.",
+      heroEyebrow: "Our story",
+      heroTitle: "We launched Fanaa because\nthe Saudi climate is unforgiving.",
       heroBody:
-        "Heat, dust, and AC — three challenges every person in Saudi Arabia faces daily. We tried many products not designed for this climate. So we built Elfanaa.",
+        "Heat, dust, and AC — three challenges every person in Saudi Arabia faces daily. We tried many products not designed for this climate. So we started from scratch and launched Fanaa.",
       manifestoEyebrow: "What we believe",
       manifestoTitle: "Your beauty starts from within.",
       manifestoBody:
-        "We don't believe beauty comes from a cover. It comes from real care, tested ingredients, and a product made for your skin — not for a European skin type in a cold climate. Every Elfanaa product answers three questions: are the ingredients safe and tested? Is it formulated for the Saudi climate? Are the results real? We don't launch a product until all three answer yes.",
+        "We don't believe beauty comes from a cover. It comes from real care, tested ingredients, and a product made for your skin — not for a European skin type in a cold climate. Every product we ship answers three questions: are the ingredients safe and tested? Is it formulated for the Saudi climate? Are the results real? We don't launch a product until all three answer yes.",
       pillarsEyebrow: "Three rules, no exceptions",
       pillar1Title: "Safe, lab-tested ingredients",
       pillar1Body:
-        "Every Elfanaa product is tested and certified — no parabens, no harsh chemical bleaching, no harmful substances. We cut margins, not quality.",
+        "Every product we ship is tested and certified — no parabens, no harsh chemical bleaching, no harmful substances. We cut margins, not quality.",
       pillar2Title: "Formulated for Saudi climate",
       pillar2Body:
-        "Western products are designed for different weather. Elfanaa builds formulas specifically for the heat, dryness, and sun every Saudi faces daily.",
+        "Western products are designed for different weather. We build our formulas specifically for the heat, dryness, and sun every Saudi faces daily.",
       pillar3Title: "Real results, not promises",
       pillar3Body:
         "We don't sell beautiful imagery — we sell through our customers' real experiences. Over 2,400 Saudi customers tried and came back. That is our proof.",

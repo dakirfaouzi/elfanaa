@@ -14,12 +14,14 @@ type Props = {
 };
 
 /**
- * The brand wordmark — "الفناء" / "ELFANAA".
+ * The brand wordmark — "فناء" / "FANAA".
  *
  * Locale-aware typography:
  *   • Arabic uses the classical Naskh display face (`font-arabic-display`),
- *     mapped to **Amiri** in `app/layout.tsx` to match the calligraphic
- *     letterforms of the master logo.
+ *     mapped to **Amiri** in `app/layout.tsx`. The Naskh letterforms
+ *     keep the wordmark feeling premium and authentically Arabic, but
+ *     the shorter glyph ("فناء" — three letters) reads cleaner in
+ *     beauty packaging contexts than the older "الفناء" (five letters).
  *   • Latin uses **Cormorant Garamond** with editorial small-caps tracking
  *     (`0.18–0.22em`). The tracking value scales with size — larger
  *     wordmarks can carry tighter spacing.

@@ -17,7 +17,7 @@
  *   2.  Score each candidate against the order's product mix:
  *         + 50  curated upsell (in `upsellIds` of any cart item)
  *         + 30  same collection as a cart item
- *         + 20  complementary collection (e.g. living → lighting)
+ *         + 20  complementary collection (e.g. skincare → grooming)
  *         + 10  inside the "ideal" 2x–4x anchor band (best-feeling discount)
  *         +  R  product rating count, log-scaled, as a tiebreaker
  *

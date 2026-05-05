@@ -58,7 +58,7 @@ export const products: Product[] = [
     images: [
       {
         src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=1400&q=85",
-        alt: { ar: "سيروم الإشراق من فناء", en: "Fanaa Glow Serum" },
+        alt: { ar: "سيروم الإشراق — فناء", en: "Fanaa Glow Serum" },
       },
       {
         src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=85",
@@ -406,7 +406,7 @@ export const products: Product[] = [
     images: [
       {
         src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=85",
-        alt: { ar: "قناع الشعر المُرطّب من فناء", en: "Fanaa Deep Hair Mask" },
+        alt: { ar: "قناع الشعر المُرطّب — فناء", en: "Fanaa Deep Hair Mask" },
       },
       {
         src: "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=1400&q=85",
