@@ -95,8 +95,11 @@ export function MobileNav() {
         </NavItem>
       </nav>
 
-      {/* Locale switcher pinned to drawer bottom */}
-      <div className="border-t border-line px-5 py-4">
+      {/* Locale switcher pinned to drawer bottom — safe-area for notched phones */}
+      <div
+        className="border-t border-line px-5 pt-4"
+        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         <LocaleSwitcher />
       </div>
     </Drawer>

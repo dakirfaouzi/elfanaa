@@ -86,7 +86,7 @@ export function BrandStory() {
           {pillars.map(({ Icon, title, body }, i) => (
             <div
               key={i}
-              className="flex gap-5 rounded-xl border border-line bg-bg p-6 shadow-sm md:p-8"
+              className="flex gap-4 rounded-xl border border-line bg-bg p-4 shadow-sm md:gap-5 md:p-7"
             >
               <div className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-accent ring-1 ring-accent/20">
                 <Icon className="size-5" strokeWidth={1.6} />

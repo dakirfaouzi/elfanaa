@@ -77,7 +77,7 @@ export function ShopToolbar({
   };
 
   return (
-    <div className="sticky top-16 z-20 border-b border-line bg-bg/95 backdrop-blur-md lg:top-[76px]">
+    <div className="sticky top-14 z-20 border-b border-line bg-bg/95 backdrop-blur-md md:top-16 lg:top-[76px]">
       {/* Main toolbar row — px matches Container gutter so chips align with product grid */}
       <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
         {showCollectionNav && <ChipNav collections={collections} active={active} />}
@@ -210,7 +210,7 @@ function FilterPanel({
   return (
     <div className="border-t border-line">
       <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4">
-        <div className="flex flex-wrap gap-6">
+        <div className="flex flex-wrap gap-4 md:gap-6">
           {groups.map((group) => (
             <div key={group.dim} className="flex flex-col gap-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
@@ -294,7 +294,7 @@ function SortDropdown({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line px-3.5 text-[13px] font-medium text-ink/80 transition-colors hover:border-ink/40 hover:text-ink"
+        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-line px-3 text-[12px] font-medium text-ink/80 transition-colors hover:border-ink/40 hover:text-ink sm:h-9 sm:px-3.5 sm:text-[13px]"
       >
         <span className="hidden sm:inline">{t.shop.sortLabel} ·</span>
         <span className="text-ink">{current.label}</span>

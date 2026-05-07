@@ -35,11 +35,12 @@ export function ShopHeader({ collection, itemCount }: ShopHeaderProps) {
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto max-w-content px-6 py-8 md:py-12">
+      {/* Gutters match Container exactly so heading and product grid align on every breakpoint */}
+      <div className="mx-auto max-w-[1440px] px-4 py-7 sm:px-6 md:py-10 lg:px-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
           {eyebrow}
         </p>
-        <h1 className="mt-3 max-w-2xl whitespace-pre-line font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl">
+        <h1 className="mt-2.5 max-w-2xl whitespace-pre-line font-display text-[26px] font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl">
           {title}
         </h1>
         <Flourish className="mt-4 text-accent" width={96} />

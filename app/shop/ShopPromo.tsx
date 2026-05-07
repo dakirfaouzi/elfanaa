@@ -21,10 +21,10 @@ export function ShopPromo() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
               {t.shop.promoEyebrow}
             </p>
-            <h2 className="font-display text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
+            <h2 className="font-display text-[20px] font-semibold leading-tight tracking-tight md:text-3xl">
               {t.shop.promoTitle}
             </h2>
-            <p className="max-w-prose text-sm leading-relaxed text-bg/75 md:text-[15px]">
+            <p className="max-w-prose text-[13px] leading-relaxed text-bg/75 md:text-[15px]">
               {t.shop.promoBody}
             </p>
           </div>

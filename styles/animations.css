@@ -61,6 +61,14 @@
  * JS adds `.in-view` class when the element crosses the viewport threshold.
  * Default (before reveal): invisible + shifted 20px down.
  * Triggered (after reveal): opacity-1 + original position.
+ *
+ * MOBILE OVERRIDE (≤ 639px):
+ * On small screens, sections are much larger relative to the viewport.
+ * The IntersectionObserver may not fire before the element is already
+ * partially visible, causing a Flash of Invisible Content (FOIC) on
+ * slow connections. We disable the effect below sm — content is always
+ * visible. Scroll reveals are a desktop-first luxury; on mobile the
+ * priority is instant legibility.
  */
 .reveal {
   opacity: 0;
@@ -73,6 +81,15 @@
 .reveal.in-view {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (max-width: 639px) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
 }
 
 /* Stagger variants — delay the reveal for sibling elements */

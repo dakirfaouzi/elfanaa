@@ -63,7 +63,7 @@ export function Header() {
       )}
     >
       <Container>
-        <div className="flex h-16 items-center gap-4 lg:h-[76px]">
+          <div className="flex h-14 items-center gap-3 md:h-16 lg:h-[76px]">
           {/* Mobile menu trigger */}
           <button
             type="button"

@@ -33,17 +33,19 @@ export function TrustStrip() {
         <h2 id="trust-heading" className="sr-only">
           {t.home.trustEyebrow}
         </h2>
-        <ul className="grid gap-x-8 gap-y-6 py-9 md:grid-cols-3 md:gap-x-12 md:py-12">
+        <ul className="grid gap-x-8 gap-y-4 py-7 md:grid-cols-3 md:gap-x-12 md:gap-y-6 md:py-12">
           {items.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex items-start gap-4">
-              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/25">
-                <Icon className="size-5" strokeWidth={1.6} />
+            <li key={title} className="flex items-start gap-3.5 md:gap-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/25 md:size-12">
+                <Icon className="size-4 md:size-5" strokeWidth={1.6} />
               </span>
               <div>
-                <h3 className="text-[15px] font-semibold tracking-tight text-ink md:text-base">
+                <h3 className="text-sm font-semibold tracking-tight text-ink md:text-[15px]">
                   {title}
                 </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{body}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-muted md:mt-1.5 md:text-sm">
+                  {body}
+                </p>
               </div>
             </li>
           ))}

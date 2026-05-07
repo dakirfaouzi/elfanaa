@@ -98,7 +98,18 @@ export function Drawer({
         <div className="flex-1 overflow-y-auto">{children}</div>
 
         {footer ? (
-          <footer className="border-t border-line bg-surface px-5 py-4">{footer}</footer>
+          /*
+           * `pb-safe` pads the drawer footer by the device's safe-area-inset-bottom
+           * so the checkout / cart CTA never disappears behind the iPhone home
+           * indicator or Android gesture bar. The env() fallback is 0 on non-notched
+           * devices so nothing changes there.
+           */
+          <footer
+            className="border-t border-line bg-surface px-5 pt-4"
+            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            {footer}
+          </footer>
         ) : null}
       </div>
     </div>

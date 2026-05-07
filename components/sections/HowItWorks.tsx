@@ -110,7 +110,7 @@ export function HowItWorks() {
         <div
           ref={cardsRef as React.RefObject<HTMLDivElement>}
           className={cn(
-            "reveal grid gap-6 md:grid-cols-3 md:gap-8",
+            "reveal grid gap-4 md:grid-cols-3 md:gap-8",
             cardsVisible && "in-view"
           )}
           style={{ transitionDelay: "80ms" }}
