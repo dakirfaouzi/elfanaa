@@ -6,7 +6,7 @@ import { Check, ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Collection, FilterOptions, FilterState } from "@/lib/types";
+import type { Collection, FilterOptions, FilterState, Locale } from "@/lib/types";
 import { emptyFilterState } from "@/lib/types";
 
 export type ShopSort = "recommended" | "best" | "price-asc" | "price-desc";
@@ -198,17 +198,14 @@ function FilterPanel({
   onToggle: (dim: keyof FilterState, value: string) => void;
   onClear: () => void;
   t: ReturnType<typeof useLocale>["t"];
-  locale: string;
+  locale: Locale;
 }) {
-  const groups: {
-    dim: keyof FilterState;
-    label: string;
-    options: FilterOptions[keyof FilterOptions];
-  }[] = [
+  const allGroups: { dim: keyof FilterState; label: string; options: FilterOptions[keyof FilterOptions] }[] = [
     { dim: "productTypes", label: t.shop.filterProductType, options: filterOptions.productTypes },
-    { dim: "targets", label: t.shop.filterTarget, options: filterOptions.targets },
-    { dim: "problems", label: t.shop.filterProblem, options: filterOptions.problems },
-  ].filter((g) => g.options.length > 0);
+    { dim: "targets",      label: t.shop.filterTarget,      options: filterOptions.targets },
+    { dim: "problems",     label: t.shop.filterProblem,     options: filterOptions.problems },
+  ];
+  const groups = allGroups.filter((g) => g.options.length > 0);
 
   return (
     <div className="border-t border-line">
