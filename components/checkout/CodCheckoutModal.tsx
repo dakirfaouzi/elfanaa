@@ -588,9 +588,12 @@ function GeoNoticeBanner({
 
 function CheckoutScarcityBanner() {
   const { t } = useLocale();
-  // Stable per-session number — keeps the count from changing on
-  // re-render, which would feel fake.
-  const activeCount = useMemo(() => 6 + Math.floor(Math.random() * 9), []);
+  // null on the server — populated client-side only to avoid hydration mismatch
+  // caused by Math.random() producing different values on SSR vs CSR.
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  useEffect(() => {
+    setActiveCount(6 + Math.floor(Math.random() * 9));
+  }, []);
   return (
     <div className="grid gap-2 rounded-md border border-line bg-brand-soft/40 p-3 sm:grid-cols-2">
       <p className="inline-flex items-center gap-2 text-[12px] font-medium text-success">
@@ -599,7 +602,9 @@ function CheckoutScarcityBanner() {
       </p>
       <p className="inline-flex items-center gap-2 text-[12px] font-medium text-accent">
         <Activity className="size-3.5 shrink-0" aria-hidden />
-        {t.checkout.activityNow.replace("{count}", String(activeCount))}
+        {activeCount !== null
+          ? t.checkout.activityNow.replace("{count}", String(activeCount))
+          : null}
       </p>
     </div>
   );

@@ -26,7 +26,7 @@ export const feelings: Feeling[] = [
       ar: "بشرة باهتة وبقع داكنة؟ السيروم يفتتها من الجذور.",
       en: "Dull skin and dark spots? The serum breaks them down at the root.",
     },
-    href: "/shop?collection=face",
+    href: "/concerns/dark-spots",
     image: {
       src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1400&q=80",
       alt: { ar: "بشرة بحاجة للإشراق", en: "Skin needing glow" },
@@ -39,7 +39,7 @@ export const feelings: Feeling[] = [
       ar: "بشرة تشرب المرطبات وتبقى جافة؟ كريم السيراميد يبني جدار الحماية.",
       en: "Skin drinks moisturizers but stays dry? The ceramide cream builds a protective wall.",
     },
-    href: "/shop?collection=face",
+    href: "/concerns/dryness",
     image: {
       src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1400&q=80",
       alt: { ar: "عناية بحاجز البشرة", en: "Skin barrier care" },
@@ -52,7 +52,7 @@ export const feelings: Feeling[] = [
       ar: "تكسّر وجفاف من الحرارة والمياه؟ القناع يرجّع الحيوية من أول جلسة.",
       en: "Breakage and dryness from heat and water? The mask brings life back from session one.",
     },
-    href: "/shop?collection=hair",
+    href: "/concerns/breakage",
     image: {
       src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=80",
       alt: { ar: "شعر بحاجة لترطيب", en: "Hair needing repair" },

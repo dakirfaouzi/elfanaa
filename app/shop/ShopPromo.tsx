@@ -16,7 +16,7 @@ export function ShopPromo() {
   return (
     <section className="border-b border-line bg-ink text-bg">
       <Container>
-        <div className="grid items-center gap-6 py-8 md:grid-cols-[1fr_auto] md:py-10">
+          <div className="grid items-center gap-4 py-5 md:grid-cols-[1fr_auto] md:py-6">
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
               {t.shop.promoEyebrow}

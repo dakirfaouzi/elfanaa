@@ -1,4 +1,10 @@
-/* Micro-interaction utilities — premium feel */
+/* ─────────────────────────────────────────────────────────────────────────
+   FANAA — Premium Motion System
+   Philosophy: slow · deliberate · opacity + transform only · GPU-safe
+   Reference: Apple / Aesop / Ounass / Gentle Monster
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Loading skeleton ───────────────────────────────────────────────────── */
 .shimmer {
   background: linear-gradient(
     90deg,
@@ -10,20 +16,122 @@
   animation: shimmer 1.6s linear infinite;
 }
 
+/* ── Legacy hover-lift (preserved for compatibility) ────────────────────── */
 .hover-lift {
-  transition: transform 320ms var(--ease-premium),
-    box-shadow 320ms var(--ease-premium);
+  transition: transform 350ms var(--ease-premium),
+    box-shadow 350ms var(--ease-premium);
 }
 .hover-lift:hover {
   transform: translateY(-2px);
 }
 
+/* ── Focus ring ─────────────────────────────────────────────────────────── */
 .focus-ring:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgb(var(--color-brand) / 0.25);
 }
 
-/* Logical-property safe progress bar fill */
+/* ── Progress bar fill ──────────────────────────────────────────────────── */
 .progress-fill {
   transition: inline-size 480ms var(--ease-premium);
+}
+
+/* ── Product card premium hover ─────────────────────────────────────────── */
+/*
+ * Applied to the <article> wrapper.
+ * Subtle upward translate + shadow bloom — tactile without being flashy.
+ * 450ms is intentionally slower than startup conventions.
+ */
+.card-luxury {
+  transition:
+    transform 450ms var(--ease-premium),
+    box-shadow 450ms var(--ease-premium);
+  will-change: transform;
+}
+.card-luxury:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 4px 12px rgba(15, 15, 15, 0.07),
+    0 16px 36px rgba(15, 15, 15, 0.09);
+}
+
+/* ── Section reveal ─────────────────────────────────────────────────────── */
+/*
+ * Scroll-triggered reveal via Intersection Observer.
+ * JS adds `.in-view` class when the element crosses the viewport threshold.
+ * Default (before reveal): invisible + shifted 20px down.
+ * Triggered (after reveal): opacity-1 + original position.
+ */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 700ms var(--ease-premium),
+    transform 700ms var(--ease-premium);
+  will-change: opacity, transform;
+}
+.reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger variants — delay the reveal for sibling elements */
+.reveal-delay-1 { transition-delay: 80ms; }
+.reveal-delay-2 { transition-delay: 160ms; }
+.reveal-delay-3 { transition-delay: 240ms; }
+.reveal-delay-4 { transition-delay: 320ms; }
+
+/* ── Image fade-in ──────────────────────────────────────────────────────── */
+/*
+ * Applied to Next.js <Image> wrappers.
+ * Images fade in elegantly rather than snapping in.
+ */
+.img-fade {
+  transition: opacity 600ms var(--ease-premium);
+}
+.img-fade[data-loaded="false"] {
+  opacity: 0;
+}
+.img-fade[data-loaded="true"] {
+  opacity: 1;
+}
+
+/* ── Button premium states ──────────────────────────────────────────────── */
+/*
+ * All buttons should feel like physical objects — tactile press state,
+ * deliberate hover. Applied via @layer utilities to avoid specificity wars.
+ */
+.btn-press {
+  transition:
+    opacity 200ms var(--ease-premium),
+    transform 200ms var(--ease-premium),
+    background-color 200ms var(--ease-premium);
+}
+.btn-press:active {
+  transform: scale(0.985);
+  opacity: 0.9;
+}
+
+/* ── Reduced motion — global accessibility override ─────────────────────── */
+/*
+ * When the user's OS has "reduce motion" enabled, collapse all durations
+ * to near-zero. fill-mode: both is preserved so elements remain in their
+ * final state. Transitions still fire — they just complete instantly.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* Ensure reveal elements become visible immediately */
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

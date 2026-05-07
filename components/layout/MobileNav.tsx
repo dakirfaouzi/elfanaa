@@ -5,19 +5,21 @@ import { Drawer } from "@/components/ui/Drawer";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { useUI } from "@/hooks/useUI";
 import { useLocale } from "@/hooks/useLocale";
-import { collections } from "@/data/collections";
+import { collections, concernCollections, genderCollections } from "@/data/collections";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 /**
- * Mobile slide-in navigation driven by `useUI.mobileNavOpen`.
+ * Mobile slide-in navigation.
  *
- * `side="start"` means the panel attaches to the logical-start edge —
- * left in LTR (English), right in RTL (Arabic). Drawer.tsx already
- * handles the translate-x mirror, so no extra RTL logic is needed here.
+ * Architecture: three-tier discovery
+ *   1. Main collections  (المجموعات)      — the three catalog sections
+ *   2. Browse by concern (حسب مشكلتك)    — problem-first entry points
+ *   3. By gender         (حسب الجنس)      — gender-targeted collections
+ *   4. Brand links       (حكايتنا / تواصل)
  *
- * Each link closes the drawer on click so the user lands on the new
- * page with a clean, overlay-free viewport.
+ * `side="start"` attaches to the logical-start edge — right in RTL (Arabic),
+ * left in LTR (English). No extra RTL logic needed here.
  */
 export function MobileNav() {
   const mobileNavOpen = useUI((s) => s.mobileNavOpen);
@@ -32,21 +34,49 @@ export function MobileNav() {
       widthClassName="w-72 sm:w-80"
       title={t.common.brand}
     >
-      <nav aria-label="Mobile primary" className="flex flex-col py-4">
-        <NavItem href="/shop" onClick={closeMobileNav}>
-          {t.nav.shop}
-        </NavItem>
+      <nav aria-label="Mobile primary" className="flex flex-col py-2">
 
-        {/* Collection shortcuts — mirrors the 3-item cap in Header.tsx */}
-        <div className="px-5 pb-1 pt-3">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted">
-            {t.nav.collections}
-          </p>
-        </div>
+        {/* ── Section 1: Main collections ── */}
+        <SectionLabel>{t.nav.megaCollections}</SectionLabel>
         {collections.slice(0, 3).map((c) => (
           <NavItem
             key={c.id}
             href={`/shop?collection=${c.slug}`}
+            onClick={closeMobileNav}
+            indent
+            tagline={c.tagline ? pickLocalized(c.tagline, locale) : undefined}
+          >
+            {pickLocalized(c.title, locale)}
+          </NavItem>
+        ))}
+        <NavItem href="/shop" onClick={closeMobileNav} indent>
+          {locale === "ar" ? "كل المنتجات" : "All products"}
+        </NavItem>
+
+        <Separator />
+
+        {/* ── Section 2: Browse by concern ── */}
+        <SectionLabel>{t.nav.megaBrowseConcern}</SectionLabel>
+        {concernCollections.map((c) => (
+          <NavItem
+            key={c.id}
+            href={`/concerns/${c.slug}`}
+            onClick={closeMobileNav}
+            indent
+            tagline={c.tagline ? pickLocalized(c.tagline, locale) : undefined}
+          >
+            {pickLocalized(c.title, locale)}
+          </NavItem>
+        ))}
+
+        <Separator />
+
+        {/* ── Section 3: By gender ── */}
+        <SectionLabel>{t.nav.megaBrowseGender}</SectionLabel>
+        {genderCollections.map((c) => (
+          <NavItem
+            key={c.id}
+            href={`/for/${c.slug}`}
             onClick={closeMobileNav}
             indent
           >
@@ -54,8 +84,9 @@ export function MobileNav() {
           </NavItem>
         ))}
 
-        <div className="my-3 border-t border-line" />
+        <Separator />
 
+        {/* ── Section 4: Brand links ── */}
         <NavItem href="/about" onClick={closeMobileNav}>
           {t.nav.about}
         </NavItem>
@@ -64,7 +95,7 @@ export function MobileNav() {
         </NavItem>
       </nav>
 
-      {/* Locale switcher lives at the bottom of the drawer body */}
+      {/* Locale switcher pinned to drawer bottom */}
       <div className="border-t border-line px-5 py-4">
         <LocaleSwitcher />
       </div>
@@ -72,15 +103,33 @@ export function MobileNav() {
   );
 }
 
+/* ─── Sub-components ─── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-5 pb-1.5 pt-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function Separator() {
+  return <div className="my-2 border-t border-line" />;
+}
+
 function NavItem({
   href,
   onClick,
   indent = false,
+  tagline,
   children,
 }: {
   href: string;
   onClick: () => void;
   indent?: boolean;
+  tagline?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -88,11 +137,14 @@ function NavItem({
       href={href}
       onClick={onClick}
       className={cn(
-        "flex items-center py-3 text-base font-medium text-ink/80 transition-colors hover:bg-brand-soft hover:text-ink",
+        "flex flex-col py-2.5 transition-colors hover:bg-brand-soft",
         indent ? "px-8" : "px-5"
       )}
     >
-      {children}
+      <span className="text-[15px] font-medium text-ink/85">{children}</span>
+      {tagline ? (
+        <span className="mt-0.5 text-[11px] text-muted">{tagline}</span>
+      ) : null}
     </Link>
   );
 }

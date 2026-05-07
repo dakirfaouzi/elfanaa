@@ -56,11 +56,12 @@ export function Drawer({
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
       )}
     >
+      {/* Overlay — fades in with the panel */}
       <button
         type="button"
         aria-label="Close overlay"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/45 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-ink/40 backdrop-blur-[3px] transition-opacity duration-400 ease-premium"
       />
 
       <div
@@ -71,7 +72,7 @@ export function Drawer({
         tabIndex={-1}
         className={cn(
           "absolute top-0 bottom-0 flex flex-col bg-surface shadow-elevated outline-none",
-          "transition-transform duration-300 ease-premium",
+          "transition-transform duration-[420ms] ease-premium",
           widthClassName,
           side === "end" ? "end-0" : "start-0",
           open

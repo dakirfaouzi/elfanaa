@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { Wordmark, Flourish } from "@/components/brand";
 import { useLocale } from "@/hooks/useLocale";
+import { useInView } from "@/hooks/useInView";
+import { cn } from "@/lib/cn";
 import { feelings } from "@/data/feelings";
 import { pickLocalized } from "@/lib/format";
 import { track } from "@/lib/analytics";
@@ -28,18 +30,23 @@ import { track } from "@/lib/analytics";
  */
 export function ShopByFeeling() {
   const { t, locale } = useLocale();
+  const { ref: headerRef, inView: headerVisible } = useInView();
+  const { ref: gridRef, inView: gridVisible } = useInView({ rootMargin: "0px 0px -40px 0px" });
 
   return (
-    <section className="bg-bg py-20 md:py-32">
+    <section className="bg-bg py-16 md:py-24">
       <Container>
-        <header className="mb-12 max-w-2xl md:mb-16">
+        <header
+          ref={headerRef as React.RefObject<HTMLElement>}
+          className={cn("reveal mb-10 max-w-2xl md:mb-14", headerVisible && "in-view")}
+        >
           <Flourish width={88} className="mb-5 text-accent" />
           <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
             <span className="text-accent/60">01</span>
             <span className="h-px w-6 bg-line" aria-hidden />
             <span className="text-accent">{t.home.shopByFeelingEyebrow}</span>
           </div>
-          <h2 className="mt-4 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
+          <h2 className="mt-3 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.04] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
             {t.home.shopByFeelingTitle}
           </h2>
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted md:text-base">
@@ -47,7 +54,14 @@ export function ShopByFeeling() {
           </p>
         </header>
 
-        <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+        <ul
+          ref={gridRef as React.RefObject<HTMLUListElement>}
+          className={cn(
+            "reveal grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6",
+            gridVisible && "in-view"
+          )}
+          style={{ transitionDelay: "100ms" }}
+        >
           {feelings.map((f) => (
             <li key={f.id}>
               <Link

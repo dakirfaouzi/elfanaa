@@ -1,8 +1,10 @@
 "use client";
 
-import { Beaker, Sun, Droplets, Shield, Zap } from "lucide-react";
+import { Beaker, Droplets, Shield, Zap } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
+import { useInView } from "@/hooks/useInView";
+import { cn } from "@/lib/cn";
 
 /**
  * "The Mechanism" — clinical ingredient breakdown.
@@ -67,23 +69,32 @@ export function HowItWorks() {
         },
       ];
 
+  const { ref: headerRef, inView: headerVisible } = useInView();
+  const { ref: cardsRef, inView: cardsVisible } = useInView({ rootMargin: "0px 0px -40px 0px" });
+
   return (
-    <section className="bg-ink py-20 text-bg md:py-28" aria-labelledby="mechanism-heading">
-      {/* Subtle radial accent */}
+    <section className="relative bg-ink py-16 text-bg md:py-24" aria-labelledby="mechanism-heading">
+      {/* Subtle radial accent — contained by relative on parent */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-40 [background:radial-gradient(ellipse_at_50%_0%,rgba(186,110,92,0.2),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_50%_0%,rgba(186,110,92,0.18),transparent_60%)]"
       />
 
       <Container>
-        <header className="mx-auto mb-14 max-w-2xl text-center md:mb-20">
+        <header
+          ref={headerRef as React.RefObject<HTMLElement>}
+          className={cn(
+            "reveal mx-auto mb-12 max-w-2xl text-center md:mb-16",
+            headerVisible && "in-view"
+          )}
+        >
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent ring-1 ring-accent/25">
             <Zap className="size-3.5" />
             {isAr ? "المنهجية العلمية" : "Clinical Methodology"}
           </div>
           <h2
             id="mechanism-heading"
-            className="mt-5 whitespace-pre-line text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl"
+            className="mt-4 whitespace-pre-line text-balance font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl"
           >
             {isAr
               ? "كيف تشتغل التركيبات؟"
@@ -96,7 +107,14 @@ export function HowItWorks() {
           </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
+        <div
+          ref={cardsRef as React.RefObject<HTMLDivElement>}
+          className={cn(
+            "reveal grid gap-6 md:grid-cols-3 md:gap-8",
+            cardsVisible && "in-view"
+          )}
+          style={{ transitionDelay: "80ms" }}
+        >
           {mechanisms.map(({ Icon, ingredient, action, explanation }, i) => (
             <div
               key={i}

@@ -66,15 +66,15 @@ export function BrandStory() {
       ];
 
   return (
-    <section className="bg-surface py-20 md:py-28" aria-labelledby="diff-heading">
+    <section className="bg-surface py-16 md:py-24" aria-labelledby="diff-heading">
       <Container>
-        <header className="mx-auto mb-14 max-w-2xl text-center md:mb-18">
+        <header className="mx-auto mb-10 max-w-2xl text-center md:mb-14">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
             {isAr ? "ليش فناء مختلف؟" : "Why Fanaa is different"}
           </p>
           <h2
             id="diff-heading"
-            className="mt-4 text-balance font-display text-3xl font-semibold leading-[1.08] tracking-tight md:text-5xl"
+            className="mt-3 text-balance font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl"
           >
             {isAr
               ? "ليست علامة تجارية أخرى.\nإنها منهجية مختلفة."

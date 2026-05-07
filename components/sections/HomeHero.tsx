@@ -58,27 +58,31 @@ export function HomeHero() {
           size="xl"
           className="relative flex h-full flex-col justify-end pb-14 md:pb-24 lg:pb-28"
         >
-          <div className="max-w-[760px] space-y-6 text-bg md:space-y-8">
-            {/* Brand flourish — the recurring signature mark */}
-            <Flourish width={88} className="text-accent" />
+          {/* Staggered entrance — each element rises in sequence */}
+          <div className="max-w-[720px] text-bg">
+            {/* Brand flourish */}
+            <Flourish
+              width={72}
+              className="animate-rise text-accent [animation-delay:0ms]"
+            />
 
-            {/* 1 · Eyebrow — positioning line */}
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-bg/85 md:text-xs">
+            {/* 1 · Eyebrow */}
+            <p className="animate-rise mt-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-bg/75 [animation-delay:150ms] md:text-[11px]">
               {t.home.heroEyebrow}
             </p>
 
-            {/* 2 · Headline — Pain + Cause */}
-            <h1 className="text-balance whitespace-pre-line font-display text-[40px] font-semibold leading-[1.02] tracking-[-0.02em] md:text-[64px] lg:text-[80px]">
+            {/* 2 · Headline */}
+            <h1 className="animate-rise mt-4 text-balance whitespace-pre-line font-display text-[30px] font-semibold leading-[1.04] tracking-[-0.02em] [animation-delay:300ms] sm:text-[38px] md:mt-5 md:text-[60px] lg:text-[76px]">
               {t.home.heroTitle}
             </h1>
 
-            {/* 3 · Subheadline — Solution + Result */}
-            <p className="max-w-[560px] text-[15px] leading-relaxed text-bg/80 md:text-[18px]">
+            {/* 3 · Subheadline */}
+            <p className="animate-rise mt-5 max-w-[500px] text-[14px] leading-relaxed text-bg/78 [animation-delay:480ms] md:text-[17px]">
               {t.home.heroSubtitle}
             </p>
 
-            {/* 4 · COD trust badge — shown BEFORE the CTA (KSA #1 signal) */}
-            <div className="inline-flex items-center gap-2 rounded-full bg-bg/15 px-4 py-2 text-[13px] font-medium text-bg backdrop-blur-sm md:text-sm">
+            {/* 4 · COD trust badge */}
+            <div className="animate-rise mt-5 inline-flex items-center gap-2 rounded-full bg-bg/15 px-4 py-2 text-[13px] font-medium text-bg [animation-delay:580ms] backdrop-blur-sm md:text-sm">
               <ShieldCheck className="size-4 shrink-0 text-bg/90" strokeWidth={2} />
               {isAr
                 ? "ادفع عند الاستلام — ما تدفع ريال قبل ما توصل"
@@ -86,13 +90,13 @@ export function HomeHero() {
             </div>
 
             {/* 5 · Primary CTA + 6 · social proof */}
-            <div className="flex flex-col items-start gap-4 pt-1 md:gap-5 md:pt-2">
+            <div className="animate-rise mt-6 flex flex-col items-start gap-4 [animation-delay:680ms] md:gap-5">
               <Link
                 href="/shop"
-                className="group inline-flex h-13 items-center gap-2.5 rounded-md bg-bg px-9 text-sm font-semibold text-ink transition-all duration-200 ease-premium hover:bg-bg/95 hover:gap-3.5 md:h-14 md:px-11 md:text-base"
+                className="btn-press group inline-flex h-13 items-center gap-2.5 rounded-md bg-bg px-9 text-sm font-semibold text-ink transition-all duration-300 ease-premium hover:bg-bg/95 hover:gap-3.5 md:h-14 md:px-11 md:text-base"
               >
                 {t.home.heroCta}
-                <ArrowLeft className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
+                <ArrowLeft className="size-4 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
               </Link>
 
               <p className="inline-flex items-center gap-2 text-xs text-bg/75 md:text-[13px]">

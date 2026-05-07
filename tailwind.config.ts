@@ -84,12 +84,38 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        // ── Premium motion keyframes ────────────────────────────────
+        // Slow, deliberate upward reveal — hero content, editorial headers
+        rise: {
+          from: { opacity: "0", transform: "translateY(24px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        // Lighter rise — section reveals, grid items, secondary content
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        // Mega menu panel entrance — subtle downward pop
+        "mega-in": {
+          from: { opacity: "0", transform: "translateY(-8px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        // Column stagger inside mega menu
+        "col-in": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
-        "fade-in": "fade-in 200ms ease-out",
-        "scale-in": "scale-in 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-        "slide-in-end": "slide-in-end 320ms cubic-bezier(0.22, 1, 0.36, 1)",
-        shimmer: "shimmer 1.6s linear infinite",
+        "fade-in":       "fade-in 200ms ease-out",
+        "scale-in":      "scale-in 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "slide-in-end":  "slide-in-end 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+        shimmer:         "shimmer 1.6s linear infinite",
+        // Premium motion — all use ease-premium with fill-mode both
+        rise:            "rise 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "fade-up":       "fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "mega-in":       "mega-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "col-in":        "col-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

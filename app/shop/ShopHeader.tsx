@@ -35,20 +35,20 @@ export function ShopHeader({ collection, itemCount }: ShopHeaderProps) {
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto max-w-content px-6 py-12 md:py-20">
+      <div className="mx-auto max-w-content px-6 py-8 md:py-12">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
           {eyebrow}
         </p>
-        <h1 className="mt-3 max-w-2xl whitespace-pre-line font-display text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">
+        <h1 className="mt-3 max-w-2xl whitespace-pre-line font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl">
           {title}
         </h1>
-        <Flourish className="mt-5 text-accent" width={140} />
+        <Flourish className="mt-4 text-accent" width={96} />
         {body ? (
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted md:text-[17px]">
+          <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted md:text-base">
             {body}
           </p>
         ) : null}
-        <p className="mt-6 text-xs uppercase tracking-[0.16em] text-muted tabular-nums">
+        <p className="mt-4 text-xs uppercase tracking-[0.16em] text-muted tabular-nums">
           {t.shop.itemsLabel.replace("{count}", String(itemCount))}
         </p>
       </div>

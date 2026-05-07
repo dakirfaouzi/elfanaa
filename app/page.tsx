@@ -1,5 +1,6 @@
 import { HomeHero } from "@/components/sections/HomeHero";
 import { TrustStrip } from "@/components/sections/TrustStrip";
+import { CollectionRow } from "@/components/sections/CollectionRow";
 import { ShopByFeeling } from "@/components/sections/ShopByFeeling";
 import { BestSellers } from "@/components/sections/BestSellers";
 import { Testimonials } from "@/components/sections/Testimonials";
@@ -29,6 +30,7 @@ export default function HomePage() {
     <>
       <HomeHero />
       <TrustStrip />
+      <CollectionRow />
       <ShopByFeeling />
       <HowItWorks />
       <BestSellers products={bestSellers} />

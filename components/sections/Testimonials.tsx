@@ -4,6 +4,8 @@ import { BadgeCheck, Quote } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { useLocale } from "@/hooks/useLocale";
+import { useInView } from "@/hooks/useInView";
+import { cn } from "@/lib/cn";
 import { products } from "@/data/products";
 import { pickLocalized } from "@/lib/format";
 import type { ProductReview } from "@/lib/types";
@@ -21,20 +23,27 @@ import type { ProductReview } from "@/lib/types";
  */
 export function Testimonials() {
   const { t, locale } = useLocale();
+  const { ref: sectionRef, inView } = useInView({ threshold: 0.06 });
 
   const picks = pickReviews();
 
   return (
-    <section className="bg-bg py-20 md:py-32">
+    <section className="bg-bg py-16 md:py-24">
       <Container>
-        <div className="grid gap-12 lg:grid-cols-[360px_1fr] lg:gap-16">
+        <div
+          ref={sectionRef as React.RefObject<HTMLDivElement>}
+          className={cn(
+            "reveal grid gap-10 lg:grid-cols-[340px_1fr] lg:gap-14",
+            inView && "in-view"
+          )}
+        >
           <header className="max-w-md">
             <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
               <span className="text-accent/60">03</span>
               <span className="h-px w-6 bg-line" aria-hidden />
               <span className="text-accent">{t.testimonials.eyebrow}</span>
             </div>
-            <h2 className="mt-4 whitespace-pre-line font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] md:text-5xl lg:text-[58px]">
+            <h2 className="mt-3 whitespace-pre-line font-display text-4xl font-semibold leading-[1.04] tracking-[-0.02em] md:text-5xl lg:text-[52px]">
               {t.testimonials.title}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted md:text-[17px]">

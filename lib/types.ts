@@ -108,6 +108,22 @@ export type Product = {
    * Key active ingredients for the clinical/premium positioning.
    */
   ingredients?: ProductIngredient[];
+
+  /* ─────────────────────── Filter metadata ─────────────────────── */
+
+  /** Physical form of the product — drives the "Product Type" filter. */
+  productType?: ProductType;
+  /**
+   * Primary intended audience — drives the "For" filter.
+   * Use "unisex" when the product is genuinely gender-neutral
+   * (e.g. the Barrier Cream), not as a lazy default.
+   */
+  target?: ProductTarget;
+  /**
+   * Skin / hair concerns this product addresses — drives the "Concern" filter.
+   * Multi-value so one product can solve multiple problems.
+   */
+  problems?: ProductProblem[];
 };
 
 export type ProductIngredient = {
@@ -164,9 +180,75 @@ export type CodOrderInput = {
   locale: Locale;
 };
 
+/* ────────────────────────── Collection system ──────────────────────── */
+
+export type CollectionType =
+  | "main"       // primary catalog sections (face, hair, routine)
+  | "concern"    // problem-solving collections (dark-spots, dryness…)
+  | "gender"     // gender-targeted (women, men)
+  | "ritual"     // lifestyle / time-based (morning, evening, weekly)
+  | "seasonal"   // campaign-based (ramadan, summer…)
+  | "ingredient" // ingredient-led (vitamin-c, ceramide…)
+  | "promo";     // promotional / bundle (golden-offer…)
+
+/* ─────────────────────────── Filter system ─────────────────────────── */
+
+export type ProductType =
+  | "serum" | "cream" | "mask" | "oil"
+  | "capsules" | "spray" | "device" | "bundle";
+
+export type ProductTarget = "women" | "men" | "unisex";
+
+export type ProductProblem =
+  | "dark-spots" | "dryness" | "uneven-tone" | "barrier-damage"
+  | "sensitive-skin" | "oily-skin" | "pores"
+  | "hair-damage" | "hair-dryness" | "breakage" | "color-treated" | "hair-loss"
+  | "complete-care";
+
+/** A single selectable filter option (value + bilingual label). */
+export type FilterOption = {
+  value: string;
+  label: LocalizedString;
+};
+
+/** The three active filter dimensions in the shop. All arrays are multi-select. */
+export type FilterState = {
+  productTypes: string[];
+  targets: string[];
+  problems: string[];
+};
+
+/** Derived from the visible product set — only options that have matches. */
+export type FilterOptions = {
+  productTypes: FilterOption[];
+  targets: FilterOption[];
+  problems: FilterOption[];
+};
+
+export const emptyFilterState: FilterState = {
+  productTypes: [],
+  targets: [],
+  problems: [],
+};
+
 export type Collection = {
   id: string;
   slug: string;
+  type?: CollectionType;
+  /** Premium emotional name shown as the primary label. */
   title: LocalizedString;
+  /**
+   * Functional descriptor shown beneath the title.
+   * Bridges luxury branding and clarity.
+   */
+  tagline?: LocalizedString;
+  /** Longer editorial description for collection landing pages. */
+  description?: LocalizedString;
+  /** Editorial hero image for collection pages and the CollectionRow section. */
+  heroImage?: string;
   productIds: string[];
+  /** Pre-applied concern filter — used by concern collection pages. */
+  presetProblems?: ProductProblem[];
+  /** Pre-applied gender filter — used by gender collection pages. */
+  presetTarget?: ProductTarget;
 };
