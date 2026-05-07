@@ -26,7 +26,7 @@ export function UrgencyCta() {
 
   return (
     <section
-      className="relative overflow-hidden bg-ink py-20 text-bg md:py-28"
+      className="relative overflow-hidden bg-ink py-14 text-bg md:py-28"
       aria-labelledby="urgency-heading"
     >
       <div
@@ -59,7 +59,7 @@ export function UrgencyCta() {
           </h2>
 
           {/* What's included */}
-          <div className="mx-auto mt-6 flex flex-col items-center gap-2 text-sm text-bg/75 md:flex-row md:justify-center md:gap-4">
+          <div className="mx-auto mt-5 flex flex-col items-center gap-1.5 text-[13px] text-bg/75 md:flex-row md:justify-center md:gap-4">
             <span>✓ {isAr ? "سيروم الإشراق" : "Glow Serum"}</span>
             <span className="hidden md:inline text-bg/30">+</span>
             <span>✓ {isAr ? "كريم ترميم الحاجز" : "Barrier Repair Cream"}</span>
@@ -79,10 +79,10 @@ export function UrgencyCta() {
               onClick={() =>
                 track("begin_checkout", { surface: "urgency_cta_home", locale })
               }
-              className="group inline-flex h-14 items-center gap-2.5 rounded-md bg-bg px-10 text-sm font-semibold text-ink transition-all duration-200 ease-premium hover:gap-3.5 md:h-[60px] md:px-12 md:text-base"
+              className="group flex w-full items-center justify-center gap-2.5 rounded-md bg-bg px-6 py-4 text-sm font-semibold text-ink transition-all duration-200 ease-premium hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-10 sm:py-0 md:h-[60px] md:px-12 md:text-base"
             >
               {isAr ? "اطلب الروتين الكامل — ٣٤٩ ر.س" : "Order the full routine — 349 SAR"}
-              <ArrowLeft className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
+              <ArrowLeft className="size-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
             </Link>
 
             <div className="flex flex-col items-center gap-2 text-xs text-bg/60 md:flex-row md:gap-4 md:text-[13px]">

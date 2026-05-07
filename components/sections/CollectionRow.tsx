@@ -29,7 +29,7 @@ export function CollectionRow() {
               <span className="h-px w-5 bg-line" aria-hidden />
               <span className="text-accent">المجموعات</span>
             </div>
-            <h2 className="mt-3 whitespace-pre-line font-display text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
+            <h2 className="mt-2.5 whitespace-pre-line font-display text-[26px] font-semibold leading-tight tracking-tight md:text-4xl">
               {"ابدأ من مشكلتك.\nالمنتج يجيك هو."}
             </h2>
           </div>
@@ -42,10 +42,15 @@ export function CollectionRow() {
           </Link>
         </header>
 
-        {/* Cards — horizontal scroll on mobile */}
-        <ul className="flex gap-4 overflow-x-auto pb-2 scrollbar-none md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0">
+        {/*
+         * Horizontal scroll on mobile — `w-full overflow-hidden` on the
+         * Container prevents the list from becoming a page-level overflow source.
+         * Each card is 76vw (max 260px) on mobile so users can see a peek of
+         * the next card, signalling scrollability.
+         */}
+        <ul className="flex w-full gap-3.5 overflow-x-auto pb-3 scrollbar-none md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:pb-0">
           {collections.map((collection, i) => (
-            <li key={collection.id} className="w-[72vw] shrink-0 md:w-auto">
+            <li key={collection.id} className="w-[76vw] max-w-[260px] shrink-0 md:w-auto md:max-w-none">
               <Link
                 href={`/collections/${collection.slug}`}
                 className="group relative block aspect-[3/4] overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

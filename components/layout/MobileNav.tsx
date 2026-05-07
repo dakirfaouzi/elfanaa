@@ -31,10 +31,10 @@ export function MobileNav() {
       open={mobileNavOpen}
       onClose={closeMobileNav}
       side="start"
-      widthClassName="w-72 sm:w-80"
+      widthClassName="w-[min(288px,85vw)] sm:w-80"
       title={t.common.brand}
     >
-      <nav aria-label="Mobile primary" className="flex flex-col py-2">
+      <nav aria-label="Mobile primary" className="flex flex-col py-1">
 
         {/* ── Section 1: Main collections ── */}
         <SectionLabel>{t.nav.megaCollections}</SectionLabel>
@@ -107,7 +107,7 @@ export function MobileNav() {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-5 pb-1.5 pt-3">
+    <div className="px-5 pb-1.5 pt-4">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
         {children}
       </p>
@@ -116,7 +116,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Separator() {
-  return <div className="my-2 border-t border-line" />;
+  return <div className="mx-5 my-1 border-t border-line" />;
 }
 
 function NavItem({
@@ -133,17 +133,27 @@ function NavItem({
   children: React.ReactNode;
 }) {
   return (
+    /*
+     * min-h-[44px] enforces Apple/Material 44px minimum touch target.
+     * `active:bg-brand-soft` provides instant tactile press feedback
+     * on touch devices without needing JS state.
+     */
     <Link
       href={href}
       onClick={onClick}
       className={cn(
-        "flex flex-col py-2.5 transition-colors hover:bg-brand-soft",
+        "flex min-h-[44px] flex-col justify-center py-3 transition-colors",
+        "hover:bg-brand-soft active:bg-brand-soft/70",
         indent ? "px-8" : "px-5"
       )}
     >
-      <span className="text-[15px] font-medium text-ink/85">{children}</span>
+      <span className="text-[15px] font-medium leading-snug text-ink/85">
+        {children}
+      </span>
       {tagline ? (
-        <span className="mt-0.5 text-[11px] text-muted">{tagline}</span>
+        <span className="mt-0.5 text-[11px] leading-snug text-muted">
+          {tagline}
+        </span>
       ) : null}
     </Link>
   );

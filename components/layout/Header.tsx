@@ -133,13 +133,17 @@ export function Header() {
         </div>
       </Container>
 
-      {/* ── Mega menu panel — always rendered, CSS-transitioned ── */}
+      {/*
+       * Mega menu panel — always rendered on md+ for smooth CSS transitions.
+       * Fully excluded from layout on mobile via `hidden md:block` so the
+       * fixed-column grid inside never contributes to mobile scroll width.
+       */}
       <div
         onMouseEnter={openMega}
         onMouseLeave={scheduleMegaClose}
         aria-hidden={!megaOpen}
         className={cn(
-          "absolute inset-x-0 top-full z-50 border-b border-line bg-bg/98 shadow-elevated backdrop-blur-md",
+          "absolute inset-x-0 top-full z-50 hidden border-b border-line bg-bg/98 shadow-elevated backdrop-blur-md md:block",
           "transition-[opacity,transform] duration-[220ms] ease-premium",
           megaOpen
             ? "pointer-events-auto translate-y-0 opacity-100"

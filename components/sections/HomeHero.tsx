@@ -56,51 +56,65 @@ export function HomeHero() {
 
         <Container
           size="xl"
-          className="relative flex h-full flex-col justify-end pb-14 md:pb-24 lg:pb-28"
+          className="relative flex h-full flex-col justify-end pb-12 md:pb-24 lg:pb-28"
         >
           {/* Staggered entrance — each element rises in sequence */}
-          <div className="max-w-[720px] text-bg">
+          <div className="w-full max-w-[720px] text-bg">
             {/* Brand flourish */}
             <Flourish
-              width={72}
-              className="animate-rise text-accent [animation-delay:0ms]"
+              width={64}
+              className="animate-rise text-accent [animation-delay:0ms] md:w-[72px]"
             />
 
             {/* 1 · Eyebrow */}
-            <p className="animate-rise mt-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-bg/75 [animation-delay:150ms] md:text-[11px]">
+            <p className="animate-rise mt-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-bg/70 [animation-delay:150ms] md:mt-5 md:text-[11px]">
               {t.home.heroEyebrow}
             </p>
 
             {/* 2 · Headline */}
-            <h1 className="animate-rise mt-4 text-balance whitespace-pre-line font-display text-[30px] font-semibold leading-[1.04] tracking-[-0.02em] [animation-delay:300ms] sm:text-[38px] md:mt-5 md:text-[60px] lg:text-[76px]">
+            <h1 className="animate-rise mt-3 text-balance whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] [animation-delay:300ms] sm:text-[36px] md:mt-5 md:text-[60px] lg:text-[76px]">
               {t.home.heroTitle}
             </h1>
 
-            {/* 3 · Subheadline */}
-            <p className="animate-rise mt-5 max-w-[500px] text-[14px] leading-relaxed text-bg/78 [animation-delay:480ms] md:text-[17px]">
+            {/* 3 · Subheadline — constrained line-width for mobile readability */}
+            <p className="animate-rise mt-4 text-[13px] leading-relaxed text-bg/75 [animation-delay:480ms] sm:max-w-[460px] md:text-[17px]">
               {t.home.heroSubtitle}
             </p>
 
-            {/* 4 · COD trust badge */}
-            <div className="animate-rise mt-5 inline-flex items-center gap-2 rounded-full bg-bg/15 px-4 py-2 text-[13px] font-medium text-bg [animation-delay:580ms] backdrop-blur-sm md:text-sm">
-              <ShieldCheck className="size-4 shrink-0 text-bg/90" strokeWidth={2} />
-              {isAr
-                ? "ادفع عند الاستلام — ما تدفع ريال قبل ما توصل"
-                : "Cash on delivery — don't pay a riyal until it arrives"}
+            {/*
+             * 4 · COD trust badge
+             * Long Arabic text at 13px overflows a 375px viewport with px-4.
+             * Fix: split into mobile-short / desktop-full variants so the pill
+             * never stretches beyond the container.
+             */}
+            <div className="animate-rise mt-4 inline-flex max-w-full items-center gap-2 rounded-full bg-bg/15 px-3.5 py-1.5 text-[12px] font-medium text-bg [animation-delay:580ms] backdrop-blur-sm md:mt-5 md:px-4 md:py-2 md:text-[13px]">
+              <ShieldCheck className="size-3.5 shrink-0 text-bg/90 md:size-4" strokeWidth={2} />
+              <span className="md:hidden">
+                {isAr ? "ادفع عند الاستلام" : "Cash on delivery"}
+              </span>
+              <span className="hidden md:inline">
+                {isAr
+                  ? "ادفع عند الاستلام — ما تدفع ريال قبل ما توصل"
+                  : "Cash on delivery — don't pay a riyal until it arrives"}
+              </span>
             </div>
 
             {/* 5 · Primary CTA + 6 · social proof */}
-            <div className="animate-rise mt-6 flex flex-col items-start gap-4 [animation-delay:680ms] md:gap-5">
+            <div className="animate-rise mt-6 flex flex-col items-start gap-3 [animation-delay:680ms] md:gap-5">
+              {/*
+               * Full-width on mobile for thumb-tap ease; auto-width on sm+.
+               * `justify-center` keeps content centred when block-level.
+               */}
               <Link
                 href="/shop"
-                className="btn-press group inline-flex h-13 items-center gap-2.5 rounded-md bg-bg px-9 text-sm font-semibold text-ink transition-all duration-300 ease-premium hover:bg-bg/95 hover:gap-3.5 md:h-14 md:px-11 md:text-base"
+                className="btn-press group flex w-full items-center justify-center gap-2.5 rounded-md bg-bg px-6 py-3.5 text-sm font-semibold text-ink transition-all duration-300 ease-premium hover:bg-bg/95 hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-9 sm:py-0 md:h-14 md:px-11 md:text-base"
               >
                 {t.home.heroCta}
-                <ArrowLeft className="size-4 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
+                <ArrowLeft className="size-4 shrink-0 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
               </Link>
 
-              <p className="inline-flex items-center gap-2 text-xs text-bg/75 md:text-[13px]">
-                <span className="inline-block size-1.5 rounded-full bg-success" aria-hidden />
+              <p className="inline-flex items-center gap-2 text-[11px] text-bg/70 md:text-[13px]">
+                <span className="inline-block size-1.5 shrink-0 rounded-full bg-success" aria-hidden />
                 {t.home.heroCtaSecondary}
               </p>
             </div>

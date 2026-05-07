@@ -11,11 +11,24 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /*
+     * Clip horizontal overflow at the root level.
+     * `overflow-x: clip` (unlike hidden) does NOT create a new BFC,
+     * so position:sticky headers still work correctly on iOS.
+     */
+    overflow-x: clip;
   }
 
   body {
     @apply bg-bg text-ink font-sans antialiased;
     font-feature-settings: "ss01", "cv11";
+    /*
+     * Touch-action: pan-y allows native vertical rubber-band scrolling
+     * on iOS while preventing accidental horizontal drift.
+     */
+    touch-action: pan-y;
+    /* Reserve space for the browser chrome on notched/dynamic-island phones */
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   [dir="rtl"] body {

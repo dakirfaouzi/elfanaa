@@ -82,8 +82,15 @@ export function ProductCard({
           {quickAdd ? (
             <div
               className={cn(
-                "absolute inset-x-3 bottom-3 translate-y-1 opacity-0 transition-all duration-300 ease-premium",
-                "group-hover:translate-y-0 group-hover:opacity-100 focus-within:translate-y-0 focus-within:opacity-100"
+                /*
+                 * Mobile (< sm): always visible — hover never fires on touch.
+                 * sm+: hide by default, reveal on group-hover / keyboard focus.
+                 */
+                "absolute inset-x-3 bottom-3 transition-all duration-300 ease-premium",
+                "translate-y-0 opacity-100",
+                "sm:translate-y-1 sm:opacity-0",
+                "sm:group-hover:translate-y-0 sm:group-hover:opacity-100",
+                "focus-within:translate-y-0 focus-within:opacity-100"
               )}
             >
               <button
@@ -112,10 +119,10 @@ export function ProductCard({
           ) : null}
         </div>
 
-        <div className="mt-4 space-y-2">
-          <div className="flex items-start justify-between gap-3">
+        <div className="mt-3 space-y-1.5 md:mt-4 md:space-y-2">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="truncate text-[15px] font-semibold leading-snug text-ink">{title}</h3>
+              <h3 className="truncate text-[14px] font-semibold leading-snug text-ink md:text-[15px]">{title}</h3>
               {/* Emotional hook — first line of headline, shown in accent colour */}
               {product.headline && (
                 <p className="mt-0.5 line-clamp-1 text-[12px] font-medium text-accent">

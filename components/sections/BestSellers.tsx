@@ -38,7 +38,7 @@ export function BestSellers({ products }: BestSellersProps) {
               <span className="h-px w-6 bg-line" aria-hidden />
               <span className="text-accent">{t.home.bestSellersEyebrow}</span>
             </div>
-            <h2 className="mt-3 whitespace-pre-line font-display text-4xl font-semibold leading-[1.04] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
+            <h2 className="mt-3 whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
               {t.home.bestSellersTitle}
             </h2>
           </div>

@@ -46,7 +46,7 @@ export function ShopByFeeling() {
             <span className="h-px w-6 bg-line" aria-hidden />
             <span className="text-accent">{t.home.shopByFeelingEyebrow}</span>
           </div>
-          <h2 className="mt-3 whitespace-pre-line text-balance font-display text-4xl font-semibold leading-[1.04] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
+          <h2 className="mt-3 whitespace-pre-line text-balance font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
             {t.home.shopByFeelingTitle}
           </h2>
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted md:text-base">
@@ -79,24 +79,24 @@ export function ShopByFeeling() {
                       aria-hidden
                       className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgba(186,110,92,0.32),transparent_70%)]"
                     />
-                    <div className="relative flex h-full flex-col items-center justify-between p-6 text-center md:p-7">
+                    <div className="relative flex h-full flex-col items-center justify-between p-4 text-center md:p-7">
                       {/* Save badge */}
                       {f.saveBadge ? (
-                        <span className="inline-flex items-center rounded-full bg-accent/15 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent ring-1 ring-accent/30 backdrop-blur-sm md:text-[11px]">
+                        <span className="inline-flex items-center rounded-full bg-accent/15 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-accent ring-1 ring-accent/30 backdrop-blur-sm md:px-3 md:py-1 md:text-[11px]">
                           {pickLocalized(f.saveBadge, locale)}
                         </span>
                       ) : null}
 
                       {/* Wordmark + offer */}
-                      <div className="my-auto flex flex-col items-center gap-3 md:gap-4">
-                        <Wordmark size="lg" tone="light" />
-                        <Flourish width={72} className="text-accent" />
+                      <div className="my-auto flex flex-col items-center gap-2 md:gap-4">
+                        <Wordmark size="md" tone="light" />
+                        <Flourish width={48} className="text-accent md:w-[72px]" />
                         {f.amount ? (
-                          <p className="font-display text-3xl font-semibold tracking-tight md:text-4xl">
+                          <p className="font-display text-2xl font-semibold tracking-tight md:text-4xl">
                             {pickLocalized(f.amount, locale)}
                           </p>
                         ) : null}
-                        <p className="max-w-[180px] text-[12px] leading-snug text-bg/75 md:text-[13px]">
+                        <p className="text-[11px] leading-snug text-bg/75 md:max-w-[180px] md:text-[13px]">
                           {pickLocalized(f.caption, locale)}
                         </p>
                       </div>
@@ -123,8 +123,8 @@ export function ShopByFeeling() {
                     {/* Bottom gradient to lift label off any image */}
                     <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
 
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-bg md:p-5">
-                      <h3 className="font-display text-xl font-semibold tracking-tight md:text-2xl">
+                    <div className="absolute inset-x-0 bottom-0 p-3.5 text-bg md:p-5">
+                      <h3 className="font-display text-[17px] font-semibold leading-tight tracking-tight md:text-2xl">
                         {pickLocalized(f.label, locale)}
                       </h3>
                       <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-bg/80 md:text-[13px]">

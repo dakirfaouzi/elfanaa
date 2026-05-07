@@ -15,9 +15,9 @@ export function Footer() {
   const { locale, t } = useLocale();
 
   return (
-    <footer className="mt-24 border-t border-line bg-surface">
+    <footer className="mt-16 border-t border-line bg-surface md:mt-24">
       <Container>
-        <div className="grid gap-12 py-16 md:grid-cols-12">
+        <div className="grid gap-8 py-10 md:gap-12 md:grid-cols-12 md:py-16">
           <div className="md:col-span-5">
             {/*
               The footer is a brand moment, so we use the full primary
@@ -32,14 +32,17 @@ export function Footer() {
               tagline="inline"
               taglineClassName="hidden sm:inline"
             />
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-muted">
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
               {t.footer.newsletterHint}
             </p>
+            {/*
+             * Stacked on mobile (full-width tap targets),
+             * inline row from sm+ (space-efficient on tablet/desktop).
+             */}
             <form
-              className="mt-6 flex max-w-md gap-2"
+              className="mt-5 flex max-w-md flex-col gap-2.5 sm:flex-row sm:gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                // Hook into your ESP (Klaviyo / Mailchimp / Resend Audiences) here.
               }}
             >
               <Input
@@ -49,7 +52,7 @@ export function Footer() {
                 placeholder={t.footer.emailPlaceholder}
                 className="flex-1"
               />
-              <Button type="submit" variant="primary">
+              <Button type="submit" variant="primary" className="w-full sm:w-auto">
                 {t.footer.subscribe}
               </Button>
             </form>
@@ -98,7 +101,7 @@ export function Footer() {
           </FooterColumn>
         </div>
 
-        <div className="flex flex-col items-start justify-between gap-4 border-t border-line py-6 text-xs text-muted sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-line py-5 text-[11px] text-muted sm:flex-row sm:items-center sm:text-xs">
           <p>
             © {new Date().getFullYear()} {pickLocalized(siteConfig.name, locale)} —{" "}
             {t.footer.rights}

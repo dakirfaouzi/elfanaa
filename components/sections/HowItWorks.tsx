@@ -118,7 +118,7 @@ export function HowItWorks() {
           {mechanisms.map(({ Icon, ingredient, action, explanation }, i) => (
             <div
               key={i}
-              className="rounded-xl border border-bg/10 bg-bg/[0.04] p-7 backdrop-blur-sm md:p-8"
+              className="rounded-xl border border-bg/10 bg-bg/[0.04] p-5 backdrop-blur-sm md:p-8"
             >
               <div className="mb-5 grid size-12 place-items-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/25">
                 <Icon className="size-5" strokeWidth={1.6} />

@@ -43,7 +43,7 @@ export function CollectionHero({
 
   return (
     <section className="relative overflow-hidden bg-ink">
-      <div className="relative h-[76vh] min-h-[540px] w-full md:h-[88vh] md:min-h-[680px]">
+      <div className="relative h-[68vh] min-h-[480px] w-full md:h-[88vh] md:min-h-[680px]">
 
         {/* ── Full-bleed editorial image ── */}
         {hasImage ? (
@@ -75,9 +75,9 @@ export function CollectionHero({
         <div className="absolute inset-0 bg-gradient-to-tr from-ink/60 via-ink/10 to-transparent" />
 
         {/* ── Content ─────────────────────────────────────────────── */}
-        <Container
+          <Container
           size="xl"
-          className="relative flex h-full flex-col justify-between py-10 md:py-14 lg:py-16"
+          className="relative flex h-full flex-col justify-between py-8 md:py-14 lg:py-16"
         >
           {/* Eyebrow — anchored top, first to appear */}
           <div
@@ -97,7 +97,7 @@ export function CollectionHero({
           <div>
             {/* Arabic title */}
             <h1
-              className="animate-rise font-display text-4xl font-semibold leading-[1.02] tracking-[-0.02em] text-bg md:text-5xl lg:text-6xl"
+              className="animate-rise font-display text-[32px] font-semibold leading-[1.04] tracking-[-0.02em] text-bg md:text-5xl lg:text-6xl"
               dir="rtl"
               style={{ animationDelay: "220ms" }}
             >
@@ -121,14 +121,14 @@ export function CollectionHero({
               style={{ animationDelay: "460ms" }}
             />
 
-            {/* Description + item count row */}
+            {/* Description + item count row — stacked on mobile, inline on sm+ */}
             <div
-              className="animate-rise mt-5 flex items-end justify-between gap-8"
+              className="animate-rise mt-4 flex flex-col gap-2 sm:mt-5 sm:flex-row sm:items-end sm:justify-between sm:gap-8"
               style={{ animationDelay: "520ms" }}
             >
               {collection.description ? (
                 <p
-                  className="max-w-md text-[13px] leading-[1.8] text-bg/48 md:text-sm"
+                  className="text-[12px] leading-[1.75] text-bg/48 sm:max-w-md md:text-sm"
                   dir="rtl"
                 >
                   {collection.description.ar}

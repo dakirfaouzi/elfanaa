@@ -78,8 +78,8 @@ export function ShopToolbar({
 
   return (
     <div className="sticky top-16 z-20 border-b border-line bg-bg/95 backdrop-blur-md lg:top-[76px]">
-      {/* Main toolbar row */}
-      <div className="mx-auto flex max-w-content items-center gap-3 px-6 py-3">
+      {/* Main toolbar row — px matches Container gutter so chips align with product grid */}
+      <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
         {showCollectionNav && <ChipNav collections={collections} active={active} />}
         <div className="ms-auto flex items-center gap-2">
           {hasFilterOptions && (
@@ -87,7 +87,7 @@ export function ShopToolbar({
               type="button"
               onClick={() => setFilterOpen((o) => !o)}
               className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
+                "inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors sm:h-9 sm:px-3.5 sm:text-[13px]",
                 filterOpen || activeCount > 0
                   ? "border-ink bg-ink text-bg"
                   : "border-line text-ink/80 hover:border-ink/40 hover:text-ink"
@@ -209,7 +209,7 @@ function FilterPanel({
 
   return (
     <div className="border-t border-line">
-      <div className="mx-auto max-w-content px-6 py-4">
+      <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-wrap gap-6">
           {groups.map((group) => (
             <div key={group.dim} className="flex flex-col gap-2">
