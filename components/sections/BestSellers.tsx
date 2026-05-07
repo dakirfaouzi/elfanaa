@@ -28,7 +28,7 @@ export function BestSellers({ products }: BestSellersProps) {
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
           className={cn(
-            "reveal mb-10 flex items-end justify-between gap-6 md:mb-14",
+            "reveal mb-8 flex items-end justify-between gap-6 md:mb-14",
             headerVisible && "in-view"
           )}
         >

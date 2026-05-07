@@ -46,7 +46,7 @@ export function Testimonials() {
             <h2 className="mt-3 whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[52px]">
               {t.testimonials.title}
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-muted md:text-[17px]">
+            <p className="mt-3 text-[13px] leading-relaxed text-muted md:mt-4 md:text-[17px]">
               {t.testimonials.body}
             </p>
 

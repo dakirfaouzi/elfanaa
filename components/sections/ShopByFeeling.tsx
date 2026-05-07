@@ -38,9 +38,9 @@ export function ShopByFeeling() {
       <Container>
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
-          className={cn("reveal mb-10 max-w-2xl md:mb-14", headerVisible && "in-view")}
+          className={cn("reveal mb-8 max-w-2xl md:mb-14", headerVisible && "in-view")}
         >
-          <Flourish width={88} className="mb-5 text-accent" />
+          <Flourish width={64} className="mb-3 text-accent md:w-[88px] md:mb-5" />
           <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
             <span className="text-accent/60">01</span>
             <span className="h-px w-6 bg-line" aria-hidden />
@@ -49,7 +49,7 @@ export function ShopByFeeling() {
           <h2 className="mt-3 whitespace-pre-line text-balance font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
             {t.home.shopByFeelingTitle}
           </h2>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted md:text-base">
+          <p className="mt-3 text-[13px] leading-relaxed text-muted md:mt-4 md:max-w-xl md:text-base">
             {t.home.shopByFeelingBody}
           </p>
         </header>

@@ -17,12 +17,14 @@
 }
 
 /* ── Legacy hover-lift (preserved for compatibility) ────────────────────── */
-.hover-lift {
-  transition: transform 350ms var(--ease-premium),
-    box-shadow 350ms var(--ease-premium);
-}
-.hover-lift:hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .hover-lift {
+    transition: transform 350ms var(--ease-premium),
+      box-shadow 350ms var(--ease-premium);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
 }
 
 /* ── Focus ring ─────────────────────────────────────────────────────────── */
@@ -41,18 +43,24 @@
  * Applied to the <article> wrapper.
  * Subtle upward translate + shadow bloom — tactile without being flashy.
  * 450ms is intentionally slower than startup conventions.
+ *
+ * Disabled on touch-primary devices (hover: none) — the translateY
+ * causes a visible "flash-up" on tap, which feels broken on mobile.
+ * Shadow bloom also has no value without a persistent cursor.
  */
-.card-luxury {
-  transition:
-    transform 450ms var(--ease-premium),
-    box-shadow 450ms var(--ease-premium);
-  will-change: transform;
-}
-.card-luxury:hover {
-  transform: translateY(-4px);
-  box-shadow:
-    0 4px 12px rgba(15, 15, 15, 0.07),
-    0 16px 36px rgba(15, 15, 15, 0.09);
+@media (hover: hover) {
+  .card-luxury {
+    transition:
+      transform 450ms var(--ease-premium),
+      box-shadow 450ms var(--ease-premium);
+    will-change: transform;
+  }
+  .card-luxury:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 4px 12px rgba(15, 15, 15, 0.07),
+      0 16px 36px rgba(15, 15, 15, 0.09);
+  }
 }
 
 /* ── Section reveal ─────────────────────────────────────────────────────── */

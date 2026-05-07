@@ -84,7 +84,7 @@ export function HowItWorks() {
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
           className={cn(
-            "reveal mx-auto mb-12 max-w-2xl text-center md:mb-16",
+            "reveal mx-auto mb-8 max-w-2xl text-center md:mb-16",
             headerVisible && "in-view"
           )}
         >
