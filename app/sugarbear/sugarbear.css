@@ -67,6 +67,19 @@
 }
 .sb-float { animation: sb-float 7s ease-in-out infinite; }
 
+/* ── Before/After diptych — responsive aspect ratio ───────────────────────
+   Native poster is 681 × 1024 (≈ 2:3 portrait). On desktop we keep that
+   exact ratio so the campaign labels and warm tones are preserved. On
+   mobile we tighten to 5 : 6 (0.83) so the image stops feeling vertically
+   excessive next to short body copy — combined with `object-position:
+   center bottom` on the <Image>, only the small empty top of the frame
+   is trimmed; the model, the bottle, and the baked-in Arabic labels all
+   remain fully visible.                                                  */
+.sb-ba-image { aspect-ratio: 681 / 1024; }
+@media (max-width: 640px) {
+  .sb-ba-image { aspect-ratio: 5 / 6; }
+}
+
 /* ── Gentle shimmer on gold accents ─────────────────────────────────────── */
 @keyframes sb-shimmer {
   0% { background-position: -200% 0; }

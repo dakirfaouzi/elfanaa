@@ -77,9 +77,9 @@ export const transformationCopy = {
 
 export const beforeAfterCopy = {
   eyebrow: "نتائج تُلاحظ مع الاستمرار",
-  headline: "شعر يبدو أكثر صحة،\nولمعان يُرى من أول فرق.",
+  headline: "فرق تشعرين به…\nولمعان يُلاحظ.",
   body:
-    "مع العناية اليومية والانتظام، يبدأ الشعر باستعادة نعومته ولمعانه ومظهره الصحي بشكل تدريجي وطبيعي.",
+    "مع العناية اليومية والانتظام، يستعيد الشعر نعومته ولمعانه ومظهره الصحي بشكل طبيعي ومتدرج.",
   // Editorial reassurance line — sits beneath the diptych in soft
   // low-contrast typography, luxury skincare style. Honest, not clinical.
   disclaimer:

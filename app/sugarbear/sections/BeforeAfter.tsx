@@ -41,18 +41,23 @@ export function BeforeAfter() {
         // palette continuity.
         background:
           "linear-gradient(180deg, var(--sb-cream) 0%, #f6ebd5 100%)",
-        // Slightly trimmed bottom padding (matches the rhythm we set on
-        // Section 2 so the page no longer floats in dead space).
-        paddingTop: "clamp(72px, 10vw, 130px)",
+        // Tightened top padding (was 72→130 → now 44→80) so the
+        // storytelling between Section 2 and Section 3 flows as one
+        // continuous thought instead of being separated by a wide
+        // cream gap. Bottom stays generous-but-trimmed.
+        paddingTop: "clamp(44px, 6vw, 80px)",
         paddingBottom: "clamp(56px, 8vw, 110px)",
       }}
     >
       <div className="mx-auto max-w-[1240px] px-6 md:px-12">
-        {/* ── Editorial intro — eyebrow + headline + supporting copy ── */}
+        {/* ── Editorial intro — eyebrow + headline + supporting copy ── *
+         *  Wider intro column (640 → 660) absorbs the slightly larger   *
+         *  body type without forcing widow-orphan line breaks.          *
+         * ──────────────────────────────────────────────────────────── */}
         <Reveal>
           <div
             style={{
-              maxWidth: 640,
+              maxWidth: 660,
               marginInline: "auto",
               textAlign: "center",
             }}
@@ -108,11 +113,14 @@ export function BeforeAfter() {
             <p
               style={{
                 marginTop: "clamp(18px, 2.4vw, 26px)",
-                fontSize: "clamp(15.5px, 1.45vw, 18px)",
-                lineHeight: 2,
+                // One notch up on size + a hair more line-height than
+                // Section 2 (2.0 → 2.1) so this paragraph breathes
+                // visibly more — readability without weight.
+                fontSize: "clamp(16px, 1.5vw, 18.5px)",
+                lineHeight: 2.1,
                 color: "var(--sb-charcoal)",
                 fontWeight: 400,
-                maxWidth: 560,
+                maxWidth: 580,
                 marginInline: "auto",
               }}
             >
@@ -131,13 +139,13 @@ export function BeforeAfter() {
          * ──────────────────────────────────────────────────────────── */}
         <Reveal delay={1}>
           <div
+            className="sb-ba-image"
             style={{
               position: "relative",
               width: "100%",
               maxWidth: 780,
               marginInline: "auto",
-              marginTop: "clamp(36px, 5vw, 64px)",
-              aspectRatio: "681 / 1024",
+              marginTop: "clamp(32px, 4.6vw, 56px)",
               borderRadius: 12,
               overflow: "hidden",
               // Very soft luxury shadow only — no hard frames, no harsh
@@ -158,25 +166,59 @@ export function BeforeAfter() {
               sizes="(max-width: 1024px) calc(100vw - 48px), 780px"
               style={{
                 objectFit: "cover",
-                objectPosition: "center",
+                // Anchor to the bottom so the campaign labels
+                // ("قبل الانتظام" / "بعد الانتظام") are always
+                // preserved when the mobile aspect-ratio (5:6) trims a
+                // sliver from the top of the image.
+                objectPosition: "center bottom",
               }}
             />
           </div>
         </Reveal>
 
-        {/* ── Editorial reassurance — small, low-contrast, luxury-skin- *
-         *  care voice. No icons, no asterisk, no clinical tone.         *
+        {/* ── Editorial reassurance — premium luxury-skincare voice.   *
+         *  Sized + warmed so it reads as *reassurance*, not as hidden  *
+         *  legal text. Still soft + clearly subordinate to the image.  *
          * ──────────────────────────────────────────────────────────── */}
         <Reveal delay={2}>
+          {/* Soft gold middot rule above the line — visually attaches
+           *  the disclaimer to the diptych instead of leaving it
+           *  floating in the cream. */}
+          <div
+            aria-hidden
+            style={{
+              marginTop: "clamp(32px, 4.4vw, 48px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: "var(--sb-gold)",
+                opacity: 0.5,
+                display: "inline-block",
+              }}
+            />
+          </div>
           <p
             style={{
-              marginTop: "clamp(28px, 3.6vw, 40px)",
-              maxWidth: 560,
+              marginTop: 14,
+              maxWidth: 580,
               marginInline: "auto",
               textAlign: "center",
-              fontSize: 12.5,
+              // Bumped from 12.5 → 13.5 so it reads at a glance.
+              fontSize: 13.5,
+              // Slightly tighter line-height for a single-line feel,
+              // a touch more open than 1.55.
               lineHeight: 1.75,
-              color: "var(--sb-stone)",
+              // Warmer than --sb-stone (which leaned cool/grey-beige).
+              // Custom rgba on charcoal-soft so it stays subtle but
+              // clearly readable; opacity 0.78 keeps it premium-quiet.
+              color: "rgba(74, 70, 66, 0.78)",
               fontWeight: 400,
               letterSpacing: "0.005em",
             }}
