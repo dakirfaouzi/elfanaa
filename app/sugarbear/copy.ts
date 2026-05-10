@@ -93,24 +93,34 @@ export const beforeAfterCopy = {
 };
 
 export const benefitsCopy = {
-  eyebrow: "ما تشعرين به",
-  headline: "أربعة وعود.\nتلمسينها يومياً.",
+  eyebrow: "لماذا تختاره الكثير من النساء",
+  headline: "أربع لمسات يومية…\nلفرق تشعرين به.",
+  // Soft editorial intro paragraph — sits beneath the headline before
+  // the card grid. Sets the calm premium tone ahead of the four cards.
+  intro:
+    "تركيبة يومية تمنح شعركِ العناية والنعومة والمظهر الصحي بطريقة بسيطة وأنيقة.",
+  // Each card carries a luxury-line icon name (resolved in Benefits.tsx
+  // to avoid coupling the copy file to React components).
   cards: [
     {
-      title: "تقوية من الجذور",
-      body: "Biotin بتركيز يومي يدعم بنية الشعرة من الداخل، فتقاوم الكسر وتنمو أقوى.",
+      icon: "strand" as const,
+      title: "كثافة ولمعان",
+      body: "مظهر أكثر امتلاءً ولمعاناً مع العناية اليومية المنتظمة.",
     },
     {
-      title: "لمعان ونعومة طبيعية",
-      body: "Vitamin C يساعد على إنتاج الكولاجين الذي يمنح الشعر بريقه الحريري.",
+      icon: "bloom" as const,
+      title: "دعم من الداخل",
+      body: "تركيبة يومية تمنح شعركِ العناية التي يحتاجها باستمرار.",
     },
     {
-      title: "دعم يومي للشعر الصحي",
-      body: "تركيبة متوازنة تعمل بهدوء كل يوم — لا قمم، لا انخفاضات. فقط استمرار.",
+      icon: "sunrise" as const,
+      title: "روتين سهل يومياً",
+      body: "خطوة بسيطة تضيفينها إلى روتينكِ اليومي بكل راحة.",
     },
     {
-      title: "روتين سهل ولذيذ",
-      body: "حلوى توت طبيعية واحدة في اليوم. بدون كبسولات. بدون مرارة. بدون عناء.",
+      icon: "sparkle" as const,
+      title: "أنوثة واهتمام",
+      body: "لحظات صغيرة من العناية تنعكس على شعركِ ومظهركِ.",
     },
   ],
 };

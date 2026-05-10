@@ -122,3 +122,41 @@ export const IconBag = ({ size = 24, className, color }: IconProps) => (
     <path d="M9 8V6a3 3 0 016 0v2" />
   </svg>
 );
+
+/* ──────────────────────────────────────────────────────────────────────
+ *  Luxury Benefits-section icons — ultra-minimal, soft gold line style.
+ *  Each one is a single editorial gesture, never a literal pictogram.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/** Flowing hair strand — single S-curve with a softer secondary line.
+ *  Reads as "كثافة ولمعان" / hair density + shine. */
+export const IconStrand = ({ size = 24, className, color }: IconProps) => (
+  <svg {...baseProps(size, color)} className={className} aria-hidden="true">
+    <path d="M7 4 C 14 6, 11 14, 18 16" />
+    <path d="M9 8 C 14 10, 12 16, 16 19" opacity="0.55" />
+  </svg>
+);
+
+/** Soft radiant bloom — centred dot + four breathing petals.
+ *  Reads as "دعم من الداخل" / nourishment + inner glow. */
+export const IconBloom = ({ size = 24, className, color }: IconProps) => (
+  <svg {...baseProps(size, color)} className={className} aria-hidden="true">
+    <circle cx="12" cy="12" r="1.6" />
+    <path d="M12 4.5 C 13 7, 13 9, 12 10.4 C 11 9, 11 7, 12 4.5z" />
+    <path d="M12 13.6 C 13 15, 13 17, 12 19.5 C 11 17, 11 15, 12 13.6z" />
+    <path d="M4.5 12 C 7 11, 9 11, 10.4 12 C 9 13, 7 13, 4.5 12z" />
+    <path d="M13.6 12 C 15 11, 17 11, 19.5 12 C 17 13, 15 13, 13.6 12z" />
+  </svg>
+);
+
+/** Sun rising over a horizon — daily ritual / morning rhythm.
+ *  Reads as "روتين سهل يومياً" / a small daily moment. */
+export const IconSunrise = ({ size = 24, className, color }: IconProps) => (
+  <svg {...baseProps(size, color)} className={className} aria-hidden="true">
+    <path d="M3.5 18 L 20.5 18" />
+    <path d="M6.5 18 A 5.5 5.5 0 0 1 17.5 18" />
+    <path d="M12 5 v 2" opacity="0.65" />
+    <path d="M5.4 9.5 l 1.1 1.1" opacity="0.65" />
+    <path d="M18.6 9.5 l -1.1 1.1" opacity="0.65" />
+  </svg>
+);
