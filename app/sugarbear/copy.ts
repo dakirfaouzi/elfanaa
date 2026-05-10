@@ -53,7 +53,7 @@ export const heroCopy = {
 export const stickyCtaCopy = {
   eyebrowDesktop: "طقسكِ في انتظاركِ",
   ctaDesktop: "ابدئي طقس جمالكِ",
-  ctaMobile: "ابدئي طقسكِ",
+  ctaMobile: "ابدئي طقس جمالك",
   savingPrefix: "وفّري",
 };
 

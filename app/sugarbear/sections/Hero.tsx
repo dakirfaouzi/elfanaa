@@ -64,8 +64,16 @@ export function Hero() {
            * ─────────────────────────────────────────────────────────── */}
           <Reveal as="div" className="lg:col-span-6 order-1 lg:order-1 relative">
             <div
-              className="relative mx-auto"
-              style={{ width: "min(540px, 94vw)" }}
+              className="relative"
+              style={{
+                width: "100%",
+                maxWidth: 540,
+                // Logical-property auto-margins → perfectly centered on every
+                // viewport, regardless of RTL/LTR direction. (94vw was wider
+                // than the column's inner width on small phones, causing a
+                // visual offset.)
+                marginInline: "auto",
+              }}
             >
               {/* Multi-layered ambient glow — candle-warm halo + cool kiss */}
               <div
@@ -103,7 +111,7 @@ export function Hero() {
                   alt="طقس صباحي للجمال — Sugarbear على طاولة الزينة، كثافة ولمعان من أول نظرة"
                   fill
                   priority
-                  sizes="(max-width: 1024px) 94vw, 540px"
+                  sizes="(max-width: 1024px) calc(100vw - 48px), 540px"
                   style={{
                     objectFit: "cover",
                     objectPosition: "center 30%",
@@ -347,12 +355,47 @@ export function Hero() {
             {/* ── BUNDLE SELECTOR — clearer active/contrast ──────── */}
             <Reveal delay={4}>
               <div className="mt-10">
-                <div
-                  className="sb-eyebrow"
-                  style={{ marginBottom: 14, color: "var(--sb-charcoal-soft)" }}
-                >
-                  <span className="sb-rule" />
-                  <span style={{ margin: "0 12px" }}>اختاري المدة</span>
+                {/* Section title + informational capsule clarifier ─────
+                 *  We promote "اختاري المدة" from a tiny eyebrow to a real
+                 *  section heading because the offer is the conversion
+                 *  centrepiece. Below it, the capsule-count line gives the
+                 *  buyer the unit clarity they need *before* they price-
+                 *  shop the bundles. Editorial pairing — display serif on
+                 *  top, soft body sans on bottom.
+                 */}
+                <div style={{ marginBottom: 18 }}>
+                  <h2
+                    style={{
+                      fontFamily: "var(--font-sb-display), serif",
+                      fontSize: "clamp(20px, 2.4vw, 26px)",
+                      fontWeight: 600,
+                      color: "var(--sb-ink)",
+                      lineHeight: 1.2,
+                      letterSpacing: "-0.005em",
+                      margin: 0,
+                    }}
+                  >
+                    اختاري المدة المناسبة لكِ
+                  </h2>
+                  <p
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      color: "var(--sb-charcoal-soft)",
+                      fontWeight: 400,
+                      letterSpacing: "0.005em",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    تحتوي العبوة الواحدة على{" "}
+                    <span
+                      className="sb-num"
+                      style={{ fontWeight: 600, color: "var(--sb-charcoal)" }}
+                    >
+                      ٣٠
+                    </span>{" "}
+                    كبسولة
+                  </p>
                 </div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
                   {(Object.keys(bundles) as BundleId[]).map((id) => {
@@ -380,7 +423,7 @@ export function Hero() {
                               ? "linear-gradient(180deg, #fffaef 0%, #f6e7c6 100%)"
                               : "rgba(255,252,244,0.55)",
                             textAlign: "center",
-                            minHeight: 176,
+                            minHeight: 192,
                             boxShadow: checked
                               ? "0 22px 50px rgba(184,153,104,0.28), 0 0 0 4px rgba(184,153,104,0.10), 0 1px 0 rgba(255,255,255,0.6) inset"
                               : "0 1px 2px rgba(44,40,38,0.04)",
@@ -410,23 +453,42 @@ export function Hero() {
                               {microcopy.bestValue.toUpperCase()}
                             </span>
                           )}
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: checked
-                                ? "var(--sb-charcoal-soft)"
-                                : "var(--sb-stone)",
-                              marginBottom: 12,
-                              fontWeight: 600,
-                              letterSpacing: "0.04em",
-                              textTransform: "none",
-                            }}
-                          >
-                            {b.pieces === 1
-                              ? "علبة واحدة"
-                              : b.pieces === 2
-                              ? "علبتان"
-                              : "ثلاث علب"}
+                          <div style={{ marginBottom: 14 }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: checked
+                                  ? "var(--sb-charcoal-soft)"
+                                  : "var(--sb-stone)",
+                                fontWeight: 600,
+                                letterSpacing: "0.04em",
+                                textTransform: "none",
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {b.pieces === 1
+                                ? "علبة واحدة"
+                                : b.pieces === 2
+                                ? "علبتان"
+                                : "ثلاث علب"}
+                            </div>
+                            {/* Duration subtitle — soft editorial clarity. */}
+                            <div
+                              style={{
+                                marginTop: 3,
+                                fontSize: 10.5,
+                                color: "var(--sb-stone)",
+                                fontWeight: 400,
+                                letterSpacing: "0.02em",
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {b.pieces === 1
+                                ? "لمدة شهر واحد"
+                                : b.pieces === 2
+                                ? "لمدة شهرين"
+                                : "لمدة ٣ شهور"}
+                            </div>
                           </div>
                           {/* Main price — visually dominant */}
                           <div
