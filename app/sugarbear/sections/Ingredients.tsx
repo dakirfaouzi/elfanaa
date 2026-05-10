@@ -27,26 +27,30 @@ export function Ingredients() {
         // chapter break with its own atmosphere.
         background:
           "linear-gradient(180deg, var(--sb-cream) 0%, #f4ead4 100%)",
-        paddingTop: "clamp(64px, 9vw, 120px)",
-        paddingBottom: "clamp(72px, 10vw, 130px)",
+        // Slightly tightened (top 64→120 → 56→104, bottom 72→130 →
+        // 64→114) — premium breathing rhythm preserved without dead
+        // cream space on desktop.
+        paddingTop: "clamp(56px, 8vw, 104px)",
+        paddingBottom: "clamp(64px, 9vw, 114px)",
       }}
     >
       <div className="mx-auto max-w-[1240px] px-6 md:px-12">
         {/* Two-column editorial canvas — image LEFT (lg:order-1),
          *  content RIGHT (lg:order-2). Mobile defaults to image-first
          *  via order-1/order-2 so the photograph leads the eye.       */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
           {/* ── Image column ──────────────────────────────────────── */}
           <Reveal as="div" className="lg:col-span-6 order-1 lg:order-1">
             <div
+              className="sb-ing-image"
               style={{
                 position: "relative",
                 width: "100%",
-                // 520→560 desktop sweet-spot — image feels important
-                // without overpowering the typography column.
-                maxWidth: 560,
+                // -8.9 % from the previous 560 px — gives the typography
+                // column more authority while the image still dominates
+                // visually on desktop.
+                maxWidth: 510,
                 marginInline: "auto",
-                aspectRatio: "682 / 1024",
                 borderRadius: 30,
                 overflow: "hidden",
                 // Soft warm luxury shadow only — no hard frames.
@@ -60,7 +64,7 @@ export function Ingredients() {
                 src="/sugarbear/ingredients.png"
                 alt="تركيبة Sugarbear — البيوتين، فيتامين C، وحمض الفوليك في إطار جمالي هادئ"
                 fill
-                sizes="(max-width: 1024px) calc(100vw - 48px), 560px"
+                sizes="(max-width: 1024px) calc(100vw - 48px), 510px"
                 style={{
                   objectFit: "cover",
                   objectPosition: "center",
@@ -112,7 +116,9 @@ export function Ingredients() {
                 style={{
                   fontFamily: "var(--font-sb-display), serif",
                   fontSize: "clamp(30px, 4.4vw, 52px)",
-                  lineHeight: 1.18,
+                  // Subtly more breathing room in the two-line
+                  // headline (1.18 → 1.26 ≈ +4 px on the 52 px size).
+                  lineHeight: 1.26,
                   fontWeight: 600,
                   color: "var(--sb-ink)",
                   letterSpacing: "-0.01em",
@@ -152,17 +158,22 @@ export function Ingredients() {
                 ))}
               </div>
 
-              {/* ── Closing finishing line ───────────────────────── */}
+              {/* ── Closing finishing line — cinematic gold shimmer * 
+               *  Sits a hair more separated from the ingredient list  *
+               *  so it reads as the section's quiet exhale. The       *
+               *  `.sb-tagline-shimmer` class paints the text in warm  *
+               *  charcoal with a single soft gold band drifting       *
+               *  every 8 s — luxurious, never flashy.                 */}
               <p
+                className="sb-tagline-shimmer"
                 style={{
-                  marginTop: "clamp(22px, 2.8vw, 32px)",
+                  marginTop: "clamp(32px, 4vw, 48px)",
                   fontFamily: "var(--font-sb-display), serif",
                   fontStyle: "italic",
                   fontSize: "clamp(14.5px, 1.3vw, 16px)",
                   lineHeight: 1.7,
-                  color: "rgba(74, 70, 66, 0.80)",
                   fontWeight: 400,
-                  letterSpacing: "0.005em",
+                  letterSpacing: "0.03em",
                 }}
               >
                 {ingredientsCopy.outro}
@@ -215,15 +226,21 @@ function IngredientRow({
           : "1px solid rgba(184, 153, 104, 0.22)",
       }}
     >
-      {/* Editorial 01 / 02 / 03 numeral */}
+      {/* Editorial 01 / 02 / 03 numeral — softer gold, lower opacity,
+       *  slightly larger for an unhurried editorial feel. */}
       <span
         className="sb-num"
         style={{
           fontFamily: "var(--font-sb-latin), 'Cormorant Garamond', serif",
           fontStyle: "italic",
-          fontSize: "clamp(28px, 3vw, 36px)",
+          // Bumped from clamp(28→36) → clamp(30→40).
+          fontSize: "clamp(30px, 3.4vw, 40px)",
           fontWeight: 500,
-          color: "var(--sb-gold)",
+          // Soft gold (--sb-gold-soft #d4b894) at 78 % — lighter than
+          // the warm-gold accent before, so the numerals whisper rather
+          // than punctuate.
+          color: "var(--sb-gold-soft)",
+          opacity: 0.78,
           lineHeight: 1,
           letterSpacing: "0.02em",
           // Slight optical alignment — italic glyphs sit visually low.
@@ -268,14 +285,17 @@ function IngredientRow({
               transform: "translateY(-3px)",
             }}
           />
+          {/* Latin ingredient label — softened so it never competes
+           *  with the Arabic display name. Lighter italic weight via
+           *  reduced opacity, slightly more refined letter-spacing. */}
           <span
             style={{
               fontFamily:
                 "var(--font-sb-latin), 'Cormorant Garamond', serif",
               fontStyle: "italic",
               fontSize: "clamp(13.5px, 1.2vw, 15px)",
-              color: "var(--sb-charcoal-soft)",
-              letterSpacing: "0.04em",
+              color: "rgba(74, 70, 66, 0.62)",
+              letterSpacing: "0.06em",
               fontWeight: 400,
             }}
           >

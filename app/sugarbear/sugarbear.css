@@ -80,6 +80,16 @@
   .sb-ba-image { aspect-ratio: 5 / 6; }
 }
 
+/* ── Ingredients editorial image — small ~5 % mobile height trim ───────────
+   Native poster is 682 × 1024. Desktop preserves that ratio; on mobile we
+   relax to 17 : 24 (≈ 0.71) so the image trims a hair off the top / bottom
+   without losing the bottle, beaker, lemon, or marble surface. Combined
+   with `object-position: center`, it stays cinematic on every phone size. */
+.sb-ing-image { aspect-ratio: 682 / 1024; }
+@media (max-width: 640px) {
+  .sb-ing-image { aspect-ratio: 17 / 24; }
+}
+
 /* ── Gentle shimmer on gold accents ─────────────────────────────────────── */
 @keyframes sb-shimmer {
   0% { background-position: -200% 0; }
@@ -99,6 +109,36 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: sb-shimmer 6s linear infinite;
+}
+
+/* ── Cinematic tagline shimmer — single soft gold pass on warm charcoal *
+ *  Used for the Section 5 closing line ("تركيبة هادئة..."). The text   *
+ *  stays mostly warm charcoal; a single very soft gold band drifts     *
+ *  across every ~8 s. Reads as a luxury catch-light, never as a       *
+ *  flashy gradient. Respects prefers-reduced-motion below.            */
+.sb-tagline-shimmer {
+  background: linear-gradient(
+    100deg,
+    rgba(110, 100, 92, 0.92) 0%,
+    rgba(110, 100, 92, 0.92) 40%,
+    var(--sb-gold) 50%,
+    rgba(110, 100, 92, 0.92) 60%,
+    rgba(110, 100, 92, 0.92) 100%
+  );
+  background-size: 280% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sb-shimmer 8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-tagline-shimmer {
+    animation: none;
+    background: var(--sb-gold-deep);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 
 /* ── Soft underline accent (used for editorial labels) ─────────────────── */
