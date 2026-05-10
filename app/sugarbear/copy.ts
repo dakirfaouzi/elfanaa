@@ -58,10 +58,16 @@ export const stickyCtaCopy = {
 };
 
 export const transformationCopy = {
-  eyebrow: "التحوّل",
+  eyebrow: "طقسٌ يومي",
   headline: "كل صباح يبدأ\nبطقس صغير.",
   body:
-    "اللحظة التي تختارين فيها قطعة حلوى لذيذة قبل قهوتك، هي اللحظة التي تختارين فيها أن تهتمي بنفسكِ. شعرٌ أكثر صحة. ثقةٌ تتراكم بهدوء. روتينٌ تحبّينه.",
+    "لحظات العناية اليومية تنعكس على شعركِ أيضاً — نعومة، لمعان، ومظهر أكثر حيوية مع الوقت.",
+  // Minimalist emotional tag-line beneath the body. Rendered as a single
+  // inline row separated by gold middots — no chips, no boxes, no clutter.
+  tags: ["ثقة", "نعومة", "أنوثة"] as const,
+  // Pillar data is preserved so other surfaces (footer manifesto, future
+  // ritual modules) can re-use it. The Transformation section itself no
+  // longer renders this row — its new direction is editorial, not didactic.
   pillars: [
     { num: "01", title: "ثقة", body: "شعرٌ تشعرين بحضوره، لا تخفينه." },
     { num: "02", title: "طقس", body: "دقيقة لكِ. كل يوم. بدون عناء." },
