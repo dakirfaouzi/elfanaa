@@ -76,15 +76,20 @@ export const transformationCopy = {
 };
 
 export const beforeAfterCopy = {
-  eyebrow: "نتائج حقيقية",
-  headline: "تحوّل تلاحظينه\nأنتِ والقريبون منكِ.",
+  eyebrow: "نتائج تُلاحظ مع الاستمرار",
+  headline: "شعر يبدو أكثر صحة،\nولمعان يُرى من أول فرق.",
   body:
-    "الكثافة لا تُصنع في يوم. لكنها تبدأ في يومٍ واحد. مع الانتظام لمدة ٩٠ يوماً، يكتسب الشعر بنية أقوى ولمعاناً أعمق.",
+    "مع العناية اليومية والانتظام، يبدأ الشعر باستعادة نعومته ولمعانه ومظهره الصحي بشكل تدريجي وطبيعي.",
+  // Editorial reassurance line — sits beneath the diptych in soft
+  // low-contrast typography, luxury skincare style. Honest, not clinical.
+  disclaimer:
+    "النتائج تختلف من شخص لآخر بحسب طبيعة الشعر والالتزام اليومي.",
+  // Before/after labels are *baked into the image* (Arabic typography
+  // by the campaign art-director), so we keep the strings here only as
+  // a11y reference for the image alt text. No overlay, no chips, no
+  // floating badges.
   beforeLabel: "قبل الانتظام",
   afterLabel: "بعد الانتظام",
-  beforeNote: "شعر باهت · أطراف هشّة",
-  afterNote: "كثافة · لمعان · نعومة",
-  monthsLabel: "٩٠ يوماً من الانتظام",
 };
 
 export const benefitsCopy = {

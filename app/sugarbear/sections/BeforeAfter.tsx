@@ -1,43 +1,119 @@
+import Image from "next/image";
 import { beforeAfterCopy } from "../copy";
 import { Reveal } from "../components/Reveal";
-import { IconSparkle } from "../components/Icons";
 
+/**
+ * SECTION 3 — Before / After (visual proof, luxury beauty campaign style)
+ *
+ * Single dominant editorial diptych photograph (the official campaign
+ * before/after shot, with Arabic labels baked-in by the art-director)
+ * + minimal centered typography + a soft low-contrast reassurance line.
+ *
+ * Direction (per brief):
+ *   • feels like a luxury beauty campaign, not a fitness/medical ad
+ *   • visual proof + emotional reassurance + believable transformation
+ *   • soft warm cinematic tones — no hard borders, no badges, no arrows
+ *   • no abstract SVG strand placeholders — REAL image carries the proof
+ *
+ * Composition:
+ *   eyebrow      "نتائج تُلاحظ مع الاستمرار"
+ *      ↓
+ *   headline     "شعر يبدو أكثر صحة، / ولمعان يُرى من أول فرق."
+ *      ↓
+ *   body         (calm narrow paragraph)
+ *      ↓
+ *   ┌───────────────────────────────────────────────┐
+ *   │                                               │
+ *   │   campaign before/after diptych — 681 × 1024  │
+ *   │   labels: قبل الانتظام  ·  بعد الانتظام       │
+ *   │                                               │
+ *   └───────────────────────────────────────────────┘
+ *      ↓
+ *   "النتائج تختلف من شخص لآخر..."   (low-contrast disclaimer)
+ */
 export function BeforeAfter() {
   return (
     <section
+      id="sb-before-after"
       style={{
-        background: "linear-gradient(180deg, var(--sb-cream) 0%, #f3ead8 100%)",
-        paddingBlock: "clamp(72px, 9vw, 130px)",
+        // Subtle warm-cream → warmer-cream gradient — gives this section
+        // a felt-warmer atmosphere than Section 2 without breaking the
+        // palette continuity.
+        background:
+          "linear-gradient(180deg, var(--sb-cream) 0%, #f6ebd5 100%)",
+        // Slightly trimmed bottom padding (matches the rhythm we set on
+        // Section 2 so the page no longer floats in dead space).
+        paddingTop: "clamp(72px, 10vw, 130px)",
+        paddingBottom: "clamp(56px, 8vw, 110px)",
       }}
     >
-      <div className="mx-auto max-w-[1240px] px-6 md:px-10">
+      <div className="mx-auto max-w-[1240px] px-6 md:px-12">
+        {/* ── Editorial intro — eyebrow + headline + supporting copy ── */}
         <Reveal>
-          <div className="text-center max-w-[640px] mx-auto">
-            <p className="sb-eyebrow">
-              <span className="sb-rule" />
-              <span style={{ margin: "0 12px" }}>{beforeAfterCopy.eyebrow}</span>
-              <span className="sb-rule" />
+          <div
+            style={{
+              maxWidth: 640,
+              marginInline: "auto",
+              textAlign: "center",
+            }}
+          >
+            <p
+              className="sb-eyebrow"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--sb-gold-deep)",
+                marginBottom: 18,
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-block",
+                  height: 1,
+                  width: 28,
+                  background:
+                    "linear-gradient(90deg, transparent, var(--sb-gold), transparent)",
+                }}
+              />
+              <span style={{ margin: "0 14px" }}>{beforeAfterCopy.eyebrow}</span>
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-block",
+                  height: 1,
+                  width: 28,
+                  background:
+                    "linear-gradient(90deg, transparent, var(--sb-gold), transparent)",
+                }}
+              />
             </p>
             <h2
               style={{
                 fontFamily: "var(--font-sb-display), serif",
-                fontSize: "clamp(34px, 5vw, 64px)",
-                lineHeight: 1.1,
+                fontSize: "clamp(30px, 4.8vw, 56px)",
+                lineHeight: 1.18,
                 fontWeight: 600,
-                color: "var(--sb-charcoal)",
-                marginTop: 18,
+                color: "var(--sb-ink)",
                 letterSpacing: "-0.01em",
                 whiteSpace: "pre-line",
+                margin: 0,
+                maxWidth: 540,
+                marginInline: "auto",
               }}
             >
               {beforeAfterCopy.headline}
             </h2>
             <p
               style={{
-                marginTop: 22,
-                fontSize: 16,
-                lineHeight: 1.95,
-                color: "var(--sb-charcoal-soft)",
+                marginTop: "clamp(18px, 2.4vw, 26px)",
+                fontSize: "clamp(15.5px, 1.45vw, 18px)",
+                lineHeight: 2,
+                color: "var(--sb-charcoal)",
+                fontWeight: 400,
+                maxWidth: 560,
+                marginInline: "auto",
               }}
             >
               {beforeAfterCopy.body}
@@ -45,153 +121,70 @@ export function BeforeAfter() {
           </div>
         </Reveal>
 
-        {/* Diptych */}
-        <div className="mt-14 lg:mt-20 grid grid-cols-2 gap-3 md:gap-6 max-w-[1100px] mx-auto">
-          <Reveal delay={1}>
-            <DiptychPanel
-              variant="before"
-              label={beforeAfterCopy.beforeLabel}
-              note={beforeAfterCopy.beforeNote}
+        {/* ── Dominant editorial diptych ────────────────────────────── *
+         *  Native 681 × 1024 (≈ 2:3 portrait) so the campaign labels    *
+         *  ("قبل الانتظام" / "بعد الانتظام") and the warm cinematic     *
+         *  tones are preserved exactly as art-directed. Capped at       *
+         *  780 px on desktop (gives the diptych real campaign presence  *
+         *  without forcing the page into an oversized poster); on       *
+         *  mobile fills the column edge-to-edge with rounded corners.   *
+         * ──────────────────────────────────────────────────────────── */}
+        <Reveal delay={1}>
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 780,
+              marginInline: "auto",
+              marginTop: "clamp(36px, 5vw, 64px)",
+              aspectRatio: "681 / 1024",
+              borderRadius: 12,
+              overflow: "hidden",
+              // Very soft luxury shadow only — no hard frames, no harsh
+              // contrast. Lets the image melt into the warm cream page.
+              boxShadow:
+                "0 50px 110px rgba(44, 40, 38, 0.18), " +
+                "0 14px 36px rgba(184, 153, 104, 0.14), " +
+                "0 0 0 1px rgba(184, 153, 104, 0.16)",
+            }}
+          >
+            <Image
+              src="/sugarbear/before-after.png"
+              alt={`${beforeAfterCopy.beforeLabel} — ${beforeAfterCopy.afterLabel} · ${beforeAfterCopy.headline.replace(
+                /\n/g,
+                " "
+              )}`}
+              fill
+              sizes="(max-width: 1024px) calc(100vw - 48px), 780px"
+              style={{
+                objectFit: "cover",
+                objectPosition: "center",
+              }}
             />
-          </Reveal>
-          <Reveal delay={3}>
-            <DiptychPanel
-              variant="after"
-              label={beforeAfterCopy.afterLabel}
-              note={beforeAfterCopy.afterNote}
-            />
-          </Reveal>
-        </div>
-
-        <Reveal delay={4}>
-          <div className="mt-10 sb-dot-divider" style={{ color: "var(--sb-stone)" }}>
-            <span />
-            <span style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>
-              {beforeAfterCopy.monthsLabel}
-            </span>
-            <span />
           </div>
+        </Reveal>
+
+        {/* ── Editorial reassurance — small, low-contrast, luxury-skin- *
+         *  care voice. No icons, no asterisk, no clinical tone.         *
+         * ──────────────────────────────────────────────────────────── */}
+        <Reveal delay={2}>
+          <p
+            style={{
+              marginTop: "clamp(28px, 3.6vw, 40px)",
+              maxWidth: 560,
+              marginInline: "auto",
+              textAlign: "center",
+              fontSize: 12.5,
+              lineHeight: 1.75,
+              color: "var(--sb-stone)",
+              fontWeight: 400,
+              letterSpacing: "0.005em",
+            }}
+          >
+            {beforeAfterCopy.disclaimer}
+          </p>
         </Reveal>
       </div>
     </section>
-  );
-}
-
-function DiptychPanel({
-  variant,
-  label,
-  note,
-}: {
-  variant: "before" | "after";
-  label: string;
-  note: string;
-}) {
-  const isAfter = variant === "after";
-  return (
-    <figure
-      style={{
-        position: "relative",
-        aspectRatio: "4 / 5",
-        borderRadius: 4,
-        overflow: "hidden",
-        boxShadow: isAfter ? "var(--sb-shadow-lg)" : "var(--sb-shadow-md)",
-      }}
-    >
-      {/* Photographic stand-in: rich gradient + abstract hair-strand SVG */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: isAfter
-            ? "radial-gradient(120% 80% at 70% 30%, rgba(255,236,200,0.55) 0%, transparent 65%), linear-gradient(160deg, #f4e3c8 0%, #ddc196 100%)"
-            : "radial-gradient(120% 80% at 70% 30%, rgba(220,210,196,0.5) 0%, transparent 65%), linear-gradient(160deg, #e9e3d5 0%, #b9b1a0 100%)",
-        }}
-      />
-      <HairStrands variant={variant} />
-      {/* Top label band */}
-      <div
-        style={{
-          position: "absolute",
-          top: 18,
-          insetInline: 18,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          color: isAfter ? "var(--sb-charcoal)" : "rgba(44,40,38,0.7)",
-        }}
-      >
-        <span
-          className="sb-eyebrow"
-          style={{ background: "rgba(255,252,244,0.78)", padding: "6px 10px", borderRadius: 4 }}
-        >
-          {label}
-        </span>
-        {isAfter && <IconSparkle size={18} color="var(--sb-gold-deep)" />}
-      </div>
-      {/* Bottom note */}
-      <figcaption
-        style={{
-          position: "absolute",
-          bottom: 0,
-          insetInline: 0,
-          padding: "20px 22px",
-          background: "linear-gradient(0deg, rgba(44,40,38,0.55) 0%, transparent 100%)",
-          color: "#fbf5e8",
-          fontSize: 14,
-          fontWeight: 500,
-          letterSpacing: "0.02em",
-        }}
-      >
-        {note}
-      </figcaption>
-    </figure>
-  );
-}
-
-function HairStrands({ variant }: { variant: "before" | "after" }) {
-  const isAfter = variant === "after";
-  // Abstract flowing strands — denser & glossier on "after"
-  const strandCount = isAfter ? 18 : 9;
-  const baseColor = isAfter ? "#5c4d34" : "#6b6354";
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 200 250"
-      preserveAspectRatio="xMidYMid slice"
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.92 }}
-    >
-      <defs>
-        <linearGradient id={`strand-${variant}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={baseColor} stopOpacity={isAfter ? 0.95 : 0.7} />
-          <stop offset="100%" stopColor={baseColor} stopOpacity={0.25} />
-        </linearGradient>
-        {isAfter && (
-          <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="20%" stopColor="white" stopOpacity="0" />
-            <stop offset="50%" stopColor="white" stopOpacity="0.55" />
-            <stop offset="80%" stopColor="white" stopOpacity="0" />
-          </linearGradient>
-        )}
-      </defs>
-      {Array.from({ length: strandCount }).map((_, i) => {
-        const x = (i / (strandCount - 1)) * 200;
-        const wave = isAfter ? 8 : 14;
-        const variance = ((i % 3) - 1) * 8;
-        return (
-          <path
-            key={i}
-            d={`M ${x} 0 C ${x + wave + variance} 60, ${x - wave} 130, ${x + variance} 250`}
-            stroke={`url(#strand-${variant})`}
-            strokeWidth={isAfter ? 1.4 : 1.1}
-            fill="none"
-            strokeLinecap="round"
-            opacity={isAfter ? 0.95 : 0.65}
-          />
-        );
-      })}
-      {isAfter && (
-        <rect x="80" y="0" width="40" height="250" fill="url(#shine)" opacity="0.4" />
-      )}
-    </svg>
   );
 }
