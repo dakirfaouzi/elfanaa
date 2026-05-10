@@ -8,6 +8,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { CodCheckoutModal } from "@/components/checkout/CodCheckoutModal";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { MobileStickyCTA } from "@/components/layout/MobileStickyCTA";
+import { ChromeGate } from "@/components/layout/ChromeGate";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
 
 /**
@@ -28,7 +29,12 @@ export function Providers({ children }: { children: ReactNode }) {
         <MobileNav />
         <CartDrawer />
         <CodCheckoutModal />
-        <MobileStickyCTA />
+        {/* Standalone luxury landing pages (e.g. /sugarbear) ship their
+         *  own bespoke sticky CTA — gate the global "اطلب الآن" mobile
+         *  bar so the two never stack on the same screen. */}
+        <ChromeGate>
+          <MobileStickyCTA />
+        </ChromeGate>
       </UIProvider>
     </LocaleProvider>
   );
