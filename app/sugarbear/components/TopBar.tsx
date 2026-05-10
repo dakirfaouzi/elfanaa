@@ -1,90 +1,37 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { brand, navCopy } from "../copy";
 import { IconArrow } from "./Icons";
 
 /**
- * Sticky top navbar — pure navigation, *smart-hide on scroll*.
+ * Top navbar — pure navigation, *non-sticky by design*.
  *
  *   ┌───────────────────────────────────────────────────────────────────┐
  *   │  [← الرئيسية]                              Sugarbear · فيتامينات  │
  *   └───────────────────────────────────────────────────────────────────┘
  *
  * Behaviour:
- *   • Visible at the very top of the page (so the home link is in reach).
- *   • Slides up out of view as soon as the user starts scrolling down past
- *     the hero (≈ 120 px) — keeps editorial poster sections like the
- *     Transformation moment completely free of any translucent overlay.
- *   • Slides back in the moment the user scrolls *up* (Apple/Vogue
- *     pattern), so the home pill is always one gesture away when needed.
+ *   • Lives at the very top of the document, ABOVE the hero.
+ *   • Scrolls away with the page — no `position: sticky`. This is a
+ *     deliberate luxury-editorial choice (Aesop, Vogue, Glossier
+ *     campaigns): the home link is always one gesture (scroll-to-top)
+ *     away, and the editorial imagery beneath is NEVER crossed by a
+ *     translucent overlay. Cinematic composition stays cinematic.
+ *   • To return home: scroll up. The mental model matches a glossy
+ *     magazine cover — no UI chrome floats over the campaign.
  *
- * Why client component:
- *   The bar needs `useEffect` to track scroll direction; promoting only
- *   this small surface (vs the whole `page.tsx`) keeps the rest of the
- *   landing page server-rendered and zero-JS by default.
+ * Server-renderable — no client JS needed now that scroll-tracking is
+ * gone. Keeps the route boundary clean.
  */
 export function SugarbearTopBar() {
-  // `hidden=true` slides the bar out of view; `pinned=true` is the
-  // top-of-page case where we always show it regardless of scroll dir.
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let lastY = window.scrollY;
-    let raf = 0;
-
-    const evaluate = () => {
-      raf = 0;
-      const y = window.scrollY;
-      const dy = y - lastY;
-
-      // Always show within the first 120 px so the home link is reachable
-      // at the very top of the page (the editorial flow only really starts
-      // once the hero is partially scrolled).
-      if (y < 120) {
-        setHidden(false);
-      } else if (dy > 6) {
-        // Scrolling down with intent → hide.
-        setHidden(true);
-      } else if (dy < -6) {
-        // Scrolling up with intent → reveal.
-        setHidden(false);
-      }
-
-      lastY = y;
-    };
-
-    const onScroll = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(evaluate);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-
   return (
     <header
       style={{
-        background: "rgba(250, 246, 238, 0.78)",
+        background: "var(--sb-cream)",
         borderBottom: "1px solid rgba(184, 153, 104, 0.14)",
-        position: "sticky",
-        top: 0,
-        zIndex: 40,
-        backdropFilter: "blur(14px) saturate(140%)",
-        WebkitBackdropFilter: "blur(14px) saturate(140%)",
-        // Smart-hide animation — cubic ease-out feels expensive, never
-        // bouncy. Translate uses logical-property friendly Y axis so RTL
-        // is unaffected.
-        transform: hidden ? "translateY(-100%)" : "translateY(0)",
-        transition: "transform 360ms cubic-bezier(0.22, 1, 0.36, 1)",
-        willChange: "transform",
+        // Non-sticky — let it scroll out of view with the rest of the
+        // document so editorial poster sections stay clean.
+        position: "relative",
+        zIndex: 1,
       }}
     >
       <div

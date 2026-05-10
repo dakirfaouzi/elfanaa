@@ -49,7 +49,7 @@ export function Transformation() {
         paddingBottom: "clamp(44px, 6.5vw, 88px)",
       }}
     >
-      <div className="mx-auto max-w-[1100px] px-6 md:px-10">
+      <div className="mx-auto max-w-[1240px] px-6 md:px-12">
         {/* ── Eyebrow — centered, with hairline rules either side ───── */}
         <Reveal>
           <p
@@ -98,7 +98,10 @@ export function Transformation() {
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 560,
+              // Modest desktop widening — gives the poster more presence
+              // without losing the centred-editorial framing. Mobile is
+              // unaffected (column is < maxWidth on every phone).
+              maxWidth: 600,
               marginInline: "auto",
               aspectRatio: "564 / 1024",
               borderRadius: 8,
@@ -115,7 +118,7 @@ export function Transformation() {
               src="/sugarbear/transformation.png"
               alt="لمعان ونعومة طبيعية — شعر أكثر حيوية، نعومة وإشراقاً مع كل يوم"
               fill
-              sizes="(max-width: 1024px) calc(100vw - 48px), 560px"
+              sizes="(max-width: 1024px) calc(100vw - 48px), 600px"
               style={{
                 // The poster is art-directed — preserve every pixel of
                 // the campaign typography and warm tones. With matching
@@ -135,7 +138,10 @@ export function Transformation() {
               // headline read as one continuous emotional thought on
               // both mobile and desktop.
               marginTop: "clamp(28px, 4.2vw, 48px)",
-              maxWidth: 540,
+              // Widened from 540 → 600 to match the new image width and
+              // give the typography block matching horizontal presence
+              // without losing centred elegance.
+              maxWidth: 600,
               marginInline: "auto",
               textAlign: "center",
             }}
@@ -144,9 +150,8 @@ export function Transformation() {
               style={{
                 fontFamily: "var(--font-sb-display), serif",
                 fontWeight: 600,
-                // Slightly smaller than before (28→52 px) and a hair more
-                // line-height (1.18) so the longer two-line headline
-                // breathes without dominating the image above.
+                // Headline hierarchy is *unchanged* per brief — left at
+                // the same scale (clamp 28→52) and 1.18 line-height.
                 fontSize: "clamp(28px, 4.6vw, 52px)",
                 lineHeight: 1.18,
                 letterSpacing: "-0.01em",
@@ -156,7 +161,7 @@ export function Transformation() {
                 // Narrower than the wrapper to keep elegant rag-right
                 // line-breaks and stop the headline reaching the column
                 // edges on desktop.
-                maxWidth: 460,
+                maxWidth: 480,
                 marginInline: "auto",
               }}
             >
@@ -165,12 +170,18 @@ export function Transformation() {
             <p
               style={{
                 marginTop: "clamp(18px, 2.4vw, 26px)",
-                fontSize: "clamp(15px, 1.35vw, 17px)",
+                // Bumped one notch larger on desktop (15→17 → 15.5→18)
+                // so the body reads comfortably across the widened
+                // composition without becoming heavy.
+                fontSize: "clamp(15.5px, 1.45vw, 18px)",
                 // Slightly more breathable line-height for editorial calm.
                 lineHeight: 2,
-                color: "var(--sb-charcoal-soft)",
+                // Darker than charcoal-soft (#4a4642) — uses the full
+                // charcoal token (#2c2826) for clearer readability while
+                // the lighter weight keeps the voice quiet and feminine.
+                color: "var(--sb-charcoal)",
                 fontWeight: 400,
-                maxWidth: 480,
+                maxWidth: 540,
                 marginInline: "auto",
               }}
             >
