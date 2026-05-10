@@ -7,34 +7,33 @@ import { Reveal } from "../components/Reveal";
  *
  * Editorial luxury campaign moment. The conversion-heavy hero hands the
  * reader off to a quiet, image-led pause: a single dominant lifestyle
- * photograph followed by minimal centered typography, then a soft tag-line.
+ * poster (which carries its own baked-in display headline) followed by a
+ * tighter typography block and a soft tag-line.
  *
  * Direction (per brief):
- *   • image MUST visually dominate the text
- *   • mobile-first vertical pacing
- *   • cream negative space, calm breathing room
- *   • emotional, not didactic — no pillar grid, no feature cards
+ *   • image MUST visually dominate — used in its native 9:16 aspect with
+ *     no aggressive cropping, preserving the campaign's warm cinematic
+ *     tones exactly as art-directed
+ *   • mobile-first vertical pacing, tighter gaps so the flow feels
+ *     intimate (not floating in dead space)
+ *   • desktop bottom whitespace cut by ~40 % so the section ends
+ *     intentionally beneath the tag-line rather than drifting into a void
  *
  * Composition:
  *   eyebrow (centered hairline rule)
  *      ↓
  *   ┌──────────────────────────────────────────────┐
  *   │                                              │
- *   │       full-bleed editorial photograph        │
- *   │              (3 / 4 portrait)                │
+ *   │      campaign poster — 9:16 portrait         │
+ *   │      ("لمعان ونعومة طبيعية")                  │
  *   │                                              │
  *   └──────────────────────────────────────────────┘
+ *      ↓ (tightened 28→48 px)
+ *   "كل صباح يبدأ بلحظة اهتمام بنفسك."
  *      ↓
- *   "كل صباح يبدأ بطقس صغير."   (display serif, large, multi-line)
+ *   body copy   (narrow column, 2.0 line-height)
  *      ↓
- *   body copy   (narrow column, 1.95 line-height)
- *      ↓
- *   ثقة  ·  نعومة  ·  أنوثة     (gold middots, quiet caps)
- *
- * Same lifestyle frame as the hero (the model's "morning ritual" with the
- * Sugarbear bottle on the marble vanity), re-cropped tighter on the hair
- * gesture so it reads as a continuation of the campaign rather than a
- * literal repetition.
+ *   نعومة  ·  لمعان  ·  كثافة     (gold middots)
  */
 export function Transformation() {
   return (
@@ -42,8 +41,12 @@ export function Transformation() {
       id="sb-transformation"
       style={{
         background: "var(--sb-cream)",
-        // Tall vertical breathing room — this is the "emotional pause".
-        paddingBlock: "clamp(80px, 12vw, 160px)",
+        // Asymmetric vertical breathing — top stays generous so the
+        // section feels like a chapter break after the hero, but the
+        // bottom is trimmed ~40 % so the tag-line marks a clear visual
+        // exit instead of floating in empty cream.
+        paddingTop: "clamp(72px, 11vw, 140px)",
+        paddingBottom: "clamp(44px, 6.5vw, 88px)",
       }}
     >
       <div className="mx-auto max-w-[1100px] px-6 md:px-10">
@@ -56,7 +59,7 @@ export function Transformation() {
               alignItems: "center",
               justifyContent: "center",
               color: "var(--sb-gold-deep)",
-              marginBottom: "clamp(28px, 4vw, 44px)",
+              marginBottom: "clamp(22px, 3.4vw, 38px)",
             }}
           >
             <span
@@ -83,64 +86,56 @@ export function Transformation() {
           </p>
         </Reveal>
 
-        {/* ── Dominant editorial photograph ─────────────────────────── *
-         *  Capped at 720 px wide on desktop so the layout still has    *
-         *  margin-air either side; on mobile it fills the column edge- *
-         *  to-edge inside the section padding (perfectly centered via  *
-         *  marginInline: auto).                                         *
+        {/* ── Dominant editorial poster ─────────────────────────────── *
+         *  Native 9:16 aspect (564×1024) so we never crop the model or  *
+         *  the warm vanity scene baked into the campaign art-direction. *
+         *  Capped at 560 px wide on desktop to keep the layout column-  *
+         *  centred with breathing room either side; on mobile fills the *
+         *  column inside the section padding (perfectly centered).      *
          * ──────────────────────────────────────────────────────────── */}
         <Reveal delay={1}>
           <div
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 720,
+              maxWidth: 560,
               marginInline: "auto",
-              aspectRatio: "3 / 4",
+              aspectRatio: "564 / 1024",
               borderRadius: 8,
               overflow: "hidden",
               // Soft warm shadow + a near-invisible gold hairline for that
               // matted-print luxury feel. No harsh edges.
               boxShadow:
-                "0 50px 110px rgba(44, 40, 38, 0.18), " +
+                "0 50px 110px rgba(44, 40, 38, 0.20), " +
                 "0 16px 40px rgba(184, 153, 104, 0.16), " +
                 "0 0 0 1px rgba(184, 153, 104, 0.18)",
             }}
           >
             <Image
-              src="/sugarbear/hero.png"
-              alt="طقس صباحي للجمال — نعومة ولمعان من أول نظرة"
+              src="/sugarbear/transformation.png"
+              alt="لمعان ونعومة طبيعية — شعر أكثر حيوية، نعومة وإشراقاً مع كل يوم"
               fill
-              sizes="(max-width: 1024px) calc(100vw - 48px), 720px"
+              sizes="(max-width: 1024px) calc(100vw - 48px), 560px"
               style={{
+                // The poster is art-directed — preserve every pixel of
+                // the campaign typography and warm tones. With matching
+                // aspect-ratio + cover, there is no crop.
                 objectFit: "cover",
-                // Different crop than the hero (which uses 30%) — pulls
-                // slightly lower so the hands-in-hair gesture and silk
-                // robe become the focal point. Reads as a *new* moment.
-                objectPosition: "center 42%",
-              }}
-            />
-            {/* Whisper-soft top + bottom vignettes so the image melts into
-             *  the cream page instead of cutting it sharply. */}
-            <div
-              aria-hidden
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "linear-gradient(180deg, rgba(250, 246, 238, 0.10) 0%, transparent 18%, transparent 82%, rgba(250, 246, 238, 0.16) 100%)",
-                pointerEvents: "none",
+                objectPosition: "center",
               }}
             />
           </div>
         </Reveal>
 
-        {/* ── Quiet typography block — centered, narrow, breathy ────── */}
+        {/* ── Quiet typography block — tighter, narrower, breathy ───── */}
         <Reveal delay={2}>
           <div
             style={{
-              marginTop: "clamp(40px, 6vw, 72px)",
-              maxWidth: 620,
+              // Tightened from 40→72 px to 28→48 px so the image and
+              // headline read as one continuous emotional thought on
+              // both mobile and desktop.
+              marginTop: "clamp(28px, 4.2vw, 48px)",
+              maxWidth: 540,
               marginInline: "auto",
               textAlign: "center",
             }}
@@ -149,25 +144,34 @@ export function Transformation() {
               style={{
                 fontFamily: "var(--font-sb-display), serif",
                 fontWeight: 600,
-                // Slightly smaller than the hero headline so this section
-                // reads as a quieter chapter beat, not a second pitch.
-                fontSize: "clamp(32px, 5.4vw, 60px)",
-                lineHeight: 1.1,
+                // Slightly smaller than before (28→52 px) and a hair more
+                // line-height (1.18) so the longer two-line headline
+                // breathes without dominating the image above.
+                fontSize: "clamp(28px, 4.6vw, 52px)",
+                lineHeight: 1.18,
                 letterSpacing: "-0.01em",
                 color: "var(--sb-ink)",
                 whiteSpace: "pre-line",
                 margin: 0,
+                // Narrower than the wrapper to keep elegant rag-right
+                // line-breaks and stop the headline reaching the column
+                // edges on desktop.
+                maxWidth: 460,
+                marginInline: "auto",
               }}
             >
               {transformationCopy.headline}
             </h2>
             <p
               style={{
-                marginTop: "clamp(20px, 2.8vw, 30px)",
-                fontSize: "clamp(15.5px, 1.4vw, 17.5px)",
-                lineHeight: 1.95,
+                marginTop: "clamp(18px, 2.4vw, 26px)",
+                fontSize: "clamp(15px, 1.35vw, 17px)",
+                // Slightly more breathable line-height for editorial calm.
+                lineHeight: 2,
                 color: "var(--sb-charcoal-soft)",
                 fontWeight: 400,
+                maxWidth: 480,
+                marginInline: "auto",
               }}
             >
               {transformationCopy.body}
@@ -178,7 +182,7 @@ export function Transformation() {
              *  a brand mantra rather than a feature list. */}
             <div
               style={{
-                marginTop: "clamp(28px, 4vw, 40px)",
+                marginTop: "clamp(24px, 3.4vw, 36px)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
