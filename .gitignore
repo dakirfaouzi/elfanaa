@@ -10,3 +10,10 @@ out
 .idea
 .turbo
 tsconfig.tsbuildinfo
+
+# Python artifacts (used by scripts/remove-bg.py)
+__pycache__/
+*.pyc
+
+# Temp asset files used by one-off helper scripts
+scripts/_*.png

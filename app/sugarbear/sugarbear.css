@@ -1,0 +1,264 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Sugarbear — luxury beauty palette + typography
+   Scoped to .sb-root so ELFANAA tokens stay untouched.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.sb-root {
+  /* Warm, editorial palette */
+  --sb-cream: #faf6ee;
+  --sb-cream-deep: #f4ede0;
+  --sb-beige: #e8dcc8;
+  --sb-beige-deep: #d6c8b0;
+  --sb-stone: #b9a98f;
+  --sb-charcoal: #2c2826;
+  --sb-charcoal-soft: #4a4642;
+  --sb-ink: #181614;
+
+  /* Soft gold — never neon, always candle-lit */
+  --sb-gold: #b89968;
+  --sb-gold-soft: #d4b894;
+  --sb-gold-deep: #8e7548;
+
+  /* Subtle turquoise from the bottle — used as accent only */
+  --sb-teal: #6fafa5;
+  --sb-teal-soft: #b3d4ce;
+  --sb-teal-deep: #4d8e85;
+
+  /* Effects */
+  --sb-shadow-sm: 0 1px 2px rgba(44, 40, 38, 0.04), 0 2px 8px rgba(44, 40, 38, 0.04);
+  --sb-shadow-md: 0 4px 12px rgba(44, 40, 38, 0.06), 0 12px 36px rgba(44, 40, 38, 0.06);
+  --sb-shadow-lg: 0 8px 24px rgba(44, 40, 38, 0.08), 0 32px 80px rgba(44, 40, 38, 0.10);
+  --sb-shadow-gold: 0 12px 36px rgba(184, 153, 104, 0.18);
+
+  background: var(--sb-cream);
+  color: var(--sb-charcoal);
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* ── Reveal-on-scroll: starts hidden, activates via .is-visible ─────────── */
+.sb-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 1100ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.sb-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.sb-reveal-d1 { transition-delay: 80ms; }
+.sb-reveal-d2 { transition-delay: 160ms; }
+.sb-reveal-d3 { transition-delay: 240ms; }
+.sb-reveal-d4 { transition-delay: 320ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Soft float for the hero bottle ─────────────────────────────────────── */
+@keyframes sb-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.sb-float { animation: sb-float 7s ease-in-out infinite; }
+
+/* ── Gentle shimmer on gold accents ─────────────────────────────────────── */
+@keyframes sb-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.sb-shimmer-text {
+  background: linear-gradient(
+    100deg,
+    var(--sb-gold) 0%,
+    var(--sb-gold-soft) 35%,
+    #f0dcb8 50%,
+    var(--sb-gold-soft) 65%,
+    var(--sb-gold) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sb-shimmer 6s linear infinite;
+}
+
+/* ── Soft underline accent (used for editorial labels) ─────────────────── */
+.sb-rule {
+  display: inline-block;
+  height: 1px;
+  background: var(--sb-gold);
+  width: 28px;
+  vertical-align: middle;
+}
+
+/* ── Eyebrow label: small caps style ────────────────────────────────────── */
+.sb-eyebrow {
+  font-family: var(--font-sb-latin), serif;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--sb-gold-deep);
+  font-weight: 500;
+}
+
+/* ── Bundle radio: hide the input, show pretty label ────────────────────── */
+.sb-bundle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.sb-bundle-card {
+  cursor: pointer;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 280ms ease,
+              box-shadow 320ms ease,
+              background 280ms ease;
+}
+/*
+ * Hover micro-lift on unselected cards. We deliberately keep the selected
+ * card anchored (its inline transform: scale(1.04) wins via specificity in
+ * Hero.tsx) so hovering the "best value" tile doesn't make the whole row
+ * jitter.
+ */
+.sb-bundle-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 42px rgba(184, 153, 104, 0.18),
+              0 1px 2px rgba(44, 40, 38, 0.04);
+}
+.sb-bundle-input:checked + .sb-bundle-card {
+  border-color: var(--sb-gold);
+  background: linear-gradient(180deg, #fffaf0 0%, #fbf1de 100%);
+  box-shadow: var(--sb-shadow-gold);
+}
+.sb-bundle-input:focus-visible + .sb-bundle-card {
+  outline: 2px solid var(--sb-gold);
+  outline-offset: 3px;
+}
+
+/* ── Soft button hover with whisper-of-gold glow ────────────────────────── */
+.sb-cta {
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 320ms ease,
+              filter 280ms ease;
+}
+.sb-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  /* Subtle warm glow — never neon, just candlelit. */
+  box-shadow: 0 18px 44px rgba(44, 40, 38, 0.20),
+              0 0 28px rgba(184, 153, 104, 0.18);
+}
+.sb-cta:active { transform: translateY(0); }
+
+/* ── Trust pill: micro hover motion ─────────────────────────────────────── */
+.sb-trust-pill {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 280ms ease,
+              background 280ms ease,
+              box-shadow 280ms ease;
+}
+.sb-trust-pill:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 252, 244, 1) !important;
+  border-color: rgba(184, 153, 104, 0.42) !important;
+  box-shadow: 0 6px 14px rgba(184, 153, 104, 0.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-bundle-card,
+  .sb-trust-pill,
+  .sb-cta {
+    transition: none;
+  }
+  .sb-bundle-card:hover,
+  .sb-trust-pill:hover,
+  .sb-cta:hover {
+    transform: none;
+  }
+}
+
+/* ── Decorative dotted divider ──────────────────────────────────────────── */
+.sb-dot-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.sb-dot-divider::before,
+.sb-dot-divider::after {
+  content: "";
+  height: 1px;
+  width: 64px;
+  background: linear-gradient(90deg, transparent 0%, var(--sb-stone) 50%, transparent 100%);
+}
+.sb-dot-divider span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sb-gold);
+  display: inline-block;
+}
+
+/* ── FAQ accordion details / summary ───────────────────────────────────── */
+.sb-faq summary { list-style: none; cursor: pointer; }
+.sb-faq summary::-webkit-details-marker { display: none; }
+.sb-faq summary .sb-faq-icon {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sb-faq[open] summary .sb-faq-icon { transform: rotate(45deg); }
+.sb-faq[open] summary { color: var(--sb-gold-deep); }
+
+/* ── Number formatting that always reads LTR (prices, ratings) ─────────── */
+.sb-num {
+  direction: ltr;
+  display: inline-block;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── Photographic stand-in: warm gradient cards ─────────────────────────── */
+.sb-editorial-card {
+  background:
+    radial-gradient(120% 80% at 80% 0%, rgba(212, 184, 148, 0.30) 0%, transparent 60%),
+    radial-gradient(100% 120% at 0% 100%, rgba(111, 175, 165, 0.18) 0%, transparent 55%),
+    linear-gradient(160deg, #f8f0e0 0%, #ecdcc4 60%, #e1cdaf 100%);
+}
+.sb-editorial-card-cool {
+  background:
+    radial-gradient(120% 80% at 80% 0%, rgba(111, 175, 165, 0.26) 0%, transparent 60%),
+    radial-gradient(100% 120% at 0% 100%, rgba(212, 184, 148, 0.18) 0%, transparent 55%),
+    linear-gradient(160deg, #f1ede4 0%, #d8e4dd 100%);
+}
+.sb-editorial-card-dark {
+  background:
+    radial-gradient(120% 80% at 80% 0%, rgba(212, 184, 148, 0.22) 0%, transparent 55%),
+    linear-gradient(160deg, #2c2826 0%, #1a1816 100%);
+}
+
+/* ── Star rating: tabular alignment for the count number ─────────────── */
+.sb-stars { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ── Sticky CTA enter animation (mobile) ─────────────────────────────── */
+@keyframes sb-sticky-in {
+  from { transform: translateY(120%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.sb-sticky {
+  animation: sb-sticky-in 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Page-wide selection color in brand palette ─────────────────────── */
+.sb-root ::selection {
+  background: var(--sb-gold-soft);
+  color: var(--sb-ink);
+}
+
+/* ── Smooth-scroll hint ─────────────────────────────────────────────── */
+.sb-root html, .sb-root { scroll-behavior: smooth; }

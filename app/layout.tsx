@@ -2,6 +2,7 @@ import { Inter, Cormorant_Garamond, Cairo, Amiri } from "next/font/google";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ChromeGate } from "@/components/layout/ChromeGate";
 import { Providers } from "./providers";
 import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n";
 import { htmlLangFor, siteMetadata } from "@/lib/seo";
@@ -65,10 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-screen">
         <Providers>
-          <AnnouncementBar />
-          <Header />
+          <ChromeGate>
+            <AnnouncementBar />
+            <Header />
+          </ChromeGate>
           <main id="main">{children}</main>
-          <Footer />
+          <ChromeGate>
+            <Footer />
+          </ChromeGate>
         </Providers>
       </body>
     </html>
