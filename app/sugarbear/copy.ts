@@ -153,158 +153,237 @@ export const ingredientsCopy = {
 };
 
 export const ritualCopy = {
-  eyebrow: "الطقس اليومي",
-  headline: "دقيقة\nلكِ.",
+  eyebrow: "طقسكِ اليومي",
+  headline: "دقيقةٌ صغيرة…\nلشعور يدوم طوال اليوم.",
   body:
-    "ضعي الزجاجة بجانب فنجان قهوتكِ. اختاري قطعتين كل صباح. هذه هي اللحظة التي تقولين فيها لنفسكِ: «أهتمّ بنفسي.»",
+    "لحظة هادئة بينكِ وبين نفسكِ — تمنح شعركِ نعومة ولمعاناً وكثافة تشعرين بها مع كل نظرة في المرآة.",
+  // Three quiet ritual moments — `time` reads as a soft gold label,
+  // `value` is the editorial line beneath it. No body copy, no
+  // numbered steps, no clinical language.
   steps: [
-    {
-      time: "٧:٠٠ صباحاً",
-      title: "الإيقاظ",
-      body: "القهوة الأولى. ضوءٌ هادئ. لحظة لكِ وحدكِ.",
-    },
-    {
-      time: "٧:٠٥",
-      title: "الطقس",
-      body: "قطعتان من Sugarbear. نكهة توت طبيعية.",
-    },
-    {
-      time: "اليوم كله",
-      title: "الإشراق",
-      body: "تشعرين أن شعركِ يأخذ ما يحتاجه. ببساطة.",
-    },
+    { time: "مساءً", value: "قطعتان يومياً" },
+    { time: "صباحاً", value: "شعر أكثر نعومة" },
+    { time: "مع الوقت", value: "لمعان ومظهر أكثر حيوية" },
   ],
+  // Final italic micro-line beneath the steps — quiet brand whisper.
+  microline: "الجمال يبدأ من اللحظات الصغيرة.",
 };
 
+/* ──────────────────────────────────────────────────────────────────────
+ *  SECTION 7 — Testimonials (editorial luxury, NOT ecommerce reviews)
+ *
+ *  Shape decisions:
+ *    • No `verified` flag, no city+age clutter, no per-card star count.
+ *    • One `featured` testimonial (large editorial quote card).
+ *    • Three short `cards` (minimal feminine quotes, name only).
+ *    • One global `rating` block — refined typography + small gold
+ *      stars, never an ecommerce summary widget.
+ * ──────────────────────────────────────────────────────────────────── */
 export const reviewsCopy = {
-  eyebrow: "أصواتٌ حقيقية",
-  headline: "ما تقوله نساؤنا.",
-  summary: { score: "٤٫٩ / ٥", count: "بناءً على ١٢٫٦٠٠ تقييم" },
-  reviews: [
-    {
-      name: "نورة العتيبي",
-      city: "الرياض",
-      age: "٢٩ سنة",
-      stars: 5,
-      title: "صار جزء من صباحي.",
-      body:
-        "بعد شهرين، صديقاتي بدأن يسألنني وش غيّرت في شعري. ما غيّرت شي، فقط أصبحت ملتزمة. الطعم لذيذ والنتيجة هادئة لكنها واضحة.",
-      verified: true,
-    },
-    {
-      name: "لمى الدوسري",
-      city: "جدة",
-      age: "٣٤ سنة",
-      stars: 5,
-      title: "اللمعان أول شي لاحظته.",
-      body:
-        "كنت أبحث عن منتج يعطي لمعان طبيعي بدون زيوت ثقيلة. هذا اللي حصلت عليه. بعد ٤٥ يوم، شعري يعكس الضوء بشكل مختلف.",
-      verified: true,
-    },
-    {
-      name: "ريم الزهراني",
-      city: "الدمام",
-      age: "٢٧ سنة",
-      stars: 5,
-      title: "الأطراف توقفت تتقصّف.",
-      body:
-        "كانت أطرافي خفيفة وهشّة. بعد ٣ أشهر بدأت ألاحظ سُمكاً جديداً عند الجذور. الفرق ليس درامياً، لكنه حقيقي.",
-      verified: true,
-    },
-    {
-      name: "سارة الحربي",
-      city: "أبوظبي",
-      age: "٣١ سنة",
-      stars: 5,
-      title: "أحبه لأنه ما يحس وكأنه دواء.",
-      body:
-        "جرّبت كبسولات قبله، كنت أنساها. هذا أحبه — حلوى يومية تذكّرني أهتمّ بنفسي. ابنتي تقول: «ماما، شعرك صار أنعم.»",
-      verified: true,
-    },
+  eyebrow: "تجارب يومية حقيقية",
+  headline: "نساء كثيرات لاحظن الفرق…\nبطريقة هادئة وطبيعية.",
+  body:
+    "روتين بسيط أصبح جزءاً من يومهن — نعومة، لمعان، وإحساس يومي بالعناية.",
+  rating: {
+    value: "4.9",
+    title: "متوسط التقييم",
+    subtitle: "من آلاف المراجعات",
+  },
+  featured: {
+    quote:
+      "بعد أسابيع قليلة، بدأت ألاحظ فرقاً حقيقياً\nفي نعومة شعري ولمعانه.",
+    name: "سارة",
+    city: "الرياض",
+  },
+  cards: [
+    { quote: "أصبح شعري يبدو أكثر ترتيباً\nوحيوية مع الوقت.", name: "نورة" },
+    { quote: "أحببت فكرة الروتين اليومي البسيط.", name: "ريم" },
+    { quote: "النعومة واللمعان كانا أول شيء لاحظته.", name: "دانة" },
   ],
 };
 
-export const offersCopy = {
-  eyebrow: "اختاري طقسكِ",
-  headline: "كم شهراً\nتمنحين نفسكِ؟",
+/* ──────────────────────────────────────────────────────────────────────
+ *  SECTION 8 — Trust / Reassurance
+ *
+ *  Quiet luxury reassurance block (NOT an ecommerce trust strip):
+ *    • centered editorial intro
+ *    • 4 minimal cream cards
+ *    • icon names map 1:1 to the line icons in components/Icons.tsx
+ *      ("cash" / "truck" / "leaf" / "shield"), never coloured
+ *      pictograms or emoji
+ *    • soft italic micro-line beneath the cards
+ * ──────────────────────────────────────────────────────────────────── */
+export const trustCopy = {
+  eyebrow: "ثقة يومية",
+  headline: "كل ما تحتاجينه…\nببساطة واطمئنان.",
   body:
-    "النتائج تبدأ من ٣٠ يوماً، لكن التحوّل الحقيقي يحتاج ٩٠ يوماً. اختاري المدة التي تليق بكِ.",
+    "تركيبة يومية سهلة، مع تجربة شراء مريحة\nوشحن سريع ودفع عند الاستلام.",
+  cards: [
+    {
+      icon: "cash" as const,
+      title: "دفع عند الاستلام",
+      body: "تجربة شراء سهلة وآمنة داخل الخليج.",
+    },
+    {
+      icon: "truck" as const,
+      title: "شحن سريع",
+      body: "توصيل سريع ومتابعة مباشرة للطلب.",
+    },
+    {
+      icon: "leaf" as const,
+      title: "تركيبة نباتية",
+      body: "خالٍ من الجلوتين وبنكهة محبوبة يومياً.",
+    },
+    {
+      icon: "shield" as const,
+      title: "ضمان راحة",
+      body: "دعم سريع وتجربة مريحة من الطلب حتى الاستلام.",
+    },
+  ],
+  microline: "تفاصيل صغيرة تمنح التجربة شعوراً أكثر راحة.",
+};
+
+/* ──────────────────────────────────────────────────────────────────────
+ *  SECTION — Premium Offers (luxury editorial pricing, NOT ecommerce)
+ *
+ *  Three calm bundle cards driven by editorial still-life images
+ *  (`/sugarbear/bundle-1.png`, `/bundle-2.png`, `/bundle-3.png`).
+ *  Card 3 is gently emphasized as the featured tier — never loud.
+ *
+ *  Per-card features are encoded as ordered arrays so the cards
+ *  scale with bundle size without conditional JSX gymnastics.
+ *  CTA text differs only on the featured card ("الخيار المُفضل").
+ * ──────────────────────────────────────────────────────────────────── */
+export const offersCopy = {
+  eyebrow: "اختاري مدتكِ",
+  headline: "كم شهرًا\nتمنحين نفسكِ؟",
+  body:
+    "النتائج تبدأ من ٣٠ يومًا، لكن التحول الحقيقي يحتاج وقتًا.\nاختاري المدة التي تناسبكِ.",
   bundles: [
     {
       id: "1" as const,
       headline: "شهر واحد",
-      sub: "للتجربة",
+      sub: "للبداية",
       pieces: 1,
+      image: "/sugarbear/bundle-1.png",
       price: 199,
       perBottleNote: "١٩٩ ريال للعلبة",
       saving: 0,
       tag: null,
       highlight: false,
+      cta: "اختاري هذه",
+      features: ["توصيل خلال ٤٨ ساعة", "الدفع عند الاستلام"],
     },
     {
       id: "2" as const,
       headline: "شهران",
       sub: "للالتزام",
       pieces: 2,
+      image: "/sugarbear/bundle-2.png",
       price: 279,
       perBottleNote: "١٤٠ ريال للعلبة",
       saving: 119,
       tag: "وفّري ١١٩ ريال",
       highlight: false,
+      cta: "اختاري هذه",
+      features: [
+        "توصيل خلال ٤٨ ساعة",
+        "الدفع عند الاستلام",
+        "شحن مجاني",
+      ],
     },
     {
       id: "3" as const,
       headline: "ثلاثة أشهر",
-      sub: "للتحوّل الحقيقي",
+      sub: "للتحول الحقيقي",
       pieces: 3,
+      image: "/sugarbear/bundle-3.png",
       price: 349,
       perBottleNote: "١١٦ ريال للعلبة",
       saving: 248,
-      tag: "أفضل قيمة",
+      tag: "وفّري ٢٤٨ ريال",
       highlight: true,
+      cta: "الخيار المُفضل",
+      features: [
+        "توصيل خلال ٤٨ ساعة",
+        "الدفع عند الاستلام",
+        "شحن مجاني",
+        "أولوية في الشحن",
+      ],
     },
+  ],
+  trustRow: [
+    "توصيل سريع داخل الخليج",
+    "الدفع عند الاستلام",
+    "إرجاع خلال ١٤ يوم",
   ],
 };
 
+/* ──────────────────────────────────────────────────────────────────────
+ *  SECTION 9 — FAQ (luxury feminine reassurance, NOT support-page)
+ *
+ *  Six calm Q/A pairs covering the GCC COD buyer's quiet hesitations:
+ *  dosage · daily fit · COD · shipping · vegan · halal-friendly.
+ *  Closing micro-line keeps the brand voice present after the list.
+ * ──────────────────────────────────────────────────────────────────── */
 export const faqCopy = {
-  eyebrow: "أسئلة قبل الطلب",
-  headline: "كل ما تودّين معرفته.",
+  eyebrow: "أسئلة شائعة",
+  headline: "كل ما قد ترغبين بمعرفته…\nببساطة ووضوح.",
+  body:
+    "تفاصيل صغيرة تساعدك على تجربة شراء أكثر راحة واطمئناناً.",
   items: [
     {
-      q: "كيف أستخدم Sugarbear؟",
-      a: "قطعتان يومياً، يفضّل في الصباح بعد الفطور. لا تحتاجين ماءً. النكهة طبيعية ولذيذة. اجعليها بجانب فنجان قهوتكِ كي لا تنسي.",
+      q: "كم حبة يتم تناولها يومياً؟",
+      a: "يُنصح بتناول حبتين يومياً كجزء من الروتين اليومي.",
     },
     {
-      q: "متى أبدأ ألاحظ النتائج؟",
-      a: "أغلب نسائنا يلاحظن لمعاناً ونعومة خلال ٣٠ يوماً. الكثافة تحتاج وقتاً أطول — عادةً ٦٠ إلى ٩٠ يوماً من الانتظام. الانتظام أهم من الجرعة.",
+      q: "هل المنتج مناسب للاستخدام اليومي؟",
+      a: "تم تصميم التركيبة لتكون سهلة ومريحة ضمن الروتين اليومي.",
     },
     {
-      q: "هل المنتج آمن للاستخدام اليومي؟",
-      a: "نعم. التركيبة مدروسة لتُؤخذ يومياً، خالية من الجلوتين، نباتية ١٠٠٪، وخالية من المواد الحافظة الصناعية. إذا كنتِ حاملاً أو مرضعة، استشيري طبيبتكِ.",
+      q: "هل يتوفر الدفع عند الاستلام؟",
+      a: "نعم، يتوفر الدفع عند الاستلام داخل معظم دول الخليج.",
     },
     {
-      q: "ما هي مدة التوصيل؟",
-      a: "نوصِل خلال ٢٤ ساعة في الرياض وجدة، ومن ٢ إلى ٣ أيام لباقي مدن الخليج. الطلب يصلكِ في تغليف هادئ يحفظ خصوصيتكِ.",
+      q: "كم يستغرق الشحن؟",
+      a: "يختلف وقت التوصيل حسب مدن المملكة، وغالباً يصل الطلب خلال أيام قليلة مع متابعة مباشرة للشحنة.",
     },
     {
-      q: "هل أستطيع الدفع عند الاستلام؟",
-      a: "نعم. الدفع عند الاستلام متاح في كل دول الخليج، بدون أي مبلغ مقدّم. تدفعين فقط عندما تستلمين الطلب وتتأكدين من حالته.",
+      q: "هل التركيبة نباتية؟",
+      a: "نعم، التركيبة نباتية وخالية من الجلوتين.",
     },
     {
-      q: "ماذا لو لم تعجبني التجربة؟",
-      a: "لكِ ١٤ يوماً للاسترجاع، بدون أسئلة. نريدكِ أن تشعري بالأمان مع كل خطوة. تواصلي معنا واتساب وفريقنا يهتمّ بالباقي.",
+      q: "هل المنتج مناسب ضمن نظام غذائي حلال؟",
+      a: "التركيبة نباتية وخالية من الجيلاتين، وتم اختيار المكونات لتناسب نمط الحياة اليومي بكل راحة واطمئنان.",
     },
   ],
+  microline: "وإذا احتجتِ أي مساعدة، فريقنا دائماً هنا لدعمكِ.",
 };
 
+/* ──────────────────────────────────────────────────────────────────────
+ *  SECTION 10 — Final CTA / Closing Section
+ *
+ *  The final emotional invitation before purchase. The voice is calm
+ *  and premium — never urgency-driven, never countdown-style.
+ *
+ *  Reassurance is intentionally split into TWO calm signals:
+ *    • `reassuranceLine` — one editorial sentence ("دفع عند
+ *      الاستلام • شحن سريع داخل المملكة")
+ *    • `trustChips`      — three quiet 1-word reassurance pills
+ *      under the CTA, each with a soft gold check
+ * ──────────────────────────────────────────────────────────────────── */
 export const finalCtaCopy = {
-  eyebrow: "ابدئي اليوم",
-  headline: "شعركِ يستحقّ\nطقساً يومياً.",
+  eyebrow: "لحظة أخيرة",
+  headline:
+    "العناية الصغيرة التي تبدأ اليوم…\nقد تصبح أجمل عادة يومية.",
   body:
-    "أنتِ لستِ بحاجة لروتين معقّد. تحتاجين قطعتين كل صباح. وستينٍ من الانتظام. بقيّة الحكاية ستلاحظينها وحدكِ.",
-  ctaIdle: "ابدئي طقس جمالكِ",
+    "روتين بسيط يمنح شعركِ نعومة ولمعاناً\nويضيف لحظات هادئة من العناية كل يوم.",
+  microCopy: "العناية اليومية تبدأ بخطوة بسيطة.",
+  ctaIdle: "ابدئي طقس جمالكِ اليوم",
   ctaCart: "امنحي شعركِ عنايته اليومية",
-  reassurance: ["توصيل ٢٤ ساعة", "دفع عند الاستلام", "إرجاع خلال ١٤ يوم"],
+  reassuranceLine: "دفع عند الاستلام • شحن سريع داخل المملكة",
+  trustChips: ["توصيل ٢٤ ساعة", "دفع عند الاستلام", "إرجاع خلال ١٤ يوم"],
+  microline: "لأن العناية بنفسكِ تستحق لحظة هادئة كل يوم.",
 };
 
 export const footerCopy = {

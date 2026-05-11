@@ -258,7 +258,97 @@
   display: inline-block;
 }
 
-/* ── FAQ accordion details / summary ───────────────────────────────────── */
+/* ── Premium offer cards (Section 8 / 11) ─────────────────────────────── *
+ *  Subtle lift + warmer shadow + 1px gold border glow on hover.            *
+ *  Selected radio (.sb-offer-input:checked) elevates the card permanently. *
+ *  Motion is gated by prefers-reduced-motion.                              *
+ * ──────────────────────────────────────────────────────────────────────── */
+.sb-root {
+  /* Bundle-image area height — fixed-height frames that break out of    *
+   *  the card's inner padding so the editorial still-life fills the     *
+   *  full top of every card edge-to-edge. Mobile 320px, scales to a     *
+   *  large desktop clamp so the bottles read as hero visuals.           *
+   *                                                                     *
+   *  Featured-card emphasis is now handled via `transform: scale(1.18)` *
+   *  on the image (vs `scale(1.12)` on the others), not via a separate  *
+   *  container height — that keeps all three frames perfectly aligned   *
+   *  in the grid while card 3 still feels quietly more dominant.        */
+  --sb-offer-image-h: 320px;
+}
+@media (min-width: 768px) {
+  .sb-root {
+    --sb-offer-image-h: clamp(300px, 28vw, 420px);
+  }
+}
+.sb-offer-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/*  Card visual state (background / border / shadow / glow) is driven    *
+ *  entirely by the React `selected` prop via inline styles, so all      *
+ *  three cards animate identically whatever the user picks. CSS only    *
+ *  layers on the lift-on-hover micro-motion + keyboard focus ring.      */
+.sb-offer-card {
+  transition: transform 0.35s ease;
+}
+@media (hover: hover) {
+  .sb-offer-card:hover {
+    transform: translateY(-4px);
+  }
+}
+.sb-offer-input:focus-visible + .sb-offer-card {
+  outline: 2px solid rgba(184, 153, 104, 0.42);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-offer-card,
+  .sb-offer-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ── FAQ accordion ─────────────────────────────────────────────────────── *
+ *  The new luxury accordion (sections/FAQ.tsx) is a client component that
+ *  drives an aria-expanded button + a sibling content panel. We animate
+ *  the panel's height with the modern CSS grid 0fr → 1fr trick so both
+ *  opening AND closing transitions are smooth without JS measurement.
+ *  Falls back to an instant snap when prefers-reduced-motion is set.
+ * ──────────────────────────────────────────────────────────────────────── */
+.sb-acc-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sb-acc-body[data-open="true"] { grid-template-rows: 1fr; }
+.sb-acc-body > .sb-acc-body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.sb-acc-trigger .sb-acc-icon {
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 240ms ease;
+}
+.sb-acc-trigger[aria-expanded="true"] .sb-acc-icon {
+  transform: rotate(45deg);
+}
+.sb-acc-trigger[aria-expanded="true"] {
+  color: var(--sb-gold-deep);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-acc-body { transition: none; }
+  .sb-acc-trigger .sb-acc-icon { transition: none; }
+}
+
+/* ── Legacy <details>-based FAQ (kept while the old markup exists) ─── */
 .sb-faq summary { list-style: none; cursor: pointer; }
 .sb-faq summary::-webkit-details-marker { display: none; }
 .sb-faq summary .sb-faq-icon {

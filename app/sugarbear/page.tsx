@@ -6,6 +6,7 @@ import { Benefits } from "./sections/Benefits";
 import { Ingredients } from "./sections/Ingredients";
 import { Ritual } from "./sections/Ritual";
 import { Reviews } from "./sections/Reviews";
+import { Trust } from "./sections/Trust";
 import { Offers } from "./sections/Offers";
 import { FAQ } from "./sections/FAQ";
 import { FinalCTA } from "./sections/FinalCTA";
@@ -22,6 +23,7 @@ export default function SugarbearPage() {
       <Ingredients />
       <Ritual />
       <Reviews />
+      <Trust />
       <Offers />
       <FAQ />
       <FinalCTA />
