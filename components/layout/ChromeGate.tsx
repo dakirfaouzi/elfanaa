@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-const STANDALONE_PREFIXES = ["/sugarbear"];
+const STANDALONE_PREFIXES = ["/sugarbear", "/thank-you"];
 
 export function ChromeGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
