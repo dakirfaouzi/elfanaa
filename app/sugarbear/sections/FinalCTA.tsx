@@ -6,6 +6,7 @@ import { finalCtaCopy, microcopy, brand, footerCopy, offersCopy } from "../copy"
 import { useSugarbear } from "../state";
 import { Reveal } from "../components/Reveal";
 import { IconBag, IconCheck } from "../components/Icons";
+import { useAddToCart } from "../useAddToCart";
 
 /**
  * SECTION 10 — Final CTA / Closing Section
@@ -217,6 +218,7 @@ function InvitationCard({
   trustChips: string[];
   currency: string;
 }) {
+  const addToCart = useAddToCart();
   return (
     <div
       style={{
@@ -419,8 +421,9 @@ function InvitationCard({
       />
 
       {/* CTA button — dark luxury, mirrors the hero CTA tone */}
-      <Link
-        href="#sb-offers"
+      <button
+        type="button"
+        onClick={() => addToCart()}
         className="sb-cta inline-flex items-center justify-center"
         style={{
           marginTop: "clamp(22px, 2.6vw, 28px)",
@@ -437,7 +440,8 @@ function InvitationCard({
             "0 8px 18px rgba(44, 40, 38, 0.18), " +
             "0 0 0 1px rgba(212, 184, 148, 0.22) inset",
           minWidth: 280,
-          textDecoration: "none",
+          border: "none",
+          cursor: "pointer",
         }}
       >
         <IconBag size={18} color="var(--sb-gold-soft)" />
@@ -452,7 +456,7 @@ function InvitationCard({
         >
           <span className="sb-num">{price}</span> {currency}
         </span>
-      </Link>
+      </button>
 
       {/* Reassurance line — single editorial sentence */}
       <p

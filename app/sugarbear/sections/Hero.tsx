@@ -5,6 +5,7 @@ import { Stars } from "../components/Stars";
 import { IconCheck, IconBag } from "../components/Icons";
 import { heroCopy, microcopy } from "../copy";
 import { useSugarbear, type BundleId } from "../state";
+import { useAddToCart } from "../useAddToCart";
 import { Reveal } from "../components/Reveal";
 
 /**
@@ -29,6 +30,7 @@ import { Reveal } from "../components/Reveal";
  */
 export function Hero() {
   const { bundle, setBundle, current, bundles } = useSugarbear();
+  const addToCart = useAddToCart();
 
   return (
     <section
@@ -553,9 +555,10 @@ export function Hero() {
             {/* ── CTA — single, prominent, full-width on mobile ───── */}
             <Reveal delay={4}>
               <div className="mt-8">
-                <a
+                <button
                   id="sb-hero-cta"
-                  href="#sb-offers"
+                  type="button"
+                  onClick={() => addToCart()}
                   className="sb-cta flex items-center justify-center gap-3"
                   style={{
                     background: "var(--sb-charcoal)",
@@ -569,6 +572,8 @@ export function Hero() {
                       "0 16px 40px rgba(44,40,38,0.22), 0 0 0 1px rgba(184,153,104,0.30)",
                     width: "100%",
                     maxWidth: 480,
+                    border: "none",
+                    cursor: "pointer",
                   }}
                 >
                   <IconBag size={17} color="var(--sb-gold-soft)" />
@@ -583,7 +588,7 @@ export function Hero() {
                   >
                     <span className="sb-num">{current.price}</span> {microcopy.currency}
                   </span>
-                </a>
+                </button>
               </div>
             </Reveal>
           </div>

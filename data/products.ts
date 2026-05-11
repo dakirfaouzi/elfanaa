@@ -569,6 +569,53 @@ export const products: Product[] = [
       },
     ],
   },
+
+  /* ──────────────────────────────────────────────────────────
+   * P_004  فيتامينات سوجاربير للشعر — Sugarbear Hair Vitamins  [Hair]
+   * Dedicated to the /sugarbear landing page. Tier pricing mirrors the
+   * page's own bundle state (1 = 199 / 2 = 279 / 3 = 349 SAR).
+   * CRO copy lives in app/sugarbear/copy.ts; only cart-surface fields
+   * are needed here.
+   * ────────────────────────────────────────────────────────── */
+  {
+    id: "p_004",
+    slug: "sugarbear-hair",
+    title: { ar: "فيتامينات سوجاربير للشعر", en: "Sugarbear Hair Vitamins" },
+    description: {
+      ar: "فيتامينات يومية بتركيبة نباتية تدعم مظهر شعر أكثر كثافة ولمعاناً وصحة.",
+      en: "Daily vegan vitamins that support the appearance of thicker, shinier, healthier hair.",
+    },
+    images: [
+      {
+        src: "/sugarbear/bundle-3.png",
+        alt: { ar: "ثلاث علب سوجاربير للشعر", en: "Sugarbear Hair Vitamins 3-pack" },
+      },
+      {
+        src: "/sugarbear/bundle-2.png",
+        alt: { ar: "علبتان سوجاربير للشعر", en: "Sugarbear Hair Vitamins 2-pack" },
+      },
+      {
+        src: "/sugarbear/bundle-1.png",
+        alt: { ar: "علبة سوجاربير للشعر", en: "Sugarbear Hair Vitamins 1-pack" },
+      },
+    ],
+    price: { amount: 19900, currency: C },
+    offerTiers: [
+      { quantity: 1, total: { amount: 19900, currency: C } },
+      { quantity: 2, total: { amount: 27900, currency: C } },
+      { quantity: 3, total: { amount: 34900, currency: C } },
+    ],
+    badges: [
+      { ar: "تركيبة نباتية ١٠٠٪", en: "100% Vegan" },
+      { ar: "خالٍ من الجلوتين", en: "Gluten Free" },
+      { ar: "بنكهة التوت الطبيعية", en: "Natural Berry Flavor" },
+    ],
+    rating: { value: 4.9, count: 12647 },
+    collection: "hair",
+    upsellIds: ["p_002", "p_003"],
+    stockLeft: 23,
+    recentBuyers: 47,
+  },
 ];
 
 /* ------------------------------- Selectors ------------------------------- */

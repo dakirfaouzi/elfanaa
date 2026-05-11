@@ -4,6 +4,7 @@ import Image from "next/image";
 import { offersCopy, microcopy } from "../copy";
 import { useSugarbear } from "../state";
 import { Reveal } from "../components/Reveal";
+import { useAddToCart } from "../useAddToCart";
 
 /**
  * SECTION — Premium Offers (final luxury rebuild)
@@ -24,6 +25,7 @@ import { Reveal } from "../components/Reveal";
  */
 export function Offers() {
   const { bundle, setBundle } = useSugarbear();
+  const addToCart = useAddToCart();
 
   return (
     <section
@@ -131,6 +133,10 @@ export function Offers() {
                 bundle={b}
                 selected={bundle === b.id}
                 onSelect={() => setBundle(b.id)}
+                onAddToCart={() => {
+                  setBundle(b.id);
+                  addToCart(b.pieces);
+                }}
               />
             </Reveal>
           ))}
@@ -212,10 +218,12 @@ function BundleCard({
   bundle,
   selected,
   onSelect,
+  onAddToCart,
 }: {
   bundle: (typeof offersCopy.bundles)[number];
   selected: boolean;
   onSelect: () => void;
+  onAddToCart: () => void;
 }) {
   const isFeatured = bundle.highlight;
 
@@ -560,19 +568,28 @@ function BundleCard({
           ))}
         </ul>
 
-        {/* ── CTA pill ───────────────────────────────────────── *
-         *  Renders as visual chrome — selection happens via the *
-         *  full-card label/radio above, not via this element.   *
-         *  Fill state follows `selected` only — never locked to *
-         *  the featured card.                                   *
-         * ──────────────────────────────────────────────────── */}
-        <span
-          aria-hidden
+        {/* ── CTA pill ─────────────────────────────────────── *
+         *  Real interactive button: clicking it selects this   *
+         *  bundle AND adds it to the cart, then opens the      *
+         *  luxury cart drawer. The outer label/radio still     *
+         *  handles pure-selection-without-checkout for users   *
+         *  who click elsewhere on the card.                    *
+         * ─────────────────────────────────────────────────── */}
+        <button
+          type="button"
+          onClick={(e) => {
+            // Prevent the click from also bubbling to the label and
+            // double-firing the radio change (the onAddToCart handler
+            // already calls setBundle so selection is covered).
+            e.preventDefault();
+            onAddToCart();
+          }}
           style={{
             marginTop: "clamp(16px, 2.6vw, 28px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            width: "100%",
             height: 56,
             borderRadius: 999,
             paddingInline: 26,
@@ -588,10 +605,11 @@ function BundleCard({
               ? "0 12px 28px rgba(44, 40, 38, 0.20)"
               : "none",
             transition: "all 0.35s ease",
+            cursor: "pointer",
           }}
         >
           {bundle.cta}
-        </span>
+        </button>
       </div>
     </label>
   );

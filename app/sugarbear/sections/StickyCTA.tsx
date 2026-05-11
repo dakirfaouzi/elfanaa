@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSugarbear } from "../state";
 import { microcopy, heroCopy, offersCopy, stickyCtaCopy } from "../copy";
 import { IconBag } from "../components/Icons";
+import { useAddToCart } from "../useAddToCart";
 
 /**
  * Floating add-to-cart — coordinated mobile + desktop conversion system.
@@ -89,6 +90,8 @@ export function StickyCTA() {
     };
   }, []);
 
+  const addToCart = useAddToCart();
+
   if (!visible) return null;
 
   // Resolve the rich subtitle ("للتحوّل الحقيقي" etc) for the active bundle.
@@ -96,8 +99,8 @@ export function StickyCTA() {
 
   return (
     <>
-      <MobileSticky current={current} />
-      <DesktopSticky current={current} offerMeta={offerMeta} />
+      <MobileSticky current={current} onAddToCart={addToCart} />
+      <DesktopSticky current={current} offerMeta={offerMeta} onAddToCart={addToCart} />
     </>
   );
 }
@@ -117,8 +120,10 @@ export function StickyCTA() {
  * ────────────────────────────────────────────────────────────────────── */
 function MobileSticky({
   current,
+  onAddToCart,
 }: {
   current: ReturnType<typeof useSugarbear>["current"];
+  onAddToCart: () => void;
 }) {
   // Pull the rich subtitle ("للتحوّل الحقيقي" etc) from the offers section so
   // the mobile sticky stays in lock-step with the active bundle.
@@ -280,8 +285,9 @@ function MobileSticky({
         </div>
 
         {/* ── LEFT (RTL end) — premium CTA pill ─────────────────── */}
-        <a
-          href="#sb-offers"
+        <button
+          type="button"
+          onClick={onAddToCart}
           className="sb-cta"
           style={{
             background: "var(--sb-charcoal)",
@@ -298,11 +304,13 @@ function MobileSticky({
             whiteSpace: "nowrap",
             boxShadow:
               "0 14px 32px rgba(44, 40, 38, 0.22), 0 0 0 1px rgba(184, 153, 104, 0.18) inset",
+            border: "none",
+            cursor: "pointer",
           }}
         >
           <IconBag size={14} color="var(--sb-gold-soft)" />
           {stickyCtaCopy.ctaMobile}
-        </a>
+        </button>
       </div>
     </div>
   );
@@ -314,9 +322,11 @@ function MobileSticky({
 function DesktopSticky({
   current,
   offerMeta,
+  onAddToCart,
 }: {
   current: ReturnType<typeof useSugarbear>["current"];
-  offerMeta: typeof offersCopy.bundles[number] | undefined;
+  offerMeta: (typeof offersCopy.bundles)[number] | undefined;
+  onAddToCart: () => void;
 }) {
   return (
     <div
@@ -484,8 +494,9 @@ function DesktopSticky({
           </div>
 
           {/* ── CTA pill ────────────────────────────────────────────── */}
-          <a
-            href="#sb-offers"
+          <button
+            type="button"
+            onClick={onAddToCart}
             className="sb-cta"
             style={{
               background: "var(--sb-charcoal)",
@@ -501,11 +512,13 @@ function DesktopSticky({
               boxShadow:
                 "0 12px 28px rgba(44,40,38,0.22), 0 0 0 1px rgba(184,153,104,0.30)",
               flexShrink: 0,
+              border: "none",
+              cursor: "pointer",
             }}
           >
             <IconBag size={16} color="var(--sb-gold-soft)" />
             {stickyCtaCopy.ctaDesktop}
-          </a>
+          </button>
         </div>
       </div>
     </div>
