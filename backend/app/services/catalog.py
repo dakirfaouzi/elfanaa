@@ -35,12 +35,34 @@ class Product:
     price: Money
     offer_tiers: tuple[OfferTier, ...] = field(default_factory=tuple)
     collection: str = ""
+    sku: str = ""
 
     def title(self, locale: str = "ar") -> str:
         return self.title_ar if locale == "ar" else self.title_en
 
     def has_tiers(self) -> bool:
         return len(self.offer_tiers) > 0
+
+    def resolved_sku(self) -> str:
+        """Returns `sku` if set, else a deterministic fallback derived from
+        slug + id (mirrors `lib/sku.ts` in the Next.js storefront).
+        """
+        if self.sku:
+            return self.sku
+        return _fallback_sku(self.id, self.slug)
+
+
+def _fallback_sku(product_id: str, slug: str) -> str:
+    import re
+
+    slug = (slug or "").lower()
+    head = re.split(r"[^a-z0-9]+", slug)[0] if slug else ""
+    token = head[:10].upper() if len(head) >= 3 else "".join(
+        re.split(r"[^a-z0-9]+", slug)
+    )[:10].upper() or "ITEM"
+    tail_match = re.search(r"(\d+)\s*$", product_id or "")
+    tail = (tail_match.group(1) if tail_match else "0").zfill(3)
+    return f"FN-{token}-{tail}"
 
 
 # ── Launch trio ──────────────────────────────────────────────────────────────

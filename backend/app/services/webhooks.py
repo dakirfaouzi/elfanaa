@@ -95,41 +95,89 @@ async def dispatch_to_google_sheets(
         return {"ok": False, "error": str(exc)}
 
 
-def build_sheets_row(
+def build_sheets_order_row(
     *,
-    received_at: str,
     order_id: str,
+    order_date_ksa: str,
     full_name: str,
-    phone: str,
-    phone_e164: str,
-    items_summary: str,
-    item_count: int,
-    subtotal_minor: int,
-    upsell_total_minor: int,
+    phone_digits: str,
+    full_address: str,
+    product_url: str,
+    skus: list[str],
+    product_names_ar: list[str],
+    quantities: list[int],
     total_minor: int,
-    currency: str,
-    locale: str,
-    source: str,
+    currency: str = "SAR",
 ) -> Dict[str, Any]:
-    """Build a flat dict ready for Google Sheets row append.
+    """Flat payload for a single new-order row.
 
-    Order matters: Apps Script uses object key order. Match the column
-    headers in `sheet-template.csv` so a non-technical teammate can read
-    a row without joining other tabs.
+    Mirrors `SheetsOrderRow` in `lib/webhooks/google-sheets.ts` and the
+    column layout in `Fanaa_Store Orders - Feuille 1.csv`. The Apps Script
+    side reads each field by name (NOT by index), so adding optional
+    columns later is forward-compatible.
+
+    Multi-product: SKU / Product name / Total quantity are joined with "/"
+    so a single row tells the full story without joining tabs.
     """
     return {
-        "received_at": received_at,
-        "order_id": order_id,
-        "full_name": full_name,
-        "phone": phone,
-        "phone_e164": phone_e164,
-        "items": items_summary,
-        "item_count": item_count,
-        "subtotal_sar": round(subtotal_minor / 100, 2),
-        "upsell_sar": round(upsell_total_minor / 100, 2),
-        "total_sar": round(total_minor / 100, 2),
-        "currency": currency,
-        "payment_method": "cod",
-        "locale": locale,
-        "source": source,
+        "kind": "order",
+        "orderId": order_id,
+        "orderDate": order_date_ksa,
+        "country": "KSA",
+        "fullName": full_name,
+        "phone": phone_digits,
+        "fullAddress": full_address,
+        "productUrl": product_url,
+        "sku": "/".join(s for s in skus if s),
+        "productName": "/".join(n for n in product_names_ar if n),
+        "totalQuantity": "/".join(str(q) for q in quantities),
+        "variantPrice": round(total_minor / 100),
+        "currency": currency or "SAR",
     }
+
+
+def build_sheets_upsell_row(
+    *,
+    order_id: str,
+    upsell_sku: str,
+    upsell_product_name_ar: str,
+    upsell_quantity: int,
+    upsell_total_minor: int,
+    currency: str = "SAR",
+) -> Dict[str, Any]:
+    """Flat payload for an upsell — Apps Script locates the original row
+    by `orderId` and updates SKU / Product name / Total quantity /
+    Variant price in place so the final row is the final real order.
+    """
+    return {
+        "kind": "upsell",
+        "orderId": order_id,
+        "upsellSku": upsell_sku,
+        "upsellProductName": upsell_product_name_ar,
+        "upsellQuantity": upsell_quantity,
+        "upsellPrice": round(upsell_total_minor / 100),
+        "currency": currency or "SAR",
+    }
+
+
+def format_order_date_ksa(dt) -> str:
+    """`datetime` → `DD/MM/YYYY` in Asia/Riyadh (UTC+3, no DST)."""
+    import datetime as _dt
+
+    if isinstance(dt, str):
+        try:
+            dt = _dt.datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        except Exception:
+            return ""
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_dt.timezone.utc)
+    riyadh = dt.astimezone(_dt.timezone(_dt.timedelta(hours=3)))
+    return riyadh.strftime("%d/%m/%Y")
+
+
+def phone_for_sheets(value: str) -> str:
+    """`+966512345678` → `966512345678`. Strips leading `+` and whitespace."""
+    if not value:
+        return ""
+    return value.lstrip("+").replace(" ", "")

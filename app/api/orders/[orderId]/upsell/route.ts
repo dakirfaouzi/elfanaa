@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { dispatchWebhook } from "@/lib/webhooks/dispatch";
 import {
   dispatchToGoogleSheets,
-  type SheetsOrderRow,
+  type SheetsUpsellRow,
 } from "@/lib/webhooks/google-sheets";
 import { getProductById } from "@/data/products";
 import { POST_PURCHASE_OFFER_PRICE } from "@/lib/upsell/strategy";
 import { pickLocalized } from "@/lib/format";
+import { getProductSku } from "@/lib/sku";
 import type { Locale } from "@/lib/types";
 
 /**
@@ -76,22 +77,18 @@ export async function POST(
     locale: input.locale,
   };
 
-  // Sheets row: same orderId, kind=upsell so the ops dashboard shows
-  // both rows side-by-side without confusion.
-  const sheetsRow: SheetsOrderRow & { kind: "order" | "upsell" } = {
-    receivedAt: acceptedAt,
-    orderId,
-    fullName: "",
-    phone: "",
-    phoneE164: "",
-    items: `${pickLocalized(product.title, "ar")} × 1`,
-    itemCount: 1,
-    subtotal: POST_PURCHASE_OFFER_PRICE.amount / 100,
-    currency: POST_PURCHASE_OFFER_PRICE.currency,
-    paymentMethod: "cod",
-    locale: input.locale,
-    source: req.headers.get("referer") ?? "post_purchase_upsell",
+  // Sheets payload — Apps Script locates the existing row by orderId and
+  // updates SKU / Product name / Total quantity / Variant price in place.
+  // Per the brief: the final sheet row must reflect the FINAL real order
+  // (base + upsell merged), not a separate upsell entry.
+  const sheetsRow: SheetsUpsellRow = {
     kind: "upsell",
+    orderId,
+    upsellSku: getProductSku(product),
+    upsellProductName: pickLocalized(product.title, "ar"),
+    upsellQuantity: 1,
+    upsellPrice: Math.round(POST_PURCHASE_OFFER_PRICE.amount / 100),
+    currency: "SAR",
   };
 
   await Promise.allSettled([

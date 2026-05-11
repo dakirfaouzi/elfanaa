@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { dispatchWebhook } from "@/lib/webhooks/dispatch";
-import { dispatchToGoogleSheets, type SheetsOrderRow } from "@/lib/webhooks/google-sheets";
+import {
+  composeFullAddress,
+  dispatchToGoogleSheets,
+  formatOrderDateKSA,
+  phoneForSheets,
+  type SheetsOrderRow,
+} from "@/lib/webhooks/google-sheets";
 import { getProductById } from "@/data/products";
 import { lineTotal } from "@/lib/pricing";
 import { sumMoney, pickLocalized } from "@/lib/format";
 import { validateSaudiPhone } from "@/lib/phone";
+import { getProductSku, joinSkus } from "@/lib/sku";
 import type { CodOrderInput, Money } from "@/lib/types";
 
 /**
@@ -87,29 +94,37 @@ export async function POST(req: Request) {
   // await db.orders.insert(order);
   // ──────────────────────────────────────────────────────────────────────────
 
-  // Sheets row — one source of operational truth even when CRM is down.
-  // Per-item subtotals are baked into the items string so a non-technical
-  // teammate can read the row without joining other tabs.
+  // Sheets row — single operational source of truth even when CRM is down.
+  // Layout mirrors `Fanaa_Store Orders - Feuille 1.csv` exactly, so a
+  // non-technical teammate can scan a row left-to-right and see the entire
+  // order without joining tabs.
+  const lineProducts = lineDetails.map((l) => {
+    const product = getProductById(l.productId);
+    return { line: l, product };
+  });
+
+  const skuList = lineProducts.map(({ product, line }) =>
+    product ? getProductSku(product) : `FN-UNKNOWN-${line.productId}`
+  );
+  const nameList = lineProducts.map(({ product, line }) =>
+    product ? pickLocalized(product.title, "ar") : pickLocalized(line.title, "ar")
+  );
+  const qtyList = lineProducts.map(({ line }) => String(line.quantity));
+
   const sheetsRow: SheetsOrderRow = {
-    receivedAt: order.createdAt,
+    kind: "order",
     orderId: order.id,
+    orderDate: formatOrderDateKSA(order.createdAt),
+    country: "KSA",
     fullName: order.customer.fullName,
-    phone: order.customer.phone,
-    phoneE164: order.customer.phoneE164 ?? "",
-    items: lineDetails
-      .map(
-        (l) =>
-          `${pickLocalized(l.title, "ar")} × ${l.quantity} (${(
-            l.lineTotal.amount / 100
-          ).toFixed(0)} ${l.lineTotal.currency})`
-      )
-      .join(" · "),
-    itemCount: lineDetails.reduce((acc, l) => acc + l.quantity, 0),
-    subtotal: subtotal.amount / 100,
-    currency: subtotal.currency,
-    paymentMethod: "cod",
-    locale: order.locale,
-    source: req.headers.get("referer") ?? "direct",
+    phone: phoneForSheets(order.customer.phoneE164 ?? order.customer.phone),
+    fullAddress: composeFullAddress(input.city, input.address),
+    productUrl: req.headers.get("referer") ?? "",
+    sku: joinSkus(skuList),
+    productName: nameList.join("/"),
+    totalQuantity: qtyList.join("/"),
+    variantPrice: Math.round(subtotal.amount / 100),
+    currency: "SAR",
   };
 
   await Promise.allSettled([

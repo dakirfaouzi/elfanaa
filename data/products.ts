@@ -41,6 +41,7 @@ export const products: Product[] = [
   {
     id: "p_001",
     slug: "glow-serum",
+    sku: "FN-SERUM-001",
     title: { ar: "سيروم الإشراق", en: "Glow Serum" },
     headline: {
       ar: "ذهب التبقّع،\nجاء الإشراق.",
@@ -220,6 +221,7 @@ export const products: Product[] = [
   {
     id: "p_002",
     slug: "barrier-cream",
+    sku: "FN-CREAM-002",
     title: { ar: "كريم ترميم الحاجز", en: "Barrier Repair Cream" },
     headline: {
       ar: "الجفاف ليس نوع بشرة.\nإنه حاجز مكسور.",
@@ -399,6 +401,7 @@ export const products: Product[] = [
   {
     id: "p_003",
     slug: "hair-mask",
+    sku: "FN-HAIRMASK-003",
     title: { ar: "قناع الترميم العميق", en: "Deep Repair Mask" },
     headline: {
       ar: "تكسّر، تقصّف، جفاف...\nترجع الحياة بـ ٥ دقائق.",
@@ -580,6 +583,7 @@ export const products: Product[] = [
   {
     id: "p_004",
     slug: "sugarbear-hair",
+    sku: "FN-SUG-004",
     title: { ar: "فيتامينات سوجاربير للشعر", en: "Sugarbear Hair Vitamins" },
     description: {
       ar: "فيتامينات يومية بتركيبة نباتية تدعم مظهر شعر أكثر كثافة ولمعاناً وصحة.",

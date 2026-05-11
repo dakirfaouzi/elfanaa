@@ -53,6 +53,15 @@ export type Product = {
   /** Bundle pricing tiers — see lib/pricing.ts. */
   offerTiers?: OfferTier[];
 
+  /**
+   * Operational SKU shown to the warehouse / shipping partner / accounting.
+   * Format `FN-<TOKEN>-<NNN>` (see `lib/sku.ts`). Optional because future
+   * products that forget this field fall back to a deterministic generated
+   * SKU — but pin one explicitly the moment an external system depends on
+   * it (Aramex labels, ERP, etc).
+   */
+  sku?: string;
+
   /* ------------------------- CRO content surface ----------------------- */
 
   /**
@@ -178,6 +187,15 @@ export type CodOrderInput = {
   phone: string;
   cart: Cart;
   locale: Locale;
+  /**
+   * Optional KSA city — captured only on flows that opted into the longer
+   * checkout form. The minimum-friction popup leaves this undefined and the
+   * Sheets row's "Full Address" cell stays empty (this matches the brief:
+   * "If address is missing: send empty string").
+   */
+  city?: string;
+  /** Optional street/district/landmark — same rule as `city`. */
+  address?: string;
 };
 
 /* ────────────────────────── Collection system ──────────────────────── */

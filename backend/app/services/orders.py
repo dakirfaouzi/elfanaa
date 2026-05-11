@@ -40,9 +40,12 @@ from app.services.ip_intelligence import check_ip, is_phone_whitelisted
 from app.services.pricing import line_total
 from app.services.pixels import PixelEvent, PixelUser, dispatch_purchase
 from app.services.webhooks import (
-    build_sheets_row,
+    build_sheets_order_row,
+    build_sheets_upsell_row,
     dispatch_signed,
     dispatch_to_google_sheets,
+    format_order_date_ksa,
+    phone_for_sheets,
 )
 
 
@@ -206,6 +209,28 @@ async def accept_upsell(
     )
     await session.flush()
     await session.refresh(order)
+
+    # Update the Google Sheets row in place — the Apps Script finds the
+    # existing row by `orderId` and appends the upsell SKU / Arabic
+    # product name / quantity to the original row (separator "/"), and
+    # adds the upsell price to Variant price. The final row reads as
+    # the FINAL real order. Best-effort; failures are logged, never raised.
+    settings = get_settings()
+    if settings.google_sheets_webhook_url:
+        sheets_payload = build_sheets_upsell_row(
+            order_id=order.id,
+            upsell_sku=product.resolved_sku(),
+            upsell_product_name_ar=product.title("ar"),
+            upsell_quantity=payload.quantity,
+            upsell_total_minor=line_total_minor,
+            currency=order.currency,
+        )
+        await dispatch_to_google_sheets(
+            settings.google_sheets_webhook_url,
+            settings.google_sheets_api_key,
+            sheets_payload,
+        )
+
     return order
 
 
@@ -291,25 +316,32 @@ async def _fanout_after_create(
 ) -> None:
     """Webhooks + pixel Purchase, all best-effort, all in parallel."""
     settings = get_settings()
-    items_summary = " · ".join(
-        f"{it.title} × {it.quantity} ({it.line_total_minor / 100:.0f} {it.currency})"
-        for it in order.items
-    )
 
-    sheets_row = build_sheets_row(
-        received_at=order.created_at.isoformat(),
+    # Build per-line lists in stable order so the sheet's SKU / name /
+    # quantity columns line up. Upsell lines are excluded from the base
+    # order row — they get a separate UPSERT after the customer accepts.
+    base_items = [it for it in order.items if it.source != "upsell"]
+    skus: list[str] = []
+    names_ar: list[str] = []
+    quantities: list[int] = []
+    for it in base_items:
+        product = get_product(it.product_id)
+        skus.append(product.resolved_sku() if product else f"FN-UNKNOWN-{it.product_id}")
+        names_ar.append(it.title)
+        quantities.append(it.quantity)
+
+    sheets_row = build_sheets_order_row(
         order_id=order.id,
+        order_date_ksa=format_order_date_ksa(order.created_at),
         full_name=order.full_name,
-        phone=order.phone_national or order.phone_e164,
-        phone_e164=order.phone_e164,
-        items_summary=items_summary,
-        item_count=sum(it.quantity for it in order.items),
-        subtotal_minor=order.subtotal_minor,
-        upsell_total_minor=order.upsell_total_minor,
-        total_minor=order.total_minor,
+        phone_digits=phone_for_sheets(order.phone_e164 or order.phone_national or ""),
+        full_address="",  # not collected by the minimum-friction popup
+        product_url=(payload.context.referrer if payload.context else None) or "",
+        skus=skus,
+        product_names_ar=names_ar,
+        quantities=quantities,
+        total_minor=order.subtotal_minor,
         currency=order.currency,
-        locale=order.locale,
-        source=(payload.context.referrer if payload.context else None) or "direct",
     )
 
     order_payload = {
