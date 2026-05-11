@@ -287,7 +287,7 @@ function MobileSticky({
         {/* ── LEFT (RTL end) — premium CTA pill ─────────────────── */}
         <button
           type="button"
-          onClick={onAddToCart}
+          onClick={() => onAddToCart()}
           className="sb-cta"
           style={{
             background: "var(--sb-charcoal)",
@@ -496,7 +496,7 @@ function DesktopSticky({
           {/* ── CTA pill ────────────────────────────────────────────── */}
           <button
             type="button"
-            onClick={onAddToCart}
+            onClick={() => onAddToCart()}
             className="sb-cta"
             style={{
               background: "var(--sb-charcoal)",
