@@ -154,7 +154,22 @@ async def create_order(
     await session.flush()
     await session.refresh(order)
 
-    # Fan out side-effects in parallel; failures are logged, never raised.
+    # ── Google Sheets row append — AWAITED ─────────────────────────────────
+    # The ops dashboard must contain the row BEFORE the customer lands on
+    # the upsell screen, otherwise an immediate upsell-accept would race
+    # the base-order append and try to update a row that doesn't exist yet.
+    # Order creation still succeeds if this step fails (try/except below).
+    try:
+        await _dispatch_sheets_for_order(order, payload)
+    except Exception:
+        log.exception(
+            "sheets webhook crashed — order kept",
+            extra={"order_id": order.id},
+        )
+
+    # ── Non-blocking side-effects (CRM + shipping + pixel CAPIs) ───────────
+    # These do not affect the buyer's UX. Fire-and-forget keeps the
+    # checkout response fast even if Meta / TikTok CAPI is sluggish.
     asyncio.create_task(
         _fanout_after_create(order, payload, client_ip=client_ip, user_agent=user_agent)
     )
@@ -216,7 +231,14 @@ async def accept_upsell(
     # adds the upsell price to Variant price. The final row reads as
     # the FINAL real order. Best-effort; failures are logged, never raised.
     settings = get_settings()
-    if settings.google_sheets_webhook_url:
+    if not settings.google_sheets_webhook_url:
+        log.info(
+            "sheets upsell webhook skipped — env not configured",
+            extra={"order_id": order.id},
+        )
+        return order
+
+    try:
         sheets_payload = build_sheets_upsell_row(
             order_id=order.id,
             upsell_sku=product.resolved_sku(),
@@ -225,10 +247,29 @@ async def accept_upsell(
             upsell_total_minor=line_total_minor,
             currency=order.currency,
         )
-        await dispatch_to_google_sheets(
+        log.info(
+            "sheets webhook → dispatching upsell update",
+            extra={
+                "order_id": order.id,
+                "upsell_sku": sheets_payload.get("upsellSku"),
+                "upsell_price": sheets_payload.get("upsellPrice"),
+                "upsell_quantity": sheets_payload.get("upsellQuantity"),
+            },
+        )
+        result = await dispatch_to_google_sheets(
             settings.google_sheets_webhook_url,
             settings.google_sheets_api_key,
             sheets_payload,
+        )
+        if not result.get("ok"):
+            log.error(
+                "sheets webhook → upsell dispatch failed",
+                extra={"order_id": order.id, "result": result},
+            )
+    except Exception:
+        log.exception(
+            "sheets upsell webhook crashed — upsell accepted regardless",
+            extra={"order_id": order.id},
         )
 
     return order
@@ -307,15 +348,18 @@ def to_order_out(order: Order) -> OrderOut:
     )
 
 
-async def _fanout_after_create(
-    order: Order,
-    payload: OrderCreateIn,
-    *,
-    client_ip: Optional[str],
-    user_agent: Optional[str],
-) -> None:
-    """Webhooks + pixel Purchase, all best-effort, all in parallel."""
+async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> None:
+    """Awaited Google Sheets append — runs BEFORE `create_order` returns
+    so the operational sheet has the row by the time the customer sees
+    the upsell popup. Failures are logged but never raised.
+    """
     settings = get_settings()
+    if not settings.google_sheets_webhook_url:
+        log.info(
+            "sheets webhook skipped — env not configured",
+            extra={"order_id": order.id},
+        )
+        return
 
     # Build per-line lists in stable order so the sheet's SKU / name /
     # quantity columns line up. Upsell lines are excluded from the base
@@ -343,6 +387,45 @@ async def _fanout_after_create(
         total_minor=order.subtotal_minor,
         currency=order.currency,
     )
+
+    log.info(
+        "sheets webhook → dispatching base order",
+        extra={
+            "order_id": order.id,
+            "sku": sheets_row.get("sku"),
+            "total_quantity": sheets_row.get("totalQuantity"),
+            "variant_price": sheets_row.get("variantPrice"),
+            "product_url": sheets_row.get("productUrl"),
+        },
+    )
+
+    result = await dispatch_to_google_sheets(
+        settings.google_sheets_webhook_url,
+        settings.google_sheets_api_key,
+        sheets_row,
+    )
+
+    if not result.get("ok"):
+        log.error(
+            "sheets webhook → base order dispatch failed",
+            extra={"order_id": order.id, "result": result},
+        )
+
+
+async def _fanout_after_create(
+    order: Order,
+    payload: OrderCreateIn,
+    *,
+    client_ip: Optional[str],
+    user_agent: Optional[str],
+) -> None:
+    """Fire-and-forget side effects: CRM + shipping + pixel CAPIs.
+
+    The Google Sheets append is handled separately by
+    `_dispatch_sheets_for_order`, which is AWAITED before the route
+    returns. This function intentionally does NOT touch the sheet.
+    """
+    settings = get_settings()
 
     order_payload = {
         "event": "order.created",
@@ -388,11 +471,6 @@ async def _fanout_after_create(
             settings.shipping_webhook_url,
             {"event": "shipment.requested", "order": _order_to_payload(order)},
             secret=settings.webhook_secret,
-        ),
-        dispatch_to_google_sheets(
-            settings.google_sheets_webhook_url,
-            settings.google_sheets_api_key,
-            sheets_row,
         ),
         dispatch_purchase(pixel_event),
         return_exceptions=True,

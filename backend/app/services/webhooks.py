@@ -78,19 +78,83 @@ async def dispatch_to_google_sheets(
     shared-secret check — sufficient because Apps Script also locks the
     sheet to your Google account. Headers travel as `Content-Type` and
     NOT signed: Apps Script can't verify HMAC without external libs.
+
+    CRITICAL: `follow_redirects=True`. A POST to
+    `https://script.google.com/macros/s/<id>/exec` returns `302 Found`
+    pointing to `https://script.googleusercontent.com/macros/echo?...`
+    where the script actually runs. Without redirect following, the
+    request returns the 302, looks like "non-2xx", and the row is never
+    appended. This is the most common reason Apps Script webhooks
+    fail silently.
     """
     if not url:
+        log.info("sheets webhook skipped — GOOGLE_SHEETS_WEBHOOK_URL not set")
         return {"ok": True, "skipped": True}
+
     target = f"{url}{'&' if '?' in url else '?'}apiKey={api_key}" if api_key else url
+    safe_target = (target.split("?")[0] if "?" in target else target) + (
+        "?apiKey=***" if api_key else ""
+    )
+    kind = row.get("kind", "order")
+    order_id = row.get("orderId", "")
+
+    log.info(
+        "sheets webhook → request start",
+        extra={
+            "kind": kind,
+            "order_id": order_id,
+            "endpoint": safe_target,
+            "payload_keys": sorted(row.keys()),
+        },
+    )
+    # Full payload at DEBUG only — Arabic names in INFO logs are fine but
+    # noisy; flip your service log level to DEBUG when reproducing issues.
+    log.debug("sheets webhook → payload", extra={"order_id": order_id, "payload": row})
+
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(
+            timeout=10.0, follow_redirects=True
+        ) as client:
             res = await client.post(
-                target, json=row, headers={"Content-Type": "application/json"}
+                target,
+                json=row,
+                headers={"Content-Type": "application/json"},
             )
-        return {"ok": res.is_success, "status": res.status_code}
+        ok = res.is_success
+        body_preview = (res.text or "")[:300]
+
+        if ok:
+            log.info(
+                "sheets webhook ← response",
+                extra={
+                    "order_id": order_id,
+                    "kind": kind,
+                    "status": res.status_code,
+                    "final_url_host": res.url.host if res.url else None,
+                    "body": body_preview,
+                },
+            )
+        else:
+            log.warning(
+                "sheets webhook ← non-2xx",
+                extra={
+                    "order_id": order_id,
+                    "kind": kind,
+                    "status": res.status_code,
+                    "body": body_preview,
+                },
+            )
+        return {"ok": ok, "status": res.status_code, "body": body_preview}
     except Exception as exc:
         log.error(
-            "sheets webhook failed", extra={"url": url, "error": str(exc)}
+            "sheets webhook ← exception",
+            extra={
+                "order_id": order_id,
+                "kind": kind,
+                "endpoint": safe_target,
+                "error": str(exc),
+                "error_type": exc.__class__.__name__,
+            },
         )
         return {"ok": False, "error": str(exc)}
 

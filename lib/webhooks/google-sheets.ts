@@ -109,7 +109,10 @@ export async function dispatchToGoogleSheets({
   apiKey,
   row,
 }: DispatchOptions) {
-  if (!url) return { ok: true, skipped: true as const };
+  if (!url) {
+    console.info("[sheets webhook] skipped — GOOGLE_SHEETS_WEBHOOK_URL not set");
+    return { ok: true, skipped: true as const };
+  }
 
   // Apps Script can't read custom HTTP headers, so the shared secret travels
   // as a `?apiKey=` query param. Apps Script reads it from `e.parameter`.
@@ -117,17 +120,68 @@ export async function dispatchToGoogleSheets({
     ? `${url}${url.includes("?") ? "&" : "?"}apiKey=${encodeURIComponent(apiKey)}`
     : url;
 
+  // `safeEndpoint` redacts the API key for log lines.
+  const safeEndpoint = apiKey
+    ? `${url}${url.includes("?") ? "&" : "?"}apiKey=***`
+    : url;
+
+  const orderId = (row as { orderId?: string }).orderId ?? "";
+  const kind = (row as { kind?: string }).kind ?? "order";
+
+  console.info("[sheets webhook] → request start", {
+    kind,
+    orderId,
+    endpoint: safeEndpoint,
+  });
+
   try {
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(row),
       cache: "no-store",
-      signal: AbortSignal.timeout(8_000),
+      // CRITICAL — `script.google.com/macros/s/<id>/exec` returns 302 to
+      // `script.googleusercontent.com` where the script actually runs.
+      // Node's fetch (undici) defaults to "follow"; setting it explicitly
+      // guards against runtime changes that would silently break appends.
+      redirect: "follow",
+      signal: AbortSignal.timeout(10_000),
     });
-    return { ok: res.ok, status: res.status };
+    const body = await safeReadBody(res);
+    if (res.ok) {
+      console.info("[sheets webhook] ← response", {
+        kind,
+        orderId,
+        status: res.status,
+        body,
+      });
+    } else {
+      console.warn("[sheets webhook] ← non-2xx", {
+        kind,
+        orderId,
+        status: res.status,
+        body,
+      });
+    }
+    return { ok: res.ok, status: res.status, body };
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    const message = (err as Error).message;
+    console.error("[sheets webhook] ← exception", {
+      kind,
+      orderId,
+      endpoint: safeEndpoint,
+      error: message,
+    });
+    return { ok: false, error: message };
+  }
+}
+
+async function safeReadBody(res: Response): Promise<string> {
+  try {
+    const txt = await res.text();
+    return txt.length > 300 ? `${txt.slice(0, 300)}…` : txt;
+  } catch {
+    return "";
   }
 }
 

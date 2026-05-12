@@ -127,6 +127,32 @@ export async function POST(req: Request) {
     currency: "SAR",
   };
 
+  // ── Google Sheets row append — AWAITED ────────────────────────────────
+  // The ops dashboard must contain the row BEFORE the customer lands on
+  // the upsell screen. Order creation succeeds even if this fails (the
+  // dispatcher swallows its own exceptions and logs them).
+  console.info("[order] → dispatching base order to sheets", {
+    orderId: order.id,
+    sku: sheetsRow.sku,
+    totalQuantity: sheetsRow.totalQuantity,
+    variantPrice: sheetsRow.variantPrice,
+    productUrl: sheetsRow.productUrl,
+  });
+  const sheetsResult = await dispatchToGoogleSheets({
+    url: process.env.GOOGLE_SHEETS_WEBHOOK_URL,
+    apiKey: process.env.GOOGLE_SHEETS_API_KEY,
+    row: sheetsRow,
+  });
+  if (!sheetsResult.ok) {
+    console.error("[order] sheets dispatch failed — order kept", {
+      orderId: order.id,
+      result: sheetsResult,
+    });
+  }
+
+  // ── Non-blocking side effects: CRM + shipping webhooks ────────────────
+  // These do not affect buyer UX. allSettled keeps a single slow downstream
+  // from blocking the route's response.
   await Promise.allSettled([
     dispatchWebhook({
       url: process.env.ORDERS_WEBHOOK_URL,
@@ -137,11 +163,6 @@ export async function POST(req: Request) {
       url: process.env.SHIPPING_WEBHOOK_URL,
       payload: { event: "shipment.requested", order },
       secret: process.env.WEBHOOK_SECRET,
-    }),
-    dispatchToGoogleSheets({
-      url: process.env.GOOGLE_SHEETS_WEBHOOK_URL,
-      apiKey: process.env.GOOGLE_SHEETS_API_KEY,
-      row: sheetsRow,
     }),
   ]);
 
