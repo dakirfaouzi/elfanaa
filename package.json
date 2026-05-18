@@ -9,26 +9,42 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "generate:og": "node scripts/generate-og.mjs"
+    "generate:og": "node scripts/generate-og.mjs",
+    "admin:hash-password": "node scripts/admin-hash-password.mjs",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate || echo 'prisma generate skipped (DATABASE_URL unset)'"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.2.1",
+    "jose": "^6.2.3",
+    "lucide-react": "^0.460.0",
     "next": "^15.0.3",
+    "prisma": "^6.19.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.1",
-    "clsx": "^2.1.1",
+    "recharts": "^3.8.1",
+    "swr": "^2.4.1",
     "tailwind-merge": "^2.5.4",
-    "lucide-react": "^0.460.0"
+    "ua-parser-js": "^2.0.9",
+    "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.6.3",
-    "tailwindcss": "^3.4.14",
-    "postcss": "^8.4.49",
+    "@types/ua-parser-js": "^0.7.39",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.14.0",
-    "eslint-config-next": "^15.0.3"
+    "eslint-config-next": "^15.0.3",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
   }
 }

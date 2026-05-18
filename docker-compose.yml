@@ -83,21 +83,51 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # CRITICAL — NEXT_PUBLIC_* are inlined by Webpack at build time, so
+      # they MUST be passed as build args, not just runtime environment
+      # variables. EasyPanel users: set these in the service's "Build
+      # Arguments" tab, not "Environment Variables". Forgetting this is
+      # the canonical cause of "orders go to /api/orders instead of the
+      # FastAPI backend, sheet stays empty" bugs.
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elfanaa.com}
+        NEXT_PUBLIC_DEFAULT_LOCALE: ar
+        NEXT_PUBLIC_CURRENCY: SAR
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
+        NEXT_PUBLIC_TIKTOK_PIXEL_ID: ${NEXT_PUBLIC_TIKTOK_PIXEL_ID:-}
+        NEXT_PUBLIC_SNAPCHAT_PIXEL_ID: ${NEXT_PUBLIC_SNAPCHAT_PIXEL_ID:-}
     restart: unless-stopped
     depends_on:
       elfanaa_api:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      # Runtime mirror — used by Next.js server-side code (route handlers,
+      # RSC). NEXT_PUBLIC_* values must ALSO be set here for SSR consistency;
+      # the build args above only cover the browser-side bundle.
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elfanaa.com}
       NEXT_PUBLIC_DEFAULT_LOCALE: ar
       NEXT_PUBLIC_CURRENCY: SAR
-      # Storefront posts to the API directly. In production behind EasyPanel,
-      # set this to https://api.elfanaa.com so the browser bypasses Next.js.
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
       NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
       NEXT_PUBLIC_TIKTOK_PIXEL_ID: ${NEXT_PUBLIC_TIKTOK_PIXEL_ID:-}
       NEXT_PUBLIC_SNAPCHAT_PIXEL_ID: ${NEXT_PUBLIC_SNAPCHAT_PIXEL_ID:-}
+      # ── Admin dashboard ───────────────────────────────────────────
+      # Reuses the same Postgres instance as the FastAPI service. Tables
+      # are auto-created by FastAPI's lifespan migration on startup —
+      # no manual `prisma migrate` step required.
+      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-postgresql://elfanaa:elfanaa@elfanaa_database:5432/elfanaa}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ADMIN_ALLOWED_COUNTRIES: ${ADMIN_ALLOWED_COUNTRIES:-SA,AE,KW,QA,BH,OM,YE}
+      ADMIN_QUALITY_THRESHOLD: ${ADMIN_QUALITY_THRESHOLD:-60}
+      MAXMIND_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID:-}
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
+      ORDERS_WEBHOOK_URL: ${ORDERS_WEBHOOK_URL:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
     ports:
       - "3000:3000"
 

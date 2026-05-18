@@ -36,6 +36,11 @@ export function readAttributionCookies(): {
   fbc?: string;
   ttp?: string;
   scClickId?: string;
+  /** First-party visitor id minted by /api/track. Used by the admin dashboard
+   *  to join orders → sessions. Same forwarding pattern as `_fbp`. */
+  faVisitorId?: string;
+  /** First-party 30-min session id minted by /api/track. */
+  faSessionId?: string;
 } {
   if (typeof document === "undefined") return {};
   const out: Record<string, string> = {};
@@ -49,6 +54,8 @@ export function readAttributionCookies(): {
     if (key === "_fbc") out.fbc = value;
     if (key === "_ttp") out.ttp = value;
     if (key === "_scid") out.scClickId = value;
+    if (key === "_fa_vid") out.faVisitorId = value;
+    if (key === "_fa_sid") out.faSessionId = value;
   }
   return out;
 }

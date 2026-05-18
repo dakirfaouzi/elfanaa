@@ -1,0 +1,204 @@
+// Fanaa Admin Analytics — Prisma schema.
+//
+// This database is ADDITIVE. It does not replace the FastAPI orders DB; it is a
+// purpose-built analytics + admin store. The schema is intentionally
+// denormalised in spots so dashboard queries can stay sub-second even at
+// 10M+ events.
+//
+// Engineering notes:
+//   • All times stored as UTC. Format/zone is decided on the client.
+//   • Money stored as integer "minor units" (halalas) to dodge float drift.
+//   • IP is hashed before persistence — we keep geo + traits, never raw IP.
+//   • Indices favour the dashboard's two hot paths: time-window scans and
+//     visitor/session joins.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ADMIN_DATABASE_URL")
+}
+
+/// Long-lived visitor (1y cookie). One visitor → many sessions.
+model Visitor {
+  id              String    @id @db.VarChar(36)
+  firstSeen       DateTime  @default(now()) @map("first_seen")
+  lastSeen        DateTime  @default(now()) @map("last_seen")
+  totalSessions   Int       @default(1) @map("total_sessions")
+  totalOrders     Int       @default(0) @map("total_orders")
+  totalRevenue    BigInt    @default(0) @map("total_revenue")
+  country         String?   @db.VarChar(2)
+  city            String?   @db.VarChar(80)
+  firstSource     String?   @map("first_source") @db.VarChar(40)
+  firstLanding    String?   @map("first_landing") @db.VarChar(255)
+  sessions        Session[]
+  events          Event[]
+  orders          OrderMirror[]
+
+  @@index([lastSeen])
+  @@index([country])
+  @@map("visitor")
+}
+
+/// 30-min sliding session. Captures landing, device, traffic quality.
+model Session {
+  id              String           @id @db.VarChar(36)
+  visitorId       String           @map("visitor_id") @db.VarChar(36)
+  visitor         Visitor          @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  startedAt       DateTime         @default(now()) @map("started_at")
+  lastSeen        DateTime         @default(now()) @map("last_seen")
+  endedAt         DateTime?        @map("ended_at")
+  landingPath     String?          @map("landing_path") @db.VarChar(255)
+  referrer        String?          @db.VarChar(500)
+  utmSource       String?          @map("utm_source") @db.VarChar(80)
+  utmMedium       String?          @map("utm_medium") @db.VarChar(80)
+  utmCampaign     String?          @map("utm_campaign") @db.VarChar(120)
+  device          String?          @db.VarChar(20) // mobile | tablet | desktop
+  browser         String?          @db.VarChar(40)
+  os              String?          @db.VarChar(40)
+  countryCode     String?          @map("country_code") @db.VarChar(2)
+  region          String?          @db.VarChar(80)
+  city            String?          @db.VarChar(80)
+  isp             String?          @db.VarChar(120)
+  ipHash          String?          @map("ip_hash") @db.VarChar(64)
+  uaHash          String?          @map("ua_hash") @db.VarChar(64)
+  isBot           Boolean          @default(false) @map("is_bot")
+  isVpn           Boolean          @default(false) @map("is_vpn")
+  isProxy         Boolean          @default(false) @map("is_proxy")
+  isTor           Boolean          @default(false) @map("is_tor")
+  isHosting       Boolean          @default(false) @map("is_hosting")
+  isGcc           Boolean          @default(false) @map("is_gcc")
+  isValid         Boolean          @default(true)  @map("is_valid") // passes all filters
+  qualityScore    Int              @default(100)   @map("quality_score") // 0..100
+  events          Event[]
+  orders          OrderMirror[]
+  traffic         TrafficQuality?
+
+  @@index([startedAt])
+  @@index([visitorId])
+  @@index([isValid, startedAt])
+  @@index([countryCode])
+  @@map("session")
+}
+
+/// Granular event log. The dashboard's core analytical surface.
+model Event {
+  id            BigInt    @id @default(autoincrement())
+  ts            DateTime  @default(now())
+  sessionId     String?   @map("session_id") @db.VarChar(36)
+  session       Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  visitorId     String?   @map("visitor_id") @db.VarChar(36)
+  visitor       Visitor?  @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  name          String    @db.VarChar(40)
+  path          String?   @db.VarChar(255)
+  productId     String?   @map("product_id") @db.VarChar(40)
+  productSlug   String?   @map("product_slug") @db.VarChar(80)
+  surface       String?   @db.VarChar(40)
+  valueMinor    BigInt?   @map("value_minor")
+  currency      String?   @db.VarChar(3)
+  meta          Json?
+  countryCode   String?   @map("country_code") @db.VarChar(2)
+  city          String?   @db.VarChar(80)
+  device        String?   @db.VarChar(20)
+  isValid       Boolean   @default(true) @map("is_valid")
+
+  @@index([ts])
+  @@index([name, ts])
+  @@index([sessionId])
+  @@index([visitorId])
+  @@index([productId, ts])
+  @@index([isValid, ts])
+  @@map("event")
+}
+
+/// Mirror of every confirmed order. Source of truth remains Sheets / FastAPI;
+/// this row exists so dashboard queries don't have to round-trip externally.
+model OrderMirror {
+  id              String     @id @db.VarChar(40)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  sessionId       String?    @map("session_id") @db.VarChar(36)
+  session         Session?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  visitorId       String?    @map("visitor_id") @db.VarChar(36)
+  visitor         Visitor?   @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  customerName    String     @map("customer_name") @db.VarChar(160)
+  phone           String     @db.VarChar(40)
+  phoneE164       String?    @map("phone_e164") @db.VarChar(40)
+  city            String?    @db.VarChar(80)
+  address         String?    @db.VarChar(255)
+  countryCode     String?    @map("country_code") @db.VarChar(2)
+  locale          String?    @db.VarChar(8)
+  paymentMethod   String     @default("cod") @map("payment_method") @db.VarChar(20)
+  status          String     @default("pending") @db.VarChar(24)
+  subtotalMinor   BigInt     @map("subtotal_minor")
+  totalMinor      BigInt     @map("total_minor")
+  currency        String     @db.VarChar(3)
+  itemCount       Int        @default(0) @map("item_count")
+  hasUpsell       Boolean    @default(false) @map("has_upsell")
+  hasCrossSell    Boolean    @default(false) @map("has_cross_sell")
+  sourcePath      String?    @map("source_path") @db.VarChar(255)
+  device          String?    @db.VarChar(20)
+  ipHash          String?    @map("ip_hash") @db.VarChar(64)
+  rawPayload      Json       @map("raw_payload")
+  items           OrderMirrorItem[]
+  notes           String?    @db.Text
+
+  @@index([createdAt])
+  @@index([visitorId])
+  @@index([countryCode])
+  @@index([status])
+  @@map("order_mirror")
+}
+
+model OrderMirrorItem {
+  id            BigInt       @id @default(autoincrement())
+  orderId       String       @map("order_id") @db.VarChar(40)
+  order         OrderMirror  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String       @map("product_id") @db.VarChar(40)
+  productSlug   String?      @map("product_slug") @db.VarChar(80)
+  title         String       @db.VarChar(160)
+  quantity      Int          @default(1)
+  unitMinor     BigInt       @map("unit_minor")
+  totalMinor    BigInt       @map("total_minor")
+  source        String       @default("base") @db.VarChar(20) // base | upsell | cross_sell
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_mirror_item")
+}
+
+/// Per-session traffic-quality fingerprint (1:1 with Session).
+model TrafficQuality {
+  sessionId       String   @id @map("session_id") @db.VarChar(36)
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  evaluatedAt     DateTime @default(now()) @map("evaluated_at")
+  score           Int      @default(100)
+  isVpn           Boolean  @default(false) @map("is_vpn")
+  isProxy         Boolean  @default(false) @map("is_proxy")
+  isTor           Boolean  @default(false) @map("is_tor")
+  isHosting       Boolean  @default(false) @map("is_hosting")
+  isBot           Boolean  @default(false) @map("is_bot")
+  isDuplicate     Boolean  @default(false) @map("is_duplicate")
+  isAnonymous     Boolean  @default(false) @map("is_anonymous")
+  countryMismatch Boolean  @default(false) @map("country_mismatch")
+  uaSuspicious    Boolean  @default(false) @map("ua_suspicious")
+  flags           Json?
+  reason          String?  @db.VarChar(255)
+
+  @@index([evaluatedAt])
+  @@map("traffic_quality")
+}
+
+/// Admin login audit trail.
+model AdminAudit {
+  id        BigInt   @id @default(autoincrement())
+  ts        DateTime @default(now())
+  email     String   @db.VarChar(160)
+  action    String   @db.VarChar(40) // login_success | login_fail | logout
+  ipHash    String?  @map("ip_hash") @db.VarChar(64)
+  ua        String?  @db.VarChar(255)
+
+  @@index([ts])
+  @@map("admin_audit")
+}

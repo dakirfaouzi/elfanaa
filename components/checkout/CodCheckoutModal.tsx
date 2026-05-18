@@ -177,6 +177,10 @@ export function CodCheckoutModal() {
         fbc: cookies.fbc,
         ttp: cookies.ttp,
         sc_click_id: cookies.scClickId,
+        // First-party admin attribution. Same forwarding contract as
+        // `fbp`/`fbc` — never affects checkout pricing, validation, or UX.
+        visitor_id: cookies.faVisitorId,
+        session_id: cookies.faSessionId,
         user_agent:
           typeof navigator !== "undefined" ? navigator.userAgent : undefined,
         landing_url:
