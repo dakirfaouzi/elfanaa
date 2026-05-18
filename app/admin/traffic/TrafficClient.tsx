@@ -4,6 +4,12 @@ import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { KpiCard } from "../_components/KpiCard";
 import { formatDate, formatNumber, formatPercent } from "../_components/format";
+import {
+  adminFetcher,
+  ErrorState,
+  PartialDataBanner,
+  extractErrors,
+} from "../_components/data";
 
 type Sample = {
   id: string;
@@ -31,26 +37,22 @@ type Traffic = {
   samples: Sample[];
 };
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error("fetch_failed");
-  return res.json();
-};
-
 export function TrafficClient() {
   const params = useSearchParams();
   const { data, isLoading, error } = useSWR<Traffic>(
     `/api/admin/metrics/traffic?${params?.toString() ?? ""}`,
-    fetcher
+    adminFetcher
   );
 
-  if (error) return <div className="fa-empty"><strong>Couldn't load traffic data.</strong></div>;
+  if (error) return <ErrorState error={error} />;
   if (isLoading || !data) return <div className="fa-skel" style={{ height: 360 }} />;
 
   const filterRate = data.total > 0 ? (data.invalid / data.total) * 100 : 0;
+  const errors = extractErrors(data);
 
   return (
     <div className="fa-stack">
+      <PartialDataBanner errors={errors} />
       <div className="fa-grid fa-grid-4">
         <KpiCard label="Total sessions" value={formatNumber(data.total)} sub="All inbound" />
         <KpiCard label="Filtered out" value={formatNumber(data.invalid)} sub={`${formatPercent(filterRate)} of inbound`} />

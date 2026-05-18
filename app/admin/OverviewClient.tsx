@@ -5,6 +5,12 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { KpiCard } from "./_components/KpiCard";
 import { formatCurrency, formatNumber, formatPercent } from "./_components/format";
+import {
+  adminFetcher,
+  ErrorState,
+  PartialDataBanner,
+  extractErrors,
+} from "./_components/data";
 
 const RevenueChart = dynamic(() => import("./_components/charts/RevenueChart").then((m) => m.RevenueChart), {
   ssr: false,
@@ -14,12 +20,6 @@ const DonutChart = dynamic(() => import("./_components/charts/DonutChart").then(
   ssr: false,
   loading: () => <div className="fa-skel" style={{ height: 200, width: "100%" }} />,
 });
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error(`status_${res.status}`);
-  return res.json();
-};
 
 type Overview = {
   overview: {
@@ -53,18 +53,14 @@ type Overview = {
 export function OverviewClient() {
   const params = useSearchParams();
   const qs = params?.toString() ?? "";
-  const { data, error, isLoading } = useSWR<Overview>(`/api/admin/metrics/overview?${qs}`, fetcher, {
-    revalidateOnFocus: false,
-  });
+  const { data, error, isLoading } = useSWR<Overview>(
+    `/api/admin/metrics/overview?${qs}`,
+    adminFetcher,
+    { revalidateOnFocus: false }
+  );
 
-  if (error) {
-    return (
-      <div className="fa-empty">
-        <strong>Couldn't load metrics.</strong>
-        Verify <span className="fa-mono">ADMIN_DATABASE_URL</span> and run the migration.
-      </div>
-    );
-  }
+  if (error) return <ErrorState error={error} />;
+
   if (isLoading || !data) {
     return (
       <div className="fa-stack">
@@ -79,9 +75,11 @@ export function OverviewClient() {
   }
 
   const o = data.overview;
+  const errors = extractErrors(data);
 
   return (
     <div className="fa-stack">
+      <PartialDataBanner errors={errors} />
       {/* Headline KPI grid */}
       <div className="fa-grid fa-grid-4">
         <KpiCard label="Revenue" value={formatCurrency(o.revenueMinor.value)} delta={o.revenueMinor.delta} />

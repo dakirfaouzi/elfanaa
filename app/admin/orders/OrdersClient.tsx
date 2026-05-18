@@ -6,6 +6,12 @@ import useSWR from "swr";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { OrderDrawer } from "./OrderDrawer";
 import { formatCurrency, formatDate, formatNumber } from "../_components/format";
+import {
+  adminFetcher,
+  ErrorState,
+  PartialDataBanner,
+  extractErrors,
+} from "../_components/data";
 
 type Row = {
   id: string;
@@ -23,12 +29,6 @@ type Row = {
   sourcePath: string | null;
 };
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error("fetch_failed");
-  return res.json();
-};
-
 export function OrdersClient() {
   const params = useSearchParams();
   const router = useRouter();
@@ -36,10 +36,14 @@ export function OrdersClient() {
   const [active, setActive] = useState<string | null>(null);
 
   const qs = params?.toString() ?? "";
-  const { data, error, isLoading } = useSWR<{ rows: Row[]; total: number; page: number; pages: number; pageSize: number }>(
-    `/api/admin/orders?${qs}`,
-    fetcher
-  );
+  const { data, error, isLoading } = useSWR<{
+    rows: Row[];
+    total: number;
+    page: number;
+    pages: number;
+    pageSize: number;
+    _errors?: Array<{ label: string; error: string }>;
+  }>(`/api/admin/orders?${qs}`, adminFetcher);
 
   const setParam = (k: string, v?: string) => {
     const sp = new URLSearchParams(params?.toString());
@@ -51,8 +55,13 @@ export function OrdersClient() {
   const status = params?.get("status") ?? "";
   const page = Number(params?.get("page") ?? "1");
 
+  if (error) return <ErrorState error={error} />;
+
+  const errors = extractErrors(data);
+
   return (
     <div className="fa-stack">
+      <PartialDataBanner errors={errors} />
       <div className="fa-card">
         <div className="fa-row" style={{ flexWrap: "wrap", gap: 12 }}>
           <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 420 }}>
@@ -106,9 +115,7 @@ export function OrdersClient() {
       </div>
 
       <div className="fa-card" style={{ padding: 0, overflow: "hidden" }}>
-        {error ? (
-          <div className="fa-empty"><strong>Couldn't load orders.</strong>Check the admin database.</div>
-        ) : isLoading || !data ? (
+        {isLoading || !data ? (
           <div className="fa-empty">Loading…</div>
         ) : data.rows.length === 0 ? (
           <div className="fa-empty"><strong>No orders in range</strong>Once orders flow in, they appear here.</div>

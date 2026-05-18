@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { resolveRange, type DateRange } from "./date-range";
+import { safe } from "./safe";
 
 /**
  * Single source of truth for the dashboard's analytical aggregations.
@@ -7,6 +8,20 @@ import { resolveRange, type DateRange } from "./date-range";
  * Every query here filters by `isValid = true` so analytics only reflect
  * real GCC humans. The Traffic Quality page is the only surface that opts
  * in to seeing the unfiltered stream.
+ *
+ * Resilience model
+ * ────────────────
+ * Each public function returns a fully-shaped object (never `null`), with
+ * zeros / empty arrays as the natural empty state. Inner sub-queries are
+ * wrapped with `safe()` so:
+ *   • A single failing query (e.g. transient lock, dropped connection,
+ *     missing column after a partial migration) degrades that ONE
+ *     metric, not the whole page.
+ *   • The route handler can still serialise the partial result, so the
+ *     dashboard renders zeros where data is missing instead of bombing.
+ *   • Errors propagate through `SafeResult.error` strings collected by
+ *     the route handler into a `_errors` array on the JSON payload —
+ *     the UI surfaces these in a non-blocking banner.
  */
 
 export function pctDelta(curr: number, prev: number): number | null {
@@ -14,38 +29,85 @@ export function pctDelta(curr: number, prev: number): number | null {
   return Math.round(((curr - prev) / prev) * 1000) / 10;
 }
 
+/** Headline metrics — partial failures degrade only the affected slice. */
 export async function getOverview(range: DateRange) {
   const { from, to, prevFrom, prevTo } = range;
 
-  const [sessions, valid, prevSessions, prevValid] = await Promise.all([
-    prisma.session.count({ where: { startedAt: { gte: from, lte: to } } }),
-    prisma.session.count({ where: { startedAt: { gte: from, lte: to }, isValid: true } }),
-    prisma.session.count({ where: { startedAt: { gte: prevFrom, lte: prevTo } } }),
-    prisma.session.count({
-      where: { startedAt: { gte: prevFrom, lte: prevTo }, isValid: true },
-    }),
-  ]);
+  // Sessions / visitors / events / orders — every block runs in its own
+  // try/catch so a single failure (e.g. one missing table) only voids
+  // that sub-slice and the rest of the KPI grid still renders.
+  const sessionsR = await safe("overview.sessions", async () => {
+    const [curr, valid, prev, prevValid] = await Promise.all([
+      prisma.session.count({ where: { startedAt: { gte: from, lte: to } } }),
+      prisma.session.count({ where: { startedAt: { gte: from, lte: to }, isValid: true } }),
+      prisma.session.count({ where: { startedAt: { gte: prevFrom, lte: prevTo } } }),
+      prisma.session.count({
+        where: { startedAt: { gte: prevFrom, lte: prevTo }, isValid: true },
+      }),
+    ]);
+    return { curr, valid, prev, prevValid };
+  }, { curr: 0, valid: 0, prev: 0, prevValid: 0 });
 
-  const [visitors, prevVisitors] = await Promise.all([
-    prisma.visitor.count({ where: { lastSeen: { gte: from, lte: to } } }),
-    prisma.visitor.count({ where: { lastSeen: { gte: prevFrom, lte: prevTo } } }),
-  ]);
+  const visitorsR = await safe("overview.visitors", async () => {
+    const [curr, prev] = await Promise.all([
+      prisma.visitor.count({ where: { lastSeen: { gte: from, lte: to } } }),
+      prisma.visitor.count({ where: { lastSeen: { gte: prevFrom, lte: prevTo } } }),
+    ]);
+    return { curr, prev };
+  }, { curr: 0, prev: 0 });
 
-  const eventCounts = await prisma.event.groupBy({
-    by: ["name"],
-    where: { ts: { gte: from, lte: to }, isValid: true },
-    _count: { _all: true },
-  });
-  const prevEventCounts = await prisma.event.groupBy({
-    by: ["name"],
-    where: { ts: { gte: prevFrom, lte: prevTo }, isValid: true },
-    _count: { _all: true },
-  });
+  const eventsR = await safe("overview.events", async () => {
+    const [curr, prev] = await Promise.all([
+      prisma.event.groupBy({
+        by: ["name"],
+        where: { ts: { gte: from, lte: to }, isValid: true },
+        _count: { _all: true },
+      }),
+      prisma.event.groupBy({
+        by: ["name"],
+        where: { ts: { gte: prevFrom, lte: prevTo }, isValid: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const toMap = (rows: typeof curr) =>
+      Object.fromEntries(rows.map((r) => [r.name, r._count._all])) as Record<string, number>;
+    return { curr: toMap(curr), prev: toMap(prev) };
+  }, { curr: {} as Record<string, number>, prev: {} as Record<string, number> });
 
-  const byName = (rows: typeof eventCounts) =>
-    Object.fromEntries(rows.map((r) => [r.name, r._count._all])) as Record<string, number>;
-  const ec = byName(eventCounts);
-  const pec = byName(prevEventCounts);
+  const ordersR = await safe("overview.orders", async () => {
+    const [agg, prevAgg, repeat, withOrders] = await Promise.all([
+      prisma.orderMirror.aggregate({
+        where: { createdAt: { gte: from, lte: to } },
+        _sum: { totalMinor: true, itemCount: true },
+        _count: { _all: true },
+      }),
+      prisma.orderMirror.aggregate({
+        where: { createdAt: { gte: prevFrom, lte: prevTo } },
+        _sum: { totalMinor: true },
+        _count: { _all: true },
+      }),
+      prisma.visitor.count({
+        where: { totalOrders: { gt: 1 }, lastSeen: { gte: from, lte: to } },
+      }),
+      prisma.visitor.count({
+        where: { totalOrders: { gt: 0 }, lastSeen: { gte: from, lte: to } },
+      }),
+    ]);
+    return {
+      orders: agg._count._all,
+      revenue: Number(agg._sum.totalMinor ?? 0),
+      prevOrders: prevAgg._count._all,
+      prevRevenue: Number(prevAgg._sum.totalMinor ?? 0),
+      repeat,
+      withOrders,
+    };
+  }, { orders: 0, revenue: 0, prevOrders: 0, prevRevenue: 0, repeat: 0, withOrders: 0 });
+
+  const sessions = sessionsR.data;
+  const visitors = visitorsR.data;
+  const ec = eventsR.data.curr;
+  const pec = eventsR.data.prev;
+  const ord = ordersR.data;
 
   const productViews = ec["product_view"] ?? 0;
   const ctaClicks = ec["cta_click"] ?? 0;
@@ -57,46 +119,20 @@ export async function getOverview(range: DateRange) {
   const upsellAccepts = ec["upsell_accept"] ?? 0;
   const crossSellAccepts = ec["cross_sell_accept"] ?? 0;
 
-  const [orderAgg, prevOrderAgg, repeatVisitors, totalVisitorsWithOrders] = await Promise.all([
-    prisma.orderMirror.aggregate({
-      where: { createdAt: { gte: from, lte: to } },
-      _sum: { totalMinor: true, itemCount: true },
-      _count: { _all: true },
-    }),
-    prisma.orderMirror.aggregate({
-      where: { createdAt: { gte: prevFrom, lte: prevTo } },
-      _sum: { totalMinor: true },
-      _count: { _all: true },
-    }),
-    prisma.visitor.count({
-      where: { totalOrders: { gt: 1 }, lastSeen: { gte: from, lte: to } },
-    }),
-    prisma.visitor.count({
-      where: { totalOrders: { gt: 0 }, lastSeen: { gte: from, lte: to } },
-    }),
-  ]);
-
-  const orders = orderAgg._count._all;
-  const revenue = Number(orderAgg._sum.totalMinor ?? 0);
-  const prevOrders = prevOrderAgg._count._all;
-  const prevRevenue = Number(prevOrderAgg._sum.totalMinor ?? 0);
-  const aov = orders ? Math.round(revenue / orders) : 0;
-  const rpv = valid ? Math.round(revenue / valid) : 0;
-
-  const conversionRate = valid ? (orders / valid) * 100 : 0;
-  const checkoutConv = checkoutOpen ? (orders / checkoutOpen) * 100 : 0;
+  const aov = ord.orders ? Math.round(ord.revenue / ord.orders) : 0;
+  const rpv = sessions.valid ? Math.round(ord.revenue / sessions.valid) : 0;
+  const conversionRate = sessions.valid ? (ord.orders / sessions.valid) * 100 : 0;
+  const checkoutConv = checkoutOpen ? (ord.orders / checkoutOpen) * 100 : 0;
   const upsellRate = upsellViews ? (upsellAccepts / upsellViews) * 100 : 0;
-  const repeatRate = totalVisitorsWithOrders
-    ? (repeatVisitors / totalVisitorsWithOrders) * 100
-    : 0;
+  const repeatRate = ord.withOrders ? (ord.repeat / ord.withOrders) * 100 : 0;
 
   return {
-    range: { from, to, prevFrom, prevTo, preset: range.preset },
-    sessions: { value: sessions, delta: pctDelta(sessions, prevSessions) },
-    visitors: { value: visitors, delta: pctDelta(visitors, prevVisitors) },
-    validVisitors: { value: valid, delta: pctDelta(valid, prevValid) },
-    orders: { value: orders, delta: pctDelta(orders, prevOrders) },
-    revenueMinor: { value: revenue, delta: pctDelta(revenue, prevRevenue) },
+    range,
+    sessions: { value: sessions.curr, delta: pctDelta(sessions.curr, sessions.prev) },
+    visitors: { value: visitors.curr, delta: pctDelta(visitors.curr, visitors.prev) },
+    validVisitors: { value: sessions.valid, delta: pctDelta(sessions.valid, sessions.prevValid) },
+    orders: { value: ord.orders, delta: pctDelta(ord.orders, ord.prevOrders) },
+    revenueMinor: { value: ord.revenue, delta: pctDelta(ord.revenue, ord.prevRevenue) },
     aovMinor: aov,
     rpvMinor: rpv,
     conversionRate: round1(conversionRate),

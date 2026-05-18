@@ -3,6 +3,12 @@
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { formatNumber, formatPercent } from "../_components/format";
+import {
+  adminFetcher,
+  ErrorState,
+  PartialDataBanner,
+  extractErrors,
+} from "../_components/data";
 
 type Funnel = {
   stages: Array<{ stage: string; count: number; dropRate: number }>;
@@ -19,27 +25,23 @@ const STAGE_LABELS: Record<string, string> = {
   order_success: "Order confirmed",
 };
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error("fetch_failed");
-  return res.json();
-};
-
 export function FunnelClient() {
   const params = useSearchParams();
   const { data, isLoading, error } = useSWR<Funnel>(
     `/api/admin/metrics/funnel?${params?.toString() ?? ""}`,
-    fetcher
+    adminFetcher
   );
 
-  if (error) return <div className="fa-empty"><strong>Couldn't load funnel.</strong></div>;
+  if (error) return <ErrorState error={error} />;
   if (isLoading || !data) return <div className="fa-skel" style={{ height: 380 }} />;
 
   const max = data.stages[0]?.count || 1;
   const upsellRate = data.upsellViews ? (data.upsellAccepts / data.upsellViews) * 100 : 0;
+  const errors = extractErrors(data);
 
   return (
     <div className="fa-stack">
+      <PartialDataBanner errors={errors} />
       <div className="fa-card fa-card-pad-lg">
         <div className="fa-section-title"><h2>Storefront funnel</h2></div>
         <div>

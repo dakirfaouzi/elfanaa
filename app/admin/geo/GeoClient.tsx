@@ -3,6 +3,12 @@
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import { formatNumber } from "../_components/format";
+import {
+  adminFetcher,
+  ErrorState,
+  PartialDataBanner,
+  extractErrors,
+} from "../_components/data";
 
 type Geo = {
   cities: Array<{ country: string | null; region: string | null; city: string | null; sessions: number }>;
@@ -11,21 +17,22 @@ type Geo = {
   oses: Array<{ os: string; sessions: number }>;
 };
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "same-origin" });
-  if (!res.ok) throw new Error("fetch_failed");
-  return res.json();
-};
-
 export function GeoClient() {
   const params = useSearchParams();
-  const { data, isLoading, error } = useSWR<Geo>(`/api/admin/metrics/geo?${params?.toString() ?? ""}`, fetcher);
+  const { data, isLoading, error } = useSWR<Geo>(
+    `/api/admin/metrics/geo?${params?.toString() ?? ""}`,
+    adminFetcher
+  );
 
-  if (error) return <div className="fa-empty"><strong>Couldn't load geo data.</strong></div>;
+  if (error) return <ErrorState error={error} />;
   if (isLoading || !data) return <div className="fa-skel" style={{ height: 400 }} />;
 
+  const errors = extractErrors(data);
+
   return (
-    <div className="fa-grid fa-grid-2">
+    <div className="fa-stack">
+      <PartialDataBanner errors={errors} />
+      <div className="fa-grid fa-grid-2">
       <div className="fa-card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="fa-section-title" style={{ padding: "16px 18px 0" }}><h2>Cities</h2></div>
         <List rows={data.cities.map((c) => ({ label: `${c.city ?? "—"}${c.region ? ` · ${c.region}` : ""}`, sub: c.country ?? "", value: c.sessions }))} />
@@ -41,6 +48,7 @@ export function GeoClient() {
       <div className="fa-card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="fa-section-title" style={{ padding: "16px 18px 0" }}><h2>Operating systems</h2></div>
         <List rows={data.oses.map((c) => ({ label: c.os, sub: "", value: c.sessions }))} />
+      </div>
       </div>
     </div>
   );

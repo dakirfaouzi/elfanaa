@@ -1,24 +1,37 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/admin/db";
+import { prisma, isAdminDbConfigured, adminDbConfigError } from "@/lib/admin/db";
 import { resolveRange } from "@/lib/admin/date-range";
 import { serialise } from "@/lib/admin/serialise";
+import { safe, collectErrors } from "@/lib/admin/safe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const EMPTY_PAGE = { rows: [] as unknown[], total: 0, page: 1, pageSize: 25, pages: 1 };
+
 /**
  * GET /api/admin/orders
  *
- * Query params:
- *   range, from, to        — date window (defaults: last 30d)
- *   q                      — search across name / phone / city / id
- *   status                 — pending | shipped | delivered | cancelled
- *   sort                   — created_desc | created_asc | total_desc | total_asc
- *   page                   — 1-indexed page number
- *   pageSize               — default 25, max 100
+ * Search / filter / sort / paginate. Wrapped in `safe()` so a single
+ * bad page doesn't take the whole orders tab down — the UI gets an
+ * empty result + `_errors` and stays useable.
  */
 export async function GET(req: Request) {
+  if (!isAdminDbConfigured) {
+    return NextResponse.json(
+      serialise({
+        ...EMPTY_PAGE,
+        _errors: [
+          {
+            label: "db.config",
+            error: adminDbConfigError() ?? "ADMIN_DATABASE_URL is not set.",
+          },
+        ],
+      })
+    );
+  }
+
   const url = new URL(req.url);
   const range = resolveRange(url.searchParams);
   const q = url.searchParams.get("q")?.trim() ?? "";
@@ -53,24 +66,29 @@ export async function GET(req: Request) {
     }
   })();
 
-  const [rows, total] = await Promise.all([
-    prisma.orderMirror.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: { items: true },
-    }),
-    prisma.orderMirror.count({ where }),
-  ]);
-
-  return NextResponse.json(
-    serialise({
-      rows,
-      total,
-      page,
-      pageSize,
-      pages: Math.max(1, Math.ceil(total / pageSize)),
-    })
+  const result = await safe(
+    "orders.list",
+    async () => {
+      const [rows, total] = await Promise.all([
+        prisma.orderMirror.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: { items: true },
+        }),
+        prisma.orderMirror.count({ where }),
+      ]);
+      return {
+        rows,
+        total,
+        page,
+        pageSize,
+        pages: Math.max(1, Math.ceil(total / pageSize)),
+      };
+    },
+    { ...EMPTY_PAGE, page, pageSize } as typeof EMPTY_PAGE
   );
+
+  return NextResponse.json(serialise({ ...result.data, _errors: collectErrors([result]) }));
 }
