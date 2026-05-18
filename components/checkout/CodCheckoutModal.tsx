@@ -40,11 +40,11 @@ import { PostPurchaseUpsell } from "./PostPurchaseUpsell";
 
 type CheckoutScreen = "form" | "upsell";
 type Status = "idle" | "submitting" | "error" | "geo_blocked";
-type FormState = { fullName: string; phone: string };
+type FormState = { fullName: string; phone: string; city: string };
 type Touched = Record<keyof FormState, boolean>;
 
-const initialForm: FormState = { fullName: "", phone: "" };
-const initialTouched: Touched = { fullName: false, phone: false };
+const initialForm: FormState = { fullName: "", phone: "", city: "" };
+const initialTouched: Touched = { fullName: false, phone: false, city: false };
 
 /**
  * COD Checkout — premium two-field popup.
@@ -80,7 +80,7 @@ export function CodCheckoutModal() {
 
   const errors = useMemo(() => validateForm(form, t), [form, t]);
   const showError = (key: keyof FormState) => touched[key] && Boolean(errors[key]);
-  const isValid = !errors.fullName && !errors.phone;
+  const isValid = !errors.fullName && !errors.phone && !errors.city;
 
   // Reset whenever the modal closes — never carry stale state across opens.
   // Also fires `InitiateCheckout` exactly once per opened session so the
@@ -125,14 +125,18 @@ export function CodCheckoutModal() {
     setTouched((tt) => ({ ...tt, [key]: true }));
 
   const submit = async () => {
-    setTouched({ fullName: true, phone: true });
+    setTouched({ fullName: true, phone: true, city: true });
 
     // Always-clickable button → if anything is invalid, surface the inline
     // errors AND pull the user's eye to the first broken field. This is
     // what gives the "validate on click" UX its honest feedback loop:
     // tapping "Place order" never silently does nothing.
     if (!isValid) {
-      const firstBadKey: keyof FormState = errors.fullName ? "fullName" : "phone";
+      const firstBadKey: keyof FormState = errors.fullName
+        ? "fullName"
+        : errors.phone
+          ? "phone"
+          : "city";
       if (typeof document !== "undefined") {
         const el = document.getElementById(firstBadKey) as HTMLInputElement | null;
         el?.focus({ preventScroll: false });
@@ -153,6 +157,11 @@ export function CodCheckoutModal() {
     const payload: CodOrderInput & { context?: Record<string, unknown> } = {
       fullName: form.fullName.trim(),
       phone: phoneCheck.ok ? phoneCheck.normalised : form.phone,
+      // `city` is consumed server-side by `composeFullAddress(city, address)`
+      // and written into the Sheets "Full Address" column. There is no
+      // dedicated city column in the sheet — the joined "City — Street"
+      // form keeps the sheet schema unchanged.
+      city: form.city.trim(),
       cart: {
         lines: lines.map(({ productId, variantId, quantity }) => ({
           productId,
@@ -322,18 +331,41 @@ export function CodCheckoutModal() {
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                /* Phone numbers stay LTR even in RTL — otherwise digits visually
-                   reverse and trust collapses (Fazil Digital Riyadh CRO playbook). */
-                dir="ltr"
+                /* RTL on the input itself anchors the caret + placeholder to
+                   the right edge so typing visually begins from the right —
+                   matching native Arabic input expectations. The digits
+                   themselves are NOT reversed: Unicode bidi treats a run of
+                   digits as weak-LTR inside an RTL line, so "0512345678"
+                   keeps its natural reading order while sitting at the
+                   right side of the field. `type="tel"` + `inputMode="tel"`
+                   preserve the mobile numeric keyboard. */
+                dir="rtl"
                 placeholder={t.checkout.phonePlaceholder}
                 value={form.phone}
                 invalid={showError("phone")}
                 onChange={(e) => onChange("phone", e.target.value)}
                 onBlur={() => onBlur("phone")}
               />
-              <span className="mt-1 block text-[11px] text-muted/80" dir="ltr">
+              <span className="mt-1 block text-[11px] text-muted/80">
                 {t.checkout.phoneExample}
               </span>
+            </Field>
+
+            <Field
+              label={t.checkout.city}
+              id="city"
+              error={showError("city") ? errors.city : undefined}
+              hint={!showError("city") ? t.checkout.cityHint : undefined}
+            >
+              <Input
+                id="city"
+                autoComplete="address-level2"
+                placeholder={t.checkout.cityPlaceholder}
+                value={form.city}
+                invalid={showError("city")}
+                onChange={(e) => onChange("city", e.target.value)}
+                onBlur={() => onBlur("city")}
+              />
             </Field>
 
             {status === "error" ? (
@@ -460,8 +492,8 @@ function normaliseOrderResponse(raw: ApiOrderResponse): {
 function validateForm(
   form: FormState,
   t: ReturnType<typeof useLocale>["t"]
-): { fullName?: string; phone?: string } {
-  const errors: { fullName?: string; phone?: string } = {};
+): { fullName?: string; phone?: string; city?: string } {
+  const errors: { fullName?: string; phone?: string; city?: string } = {};
 
   if (form.fullName.trim().length < 2) errors.fullName = t.checkout.fullNameError;
 
@@ -476,6 +508,11 @@ function validateForm(
             ? t.checkout.phoneErrorPrefix
             : t.checkout.phoneErrorLength;
   }
+
+  // City is required. The trimmed value also lands in the Sheets "Full
+  // Address" column via `composeFullAddress(city, address)` server-side,
+  // so empty / whitespace-only inputs must not pass.
+  if (form.city.trim().length < 2) errors.city = t.checkout.cityError;
 
   return errors;
 }
