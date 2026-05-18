@@ -331,15 +331,21 @@ export function CodCheckoutModal() {
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                /* RTL on the input itself anchors the caret + placeholder to
-                   the right edge so typing visually begins from the right —
-                   matching native Arabic input expectations. The digits
-                   themselves are NOT reversed: Unicode bidi treats a run of
-                   digits as weak-LTR inside an RTL line, so "0512345678"
-                   keeps its natural reading order while sitting at the
-                   right side of the field. `type="tel"` + `inputMode="tel"`
-                   preserve the mobile numeric keyboard. */
-                dir="rtl"
+                /* Canonical Arabic-phone pattern:
+                   • dir="ltr"   — locks the input's content direction so
+                     digits are appended in the order the user typed them.
+                     Without this, some Chromium/Safari builds re-order
+                     weak-LTR digit runs inside an RTL input and you get
+                     "0513697421" rendered as "741 698 0523".
+                   • text-right  — right-aligns content so the caret and
+                     placeholder visually start from the right edge,
+                     matching native Arabic input UX.
+                   • The parent form stays RTL, so the label / hint /
+                     error all read naturally from the right.
+                   • type="tel" + inputMode="tel" preserve the mobile
+                     numeric keypad and Saudi phone formatting. */
+                dir="ltr"
+                className="text-right"
                 placeholder={t.checkout.phonePlaceholder}
                 value={form.phone}
                 invalid={showError("phone")}
