@@ -6,6 +6,27 @@ const nextConfig = {
   // copies that bundle into a slim node image — final image weighs in
   // around 180 MB, suitable for EasyPanel's per-app limits.
   output: "standalone",
+  // Force the Vercel NFT tracer (used by `output: "standalone"`) to bundle
+  // the Prisma generated client alongside any admin / tracking route that
+  // imports it. NFT statically traces `require()` graphs but cannot follow
+  // Prisma's runtime `require()` of `./libquery_engine-<platform>.so.node`,
+  // so without this the standalone bundle ships a broken `@prisma/client`
+  // and the first DB hit blows up. The Dockerfile copies the same paths
+  // explicitly as a belt — this is the suspenders.
+  outputFileTracingIncludes: {
+    "/admin/**/*": [
+      "./node_modules/.prisma/client/**/*",
+      "./node_modules/@prisma/client/**/*",
+    ],
+    "/api/admin/**/*": [
+      "./node_modules/.prisma/client/**/*",
+      "./node_modules/@prisma/client/**/*",
+    ],
+    "/api/track/**/*": [
+      "./node_modules/.prisma/client/**/*",
+      "./node_modules/@prisma/client/**/*",
+    ],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

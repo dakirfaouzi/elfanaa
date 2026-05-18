@@ -15,7 +15,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate || echo 'prisma generate skipped (DATABASE_URL unset)'"
+    "postinstall": "prisma generate --schema=./prisma/schema.prisma || echo '[postinstall] prisma generate skipped — schema not present yet (this is expected in the Docker deps stage if prisma/ was not copied; the builder stage runs it again).'"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
