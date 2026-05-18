@@ -8,87 +8,98 @@ import { Flourish } from "@/components/brand";
 import { useLocale } from "@/hooks/useLocale";
 
 /**
- * Health & Beauty hero — full-bleed, Pain → Cause → Solution → Result.
+ * Home hero — GCC luxury editorial.
  *
- * CRO structure (Hims / The Ordinary / Keeps direct-response pattern):
- *   1. Eyebrow         — single declarative positioning line
- *                        ("Made for your skin. Tested for our sun.")
- *   2. Headline        — Pain + Cause crystallized in one breath
- *   3. Subheadline     — Solution + Result + KSA climate proof
- *   4. COD trust badge — the #1 KSA conversion signal, BEFORE the CTA
- *   5. Primary CTA     — single action verb, no competing buttons
- *   6. Social-proof line — quantified credibility under the CTA
+ * Composition (mirrors the /sugarbear reference identity):
+ *   • Mobile: image FIRST (top), then editorial column.
+ *   • Desktop: editorial column LEFT, framed photograph RIGHT.
  *
- * The eyebrow + Flourish + secondary-line wrapper around the CTA is
- * what turns a generic hero into a Saudi DR funnel. Every element
- * pulls toward the same micro-decision: tap the CTA.
+ * Reading flow inside the editorial column:
+ *   1. Eyebrow + gold rule    — quiet positioning ("Made for your skin…")
+ *   2. Headline               — Pain + Cause in one breath
+ *   3. Subheadline            — Solution + KSA climate proof
+ *   4. COD trust pill         — gold-hairline pill on cream
+ *   5. Primary CTA            — deep espresso with whisper-gold glow
+ *   6. Social-proof line      — quantified credibility under the CTA
  *
- * Image: a golden-rose serum droplet macro — the imagery deliberately
- * does NOT show a face. Faces tie the brand to one demographic; an
- * abstract texture lets every Saudi customer (men, women, all skin
- * tones) project themselves into the picture.  The warm rose-gold
- * lighting matches the brand palette directly so the photo reads as
- * an extension of the brand, not stock photography.
+ * Logic surface — everything functional from the prior hero is preserved:
+ *   • i18n keys (`t.home.heroEyebrow / heroTitle / heroSubtitle / heroCta /
+ *     heroCtaSecondary`)
+ *   • Single CTA → /shop
+ *   • Hero image asset (unchanged)
+ *   • <Flourish/> brand mark
+ *   • COD trust pill on mobile + desktop variants
+ *
+ * Only the *visual treatment* changed — from a dark-overlay full-bleed photo
+ * to a warm cream editorial split that aligns the storefront with the
+ * /sugarbear reference identity.
  */
 export function HomeHero() {
   const { t, locale } = useLocale();
   const isAr = locale === "ar";
 
   return (
-    <section className="relative overflow-hidden bg-ink">
-      <div className="relative h-[88vh] min-h-[620px] w-full md:h-[94vh] md:min-h-[720px]">
-        <Image
-          src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=2400&q=90"
-          alt={
-            isAr
-              ? "قطرة سيروم ذهبية تنزل في ضوء دافئ — رمز عناية فناء"
-              : "A golden serum droplet falling in warm light — Fanaa care, abstracted"
-          }
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-        />
+    <section
+      aria-labelledby="home-hero-title"
+      className="relative overflow-hidden fn-bg-editorial"
+    >
+      {/* Decorative gold hairline at the top edge — the editorial handshake. */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(199,162,124,0.45), transparent)",
+        }}
+      />
 
-        {/* Layered overlays — preserve image warmth, lift text */}
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/35 to-ink/85" />
-        <div className="absolute inset-0 bg-gradient-to-tr from-ink/60 via-ink/10 to-transparent" />
+      <Container size="xl" className="relative">
+        <div className="grid items-center gap-10 py-12 md:gap-16 md:py-20 lg:grid-cols-12 lg:gap-20 lg:py-28">
 
-        <Container
-          size="xl"
-          className="relative flex h-full flex-col justify-end pb-12 md:pb-24 lg:pb-28"
-        >
-          {/* Staggered entrance — each element rises in sequence */}
-          <div className="w-full max-w-[720px] text-bg">
-            {/* Brand flourish */}
+          {/* ─── EDITORIAL COLUMN ──────────────────────────────────────
+            *   Mobile: order-2 → below the image (image leads visually).
+            *   Desktop: order-1 lg:col-span-6 → editorial sits left.
+            * ─────────────────────────────────────────────────────────── */}
+          <div className="order-2 lg:order-1 lg:col-span-6">
             <Flourish
               width={64}
               className="animate-rise text-accent [animation-delay:0ms] md:w-[72px]"
             />
 
-            {/* 1 · Eyebrow */}
-            <p className="animate-rise mt-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-bg/70 [animation-delay:150ms] md:mt-5 md:text-[11px]">
-              {t.home.heroEyebrow}
+            {/* 1 · Eyebrow — gold rule + small-caps tracking */}
+            <p className="fn-eyebrow animate-rise mt-5 [animation-delay:150ms]">
+              <span className="fn-rule" />
+              <span>{t.home.heroEyebrow}</span>
             </p>
 
-            {/* 2 · Headline */}
-            <h1 className="animate-rise mt-3 text-balance whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] [animation-delay:300ms] sm:text-[36px] md:mt-5 md:text-[60px] lg:text-[76px]">
+            {/* 2 · Headline — editorial serif on deep espresso */}
+            <h1
+              id="home-hero-title"
+              className="animate-rise mt-5 text-balance whitespace-pre-line font-display text-[34px] font-semibold leading-[1.06] tracking-[-0.01em] text-ink [animation-delay:300ms] sm:text-[44px] md:mt-6 md:text-[60px] lg:text-[72px]"
+            >
               {t.home.heroTitle}
             </h1>
 
-            {/* 3 · Subheadline — constrained line-width for mobile readability */}
-            <p className="animate-rise mt-4 text-[13px] leading-relaxed text-bg/75 [animation-delay:480ms] sm:max-w-[460px] md:text-[17px]">
+            {/* 3 · Subheadline — full-weight muted, generous leading */}
+            <p className="animate-rise mt-5 max-w-[520px] text-[14px] leading-[1.85] text-muted [animation-delay:480ms] md:mt-6 md:text-[17px]">
               {t.home.heroSubtitle}
             </p>
 
             {/*
-             * 4 · COD trust badge
-             * Long Arabic text at 13px overflows a 375px viewport with px-4.
-             * Fix: split into mobile-short / desktop-full variants so the pill
-             * never stretches beyond the container.
+             * 4 · COD trust pill — warm cream pill with a gold hairline.
+             * Long Arabic copy is split into mobile-short / desktop-full
+             * variants so the pill never stretches beyond the column.
              */}
-            <div className="animate-rise mt-4 inline-flex max-w-full items-center gap-2 rounded-full bg-bg/15 px-3.5 py-1.5 text-[12px] font-medium text-bg [animation-delay:580ms] backdrop-blur-sm md:mt-5 md:px-4 md:py-2 md:text-[13px]">
-              <ShieldCheck className="size-3.5 shrink-0 text-bg/90 md:size-4" strokeWidth={2} />
+            <div
+              className="animate-rise mt-6 inline-flex max-w-full items-center gap-2 rounded-full bg-bg/85 px-3.5 py-1.5 text-[12px] font-medium text-ink shadow-[0_6px_14px_rgba(199,162,124,0.10)] [animation-delay:580ms] backdrop-blur-sm md:mt-7 md:px-4 md:py-2 md:text-[13px]"
+              style={{
+                border: "1px solid rgba(199,162,124,0.28)",
+              }}
+            >
+              <ShieldCheck
+                className="size-3.5 shrink-0 text-accent md:size-4"
+                strokeWidth={2}
+              />
               <span className="md:hidden">
                 {isAr ? "ادفع عند الاستلام" : "Cash on delivery"}
               </span>
@@ -99,28 +110,96 @@ export function HomeHero() {
               </span>
             </div>
 
-            {/* 5 · Primary CTA + 6 · social proof */}
-            <div className="animate-rise mt-6 flex flex-col items-start gap-3 [animation-delay:680ms] md:gap-5">
-              {/*
-               * Full-width on mobile for thumb-tap ease; auto-width on sm+.
-               * `justify-center` keeps content centred when block-level.
-               */}
+            {/* 5 · Primary CTA + 6 · social proof line */}
+            <div className="animate-rise mt-7 flex flex-col items-start gap-3 [animation-delay:680ms] md:mt-8 md:gap-5">
               <Link
                 href="/shop"
-                className="btn-press group flex w-full items-center justify-center gap-2.5 rounded-md bg-bg px-6 py-3.5 text-sm font-semibold text-ink transition-all duration-300 ease-premium hover:bg-bg/95 hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-9 sm:py-0 md:h-14 md:px-11 md:text-base"
+                className="btn-press fn-cta-glow group flex w-full items-center justify-center gap-2.5 rounded-full bg-ink px-6 py-3.5 text-sm font-semibold text-bg transition-all duration-300 ease-premium hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-9 sm:py-0 md:h-14 md:px-11 md:text-base"
+                style={{
+                  boxShadow:
+                    "0 16px 40px rgba(31,24,21,0.18), 0 0 0 1px rgba(199,162,124,0.30)",
+                }}
               >
                 {t.home.heroCta}
                 <ArrowLeft className="size-4 shrink-0 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
               </Link>
 
-              <p className="inline-flex items-center gap-2 text-[11px] text-bg/70 md:text-[13px]">
-                <span className="inline-block size-1.5 shrink-0 rounded-full bg-success" aria-hidden />
+              <p className="inline-flex items-center gap-2 text-[11px] text-muted md:text-[13px]">
+                <span
+                  className="inline-block size-1.5 shrink-0 rounded-full bg-success"
+                  aria-hidden
+                />
                 {t.home.heroCtaSecondary}
               </p>
             </div>
           </div>
-        </Container>
-      </div>
+
+          {/* ─── EDITORIAL PHOTO ─────────────────────────────────────── */}
+          <div className="order-1 lg:order-2 lg:col-span-6">
+            <div className="relative mx-auto w-full max-w-[540px]">
+              {/* Soft champagne halo behind the frame */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -inset-[12%] rounded-[40px] blur-[28px]"
+                style={{
+                  background:
+                    "radial-gradient(60% 55% at 50% 35%, rgba(224,198,165,0.55) 0%, rgba(224,198,165,0) 65%), " +
+                    "radial-gradient(50% 60% at 15% 80%, rgba(199,162,124,0.22) 0%, rgba(199,162,124,0) 65%)",
+                }}
+              />
+
+              {/* Editorial photograph frame */}
+              <div className="fn-photo-frame relative aspect-[4/5] overflow-hidden">
+                <Image
+                  src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1600&q=90"
+                  alt={
+                    isAr
+                      ? "قطرة سيروم ذهبية تنزل في ضوء دافئ — رمز عناية فناء"
+                      : "A golden serum droplet falling in warm light — Fanaa care, abstracted"
+                  }
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 540px, (min-width: 640px) 80vw, 100vw"
+                  className="object-cover"
+                  style={{ objectPosition: "center 30%" }}
+                />
+                {/* Whisper vignette — top + bottom edges melt into the cream */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(244,239,230,0.05) 0%, transparent 22%, transparent 78%, rgba(244,239,230,0.20) 100%)",
+                  }}
+                />
+              </div>
+
+              {/* Caption beneath the photograph — italic editorial line */}
+              <div className="mt-3 flex items-center justify-center gap-3 text-muted">
+                <span
+                  aria-hidden
+                  className="h-px w-7"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(199,162,124,1), transparent)",
+                  }}
+                />
+                <span className="font-display italic text-[13px] tracking-[0.02em] md:text-[15px]">
+                  {isAr ? "طقس جمالي يومي" : "Your daily ritual"}
+                </span>
+                <span
+                  aria-hidden
+                  className="h-px w-7"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(199,162,124,1), transparent)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Container>
     </section>
   );
 }

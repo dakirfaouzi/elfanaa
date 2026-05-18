@@ -1,0 +1,168 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   ELFANAA — Premium GCC Beauty & Wellness · cross-site editorial primitives
+   --------------------------------------------------------------------------
+   These utilities lift the design vocabulary of the /sugarbear landing page
+   into a small reusable layer the whole storefront can compose with. They
+   are deliberately *additive* — they never override token colours, so the
+   palette in `styles/tokens.css` stays the single source of truth.
+
+   Usage examples:
+     <p class="fn-eyebrow"><span class="fn-rule"></span>تركيبة هادئة</p>
+     <div class="fn-dot-divider"><span></span></div>
+     <article class="fn-card-luxury">…</article>
+   ────────────────────────────────────────────────────────────────────────── */
+
+
+/* ── Eyebrow micro-typography ─────────────────────────────────────────────
+   The small-caps, wide-tracking label that sits above a section heading.
+   Used in the /sugarbear page as `.sb-eyebrow`; we publish it globally so
+   every premium product, every editorial section, every CTA band can use
+   the same visual handshake.                                              */
+.fn-eyebrow {
+  font-family: var(--font-display, "Cormorant Garamond"), serif;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgb(var(--color-accent-deep));
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+[dir="rtl"] .fn-eyebrow {
+  /* Arabic does not have small-caps semantics; relax letter-spacing and
+   * drop the uppercase transform so eyebrows still read elegantly. */
+  letter-spacing: 0.18em;
+  text-transform: none;
+  font-size: 12px;
+  font-family: var(--font-arabic), system-ui, sans-serif;
+}
+
+
+/* ── Soft gold underline accent (used inline with eyebrows) ──────────── */
+.fn-rule {
+  display: inline-block;
+  height: 1px;
+  width: 28px;
+  background: rgb(var(--color-accent));
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+
+/* ── Dotted divider — gold dot framed by two soft hairlines ──────────── */
+.fn-dot-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.fn-dot-divider::before,
+.fn-dot-divider::after {
+  content: "";
+  height: 1px;
+  width: 64px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--color-line)) 50%,
+    transparent 100%
+  );
+}
+.fn-dot-divider > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--color-accent));
+  display: inline-block;
+}
+
+
+/* ── Premium editorial card ────────────────────────────────────────────
+   A subtle ivory card with a candle-warm gold-tinted shadow on hover.
+   Used by product cards, trust panels, and recommendation tiles to
+   carry the brand's "feels like a beauty pharmacy, not a Shopify store"
+   register. Motion is gated by prefers-reduced-motion.                  */
+.fn-card-luxury {
+  background: rgb(var(--color-bg));
+  border: 1px solid rgba(199, 162, 124, 0.18);
+  border-radius: 16px;
+  transition:
+    transform 450ms var(--ease-premium),
+    box-shadow 450ms var(--ease-premium),
+    border-color 280ms ease;
+  will-change: transform;
+}
+@media (hover: hover) {
+  .fn-card-luxury:hover {
+    transform: translateY(-3px);
+    border-color: rgba(199, 162, 124, 0.42);
+    box-shadow: var(--shadow-luxury-gold), var(--shadow-luxury-sm);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fn-card-luxury,
+  .fn-card-luxury:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+
+/* ── Soft button hover with whisper-of-gold glow ──────────────────────
+   Apply to any espresso/ink CTA across the site to inherit the same
+   warm candle-lit hover that the /sugarbear "اطلب الآن" button uses.   */
+.fn-cta-glow {
+  transition:
+    transform 280ms var(--ease-premium),
+    box-shadow 320ms ease,
+    filter 280ms ease;
+}
+.fn-cta-glow:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 18px 44px rgba(31, 24, 21, 0.22),
+    0 0 28px rgba(199, 162, 124, 0.22);
+}
+.fn-cta-glow:active { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .fn-cta-glow,
+  .fn-cta-glow:hover { transform: none; transition: none; }
+}
+
+
+/* ── Editorial image frame — used for hero photos, lifestyle bands ───
+   A soft champagne ring + warm shadow that makes any product photo
+   look like it belongs in a beauty editorial spread.                    */
+.fn-photo-frame {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 36px 90px rgba(31, 24, 21, 0.18),
+    0 12px 32px rgba(199, 162, 124, 0.18),
+    0 0 0 1px rgba(199, 162, 124, 0.28),
+    0 0 0 1px rgba(255, 252, 244, 0.55) inset;
+}
+
+
+/* ── Tabular numerals helper — always LTR (prices, ratings, counts) ─── */
+.fn-num {
+  direction: ltr;
+  display: inline-block;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+
+/* ── Page-wide ambient cream wash ─────────────────────────────────────
+   Optional helper for section backgrounds that need the same radial
+   warmth as the /sugarbear hero — soft gold halo top-right, biscuit
+   wash beneath. Cheap to apply on a single element.                    */
+.fn-bg-editorial {
+  background:
+    radial-gradient(110% 60% at 80% 0%, rgba(199, 162, 124, 0.16) 0%, transparent 65%),
+    radial-gradient(80% 80% at 0% 100%, rgba(221, 210, 194, 0.40) 0%, transparent 60%),
+    linear-gradient(180deg, rgb(var(--color-bg)) 0%, rgb(var(--color-surface)) 100%);
+}

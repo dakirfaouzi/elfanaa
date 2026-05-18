@@ -4,6 +4,7 @@
 
 @import "../styles/tokens.css";
 @import "../styles/animations.css";
+@import "../styles/luxury.css";
 
 @layer base {
   html {
@@ -35,10 +36,10 @@
     @apply font-arabic;
   }
 
-  ::selection {
-    background: rgb(var(--color-ink));
-    color: rgb(var(--color-bg));
-  }
+  /*
+   * Page selection — defined as an unlayered rule in `styles/tokens.css`
+   * so the rose-gold wash overrides the Tailwind base layer here.
+   */
 
   *:focus-visible {
     @apply outline-none ring-2 ring-ink/30 ring-offset-2 ring-offset-bg;

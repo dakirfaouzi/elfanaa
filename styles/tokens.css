@@ -1,19 +1,19 @@
 /**
- * Design tokens — single source of truth for FANAA's visual language.
+ * Design tokens — single source of truth for ELFANAA's visual language.
  *
- * Palette story: alabaster × charcoal × rose copper.
+ * Palette story: warm cream × deep espresso × rose-gold.
  *
- * Premium Health & Beauty brand for Saudi Arabia. Warm enough to feel
- * authentically Arabic, clean enough to read as skincare. Every value
- * is hand-picked to feel premium without trying.
+ * Inspired by the /sugarbear premium landing page (the brand's reference
+ * identity). A luxury GCC beauty & wellness palette — soft enough to feel
+ * editorial-feminine, deep enough to read as pharmacy-grade authority.
  *
- *   bg         → alabaster white with the faintest blush tint
- *   surface    → blush ivory — cards, drawers, modals
- *   brand-soft → soft rose powder — eyebrow chips, highlighted zones
- *   ink        → deep warm charcoal (near-black, premium, not cold)
- *   muted      → warm rose-taupe — readable secondary text
- *   line       → blush mist — hairline borders, dividers
- *   accent     → rose copper — links, hover states, trust badges
+ *   bg         → warm cream — the canvas of every page (#F4EFE6)
+ *   surface    → deeper cream — alternating section bands, footer (#EAE1D2)
+ *   brand-soft → sand — eyebrow chips, hover surfaces, emphasis zones
+ *   ink        → deep espresso — premium, warm, never cold (#1F1815)
+ *   muted      → warm taupe — readable secondary text (#7B6E65)
+ *   line       → biscuit — hairline borders, dividers (#DDD2C2)
+ *   accent     → rose-gold / champagne — links, badges, gold rules (#C7A27C)
  *
  * Format note: values are space-separated R G B triplets so Tailwind can
  * compose alpha through `rgb(var(--token) / <alpha-value>)`. Never bake
@@ -21,24 +21,28 @@
  */
 :root {
   /* ── Surfaces ───────────────────────────────────────────────────────── */
-  --color-bg: 253 250 249;          /* Alabaster — warm white, barely-blush    */
-  --color-surface: 249 244 243;     /* Blush ivory — cards, drawers, modals    */
-  --color-brand-soft: 244 234 232;  /* Rose powder — eyebrow chips, highlights */
+  --color-bg: 244 239 230;          /* #F4EFE6  warm cream — page canvas       */
+  --color-surface: 234 225 210;     /* #EAE1D2  deeper cream — bands, inputs   */
+  --color-brand-soft: 224 211 189;  /* #E0D3BD  sand — eyebrow chips, hovers   */
 
   /* ── Ink & text ─────────────────────────────────────────────────────── */
-  --color-ink: 22 18 18;            /* Deep warm charcoal — premium, not cold  */
-  --color-muted: 110 90 86;         /* Rose-taupe — readable secondary text    */
-  --color-line: 232 216 213;        /* Blush mist — hairline borders           */
+  --color-ink: 31 24 21;            /* #1F1815  deep espresso — primary text   */
+  --color-muted: 123 110 101;       /* #7B6E65  warm taupe — secondary text    */
+  --color-line: 221 210 194;        /* #DDD2C2  biscuit — hairline borders     */
 
   /* ── Brand ──────────────────────────────────────────────────────────── */
-  --color-brand: 22 18 18;          /* Charcoal — primary CTA buttons          */
-  --color-brand-ink: 253 250 249;   /* Alabaster printed on dark               */
-  --color-accent: 186 110 92;       /* Rose copper — links, hover, badges      */
+  --color-brand: 31 24 21;          /* #1F1815  espresso — primary CTA buttons */
+  --color-brand-ink: 244 239 230;   /* #F4EFE6  cream — text on espresso CTA   */
+  --color-accent: 199 162 124;      /* #C7A27C  rose-gold — links, badges      */
+
+  /* ── Accent variants — used by the editorial primitives in luxury.css   */
+  --color-accent-deep: 158 124 87;  /* #9E7C57  warm gold — eyebrow text       */
+  --color-accent-soft: 224 198 165; /* #E0C6A5  light champagne — gradient stop*/
 
   /* ── Semantic ────────────────────────────────────────────────────────── */
-  --color-success: 72 108 80;       /* Sage green — verified, confirmed        */
-  --color-warning: 186 130 32;      /* Warm amber — low stock, urgency         */
-  --color-danger: 166 68 64;        /* Berry red — errors, blocked             */
+  --color-success: 92 122 88;       /* sage green — verified, confirmed        */
+  --color-warning: 186 130 32;      /* warm amber — low stock, urgency         */
+  --color-danger: 158 60 56;        /* deep rose — errors, blocked             */
 
   /* ── Layout ─────────────────────────────────────────────────────────── */
   --header-h: 64px;
@@ -47,6 +51,15 @@
 
   /* ── Motion ─────────────────────────────────────────────────────────── */
   --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── Premium shadow set (rose-gold tinted, candle-lit) ──────────────── */
+  --shadow-luxury-sm: 0 1px 2px rgba(31, 24, 21, 0.04),
+                      0 2px 8px rgba(31, 24, 21, 0.04);
+  --shadow-luxury-md: 0 4px 12px rgba(31, 24, 21, 0.06),
+                      0 12px 36px rgba(31, 24, 21, 0.06);
+  --shadow-luxury-lg: 0 8px 24px rgba(31, 24, 21, 0.08),
+                      0 32px 80px rgba(31, 24, 21, 0.10);
+  --shadow-luxury-gold: 0 12px 36px rgba(199, 162, 124, 0.20);
 }
 
 /**
@@ -55,6 +68,16 @@
  */
 [dir="rtl"] {
   font-feature-settings: "ss01", "tnum";
+}
+
+/**
+ * Page-wide selection: warm rose-gold wash on deep ink — matches the
+ * /sugarbear pattern across the entire site so brand cohesion holds
+ * even at the smallest UI affordances.
+ */
+::selection {
+  background: rgb(var(--color-accent-soft));
+  color: rgb(var(--color-ink));
 }
 
 /**

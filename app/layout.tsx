@@ -1,4 +1,4 @@
-import { Inter, Cormorant_Garamond, Cairo, Amiri } from "next/font/google";
+import { Inter, Cormorant_Garamond, Tajawal, Amiri } from "next/font/google";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -10,15 +10,21 @@ import "./globals.css";
 
 /**
  * Typography — paired across Latin and Arabic with one principle:
- *   • One sans for UI (Inter / Cairo) — quiet, neutral, never decorative.
+ *   • One sans for UI (Inter / Tajawal) — quiet, warm, never decorative.
  *   • One display for moments (Cormorant Garamond / Amiri) — used for
  *     hero headlines, brand wordmarks, and emotional pull-quotes only.
  *
- * **Amiri** is the classical-Naskh display face that the master logo for
- * "الفناء" was lettered in. We pair it with Cormorant Garamond's editorial
+ * **Tajawal** is the Arabic body face used by the /sugarbear premium
+ * landing page — it carries a softer, more feminine wellness register
+ * than Cairo's harder geometric edges. Adopting it as the global
+ * `--font-arabic` aligns the entire storefront with the brand's
+ * reference identity (warm cream, editorial, GCC-luxury).
+ *
+ * **Amiri** is the classical-Naskh display face the brand wordmark
+ * "فناء" is lettered in. Pair with Cormorant Garamond's editorial
  * register so the Latin wordmark "ELFANAA" carries the same gravitas.
- * Both display faces are restricted to brand & headline surfaces so the
- * UI workhorses (Inter / Cairo) stay quiet.
+ * Both display faces stay restricted to brand & headline surfaces so
+ * the UI workhorses (Inter / Tajawal) stay quiet.
  */
 const inter = Inter({
   subsets: ["latin"],
@@ -33,9 +39,9 @@ const display = Cormorant_Garamond({
   display: "swap",
 });
 
-const arabic = Cairo({
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
+const arabic = Tajawal({
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "700"],
   variable: "--font-arabic",
   display: "swap",
 });

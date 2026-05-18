@@ -101,7 +101,17 @@ export function Footer() {
           </FooterColumn>
         </div>
 
-        <div className="flex flex-col items-start justify-between gap-3 border-t border-line py-5 text-[11px] text-muted sm:flex-row sm:items-center sm:text-xs">
+        {/*
+         * Editorial closure — the gold dot-divider lifts the footer's
+         * copyright row out of "generic Shopify footer" territory and
+         * into the same editorial register as /sugarbear. Pure visual,
+         * zero new dependencies.
+         */}
+        <div className="fn-dot-divider py-3" aria-hidden>
+          <span />
+        </div>
+
+        <div className="flex flex-col items-start justify-between gap-3 py-5 text-[11px] text-muted sm:flex-row sm:items-center sm:text-xs">
           <p>
             © {new Date().getFullYear()} {pickLocalized(siteConfig.name, locale)} —{" "}
             {t.footer.rights}
