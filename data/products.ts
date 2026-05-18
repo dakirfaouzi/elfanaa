@@ -583,6 +583,17 @@ export const products: Product[] = [
   {
     id: "p_004",
     slug: "sugarbear-hair",
+    /*
+     * Sugarbear ships its own premium landing experience at /sugarbear
+     * (hero, ritual, reviews, sticky CTA — see app/sugarbear/*). We
+     * collapse all routing onto that single canonical URL:
+     *   – Every internal link goes to /sugarbear via productHref()
+     *   – /products/sugarbear-hair 308-redirects to /sugarbear
+     *     (next.config.mjs + runtime safety net in the [slug] page)
+     *   – The slug is preserved so cart/SKU lookups and the redirect
+     *     source URL keep working.
+     */
+    landingPath: "/sugarbear",
     sku: "FN-SUG-004",
     title: { ar: "فيتامينات سوجاربير للشعر", en: "Sugarbear Hair Vitamins" },
     description: {

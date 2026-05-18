@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ShoppingBag, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { pickLocalized } from "@/lib/format";
+import { productHref } from "@/lib/product-href";
 import { useLocale } from "@/hooks/useLocale";
 import { useCart } from "@/hooks/useCart";
 import { useUI } from "@/hooks/useUI";
@@ -49,7 +50,13 @@ export function ProductCard({
 
   return (
     <article className={cn("card-luxury group relative", className)}>
-      <Link href={`/products/${product.slug}`} className="block">
+      {/*
+       * Route via productHref() — never hard-code `/products/${slug}` here.
+       * Products with a bespoke landing page (e.g. Sugarbear → /sugarbear)
+       * declare `landingPath` in data/products.ts and this card flips to
+       * the canonical URL automatically. See lib/product-href.ts.
+       */}
+      <Link href={productHref(product)} className="block">
         <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-brand-soft transition-shadow duration-500 ease-premium group-hover:shadow-elevated">
           <Image
             src={primary.src}

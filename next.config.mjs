@@ -15,6 +15,35 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  /*
+   * Canonical product-URL collapse.
+   *
+   * Some SKUs ship a bespoke landing page (hero, ritual, sticky CTA, …)
+   * outside the generic `/products/[slug]` template. We want EXACTLY one
+   * canonical URL per product so:
+   *   • Ad traffic, organic traffic, menu clicks and "related products"
+   *     all land on the same page → consistent UX, consistent analytics.
+   *   • Search engines see a single URL → no duplicate-content penalty,
+   *     all backlink equity collected on the canonical route.
+   *
+   * `permanent: true` emits a 308 (preserves method + body) at the edge
+   * before any Next.js rendering runs — the cheapest possible redirect.
+   *
+   * Pattern for future products with a bespoke landing page:
+   *   1. Set `landingPath: "/<route>"` on the product in data/products.ts
+   *   2. Add a matching entry below.
+   * The runtime `permanentRedirect()` inside app/products/[slug]/page.tsx
+   * is a safety net — this static rule is the production source of truth.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/products/sugarbear-hair",
+        destination: "/sugarbear",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

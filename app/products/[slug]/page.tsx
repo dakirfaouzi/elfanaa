@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/Container";
 import { ProductGallery } from "@/components/product/ProductGallery";
@@ -14,8 +14,19 @@ import { pickLocalized } from "@/lib/format";
 
 type Props = { params: Promise<{ slug: string }> };
 
+/*
+ * Static params exclude products with a bespoke `landingPath`
+ * (e.g. Sugarbear → /sugarbear). Those routes own their canonical URL
+ * and the generic PDP is collapsed onto them via:
+ *   • next.config.mjs `redirects()`  → edge 308 (preferred path)
+ *   • runtime `permanentRedirect()`  → safety net inside this route
+ * Pre-rendering the dynamic page for them would just waste a static
+ * shell that nobody can ever actually see.
+ */
 export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }));
+  return products
+    .filter((p) => !p.landingPath)
+    .map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -29,9 +40,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title,
     description,
+    // If this product owns a bespoke landing page, the canonical URL is
+    // there — point all search engines at /sugarbear (or whichever path)
+    // even if they crawl the legacy /products/<slug> route during the
+    // transition window.
+    alternates: product.landingPath
+      ? { canonical: product.landingPath }
+      : undefined,
     openGraph: {
       title,
       description,
+      ...(product.landingPath ? { url: product.landingPath } : {}),
       images: product.images.map((i) => i.src),
     },
   };
@@ -57,6 +76,24 @@ export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const product = getProductBySlug(slug);
   if (!product) notFound();
+
+  /*
+   * Runtime safety net for the bespoke-landing pattern.
+   *
+   * The primary redirect lives in `next.config.mjs` (edge-level 308),
+   * but we also enforce it here so that:
+   *   • Internal navigation never accidentally renders the generic PDP
+   *     for a SKU that has a hand-crafted landing page.
+   *   • Dev/preview environments where the static redirect rule isn't
+   *     yet picked up still collapse to the canonical URL.
+   *   • Any future product that opts into `landingPath` is protected
+   *     even before its next.config entry ships.
+   *
+   * `permanentRedirect` emits a true 308, preserving SEO equity.
+   */
+  if (product.landingPath) {
+    permanentRedirect(product.landingPath);
+  }
 
   const related = getRelatedProducts(product.id);
 

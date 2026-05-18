@@ -40,6 +40,23 @@ export type OfferTier = {
 export type Product = {
   id: string;
   slug: string;
+  /**
+   * Optional bespoke landing-page route (e.g. `/sugarbear`). When set, the
+   * product is treated as having a hero/CRO landing experience that lives
+   * outside the generic `/products/[slug]` template:
+   *
+   *   • Every internal link (ProductCard, related/recommendation rows,
+   *     menu entries) resolves through `productHref()` and points here.
+   *   • The generic `/products/[slug]` route 308-redirects to this path
+   *     (both at the edge via `next.config.mjs` AND at runtime as a
+   *     safety net) so SEO equity collapses onto a single canonical URL.
+   *
+   * Pattern for future products: build the bespoke page under
+   * `app/<route>/...`, then add `landingPath: "/<route>"` here AND a
+   * corresponding entry in `next.config.mjs` `redirects()`. Nothing else
+   * in the catalog code needs to change.
+   */
+  landingPath?: string;
   title: LocalizedString;
   description: LocalizedString;
   images: ProductImage[];
