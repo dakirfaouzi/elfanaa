@@ -29,14 +29,16 @@ export function ProductFAQ({ product }: Props) {
   if (!items || items.length === 0) return null;
 
   return (
-    <section className="bg-surface py-16 md:py-24">
+    <section className="fn-section-y bg-surface">
       <Container>
         <div className="mx-auto max-w-3xl">
           <header className="mb-10 text-center md:mb-14">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-              {t.product.faqEyebrow}
+            <p className="fn-eyebrow justify-center">
+              <span className="fn-rule" />
+              <span>{t.product.faqEyebrow}</span>
+              <span className="fn-rule" />
             </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
+            <h2 className="fn-section-title mt-4">
               {t.product.faqTitle}
             </h2>
           </header>
@@ -50,15 +52,17 @@ export function ProductFAQ({ product }: Props) {
                     type="button"
                     onClick={() => setOpenIdx(open ? null : idx)}
                     aria-expanded={open}
-                    className="flex w-full items-center justify-between gap-4 py-5 text-start"
+                    className="flex w-full items-center justify-between gap-4 py-5 text-start transition-colors md:py-6 md:hover:bg-bg/40"
                   >
-                    <span className="text-[15px] font-medium text-ink md:text-base">
+                    <span className="text-[15.5px] font-medium tracking-[-0.005em] text-ink md:text-base">
                       {pickLocalized(item.q, locale)}
                     </span>
                     <span
                       className={cn(
-                        "grid size-8 shrink-0 place-items-center rounded-full border border-line transition-colors",
-                        open ? "border-ink bg-ink text-bg" : "text-ink"
+                        "grid size-9 shrink-0 place-items-center rounded-full border transition-colors",
+                        open
+                          ? "border-ink bg-ink text-bg"
+                          : "border-line text-ink hover:border-accent/45"
                       )}
                     >
                       {open ? (
@@ -75,7 +79,7 @@ export function ProductFAQ({ product }: Props) {
                     )}
                   >
                     <div className="min-h-0">
-                      <p className="pb-6 pe-12 text-sm leading-relaxed text-muted md:text-[15px]">
+                      <p className="pb-6 pe-12 text-[14.5px] leading-[1.8] text-muted md:text-[15.5px]">
                         {pickLocalized(item.a, locale)}
                       </p>
                     </div>

@@ -28,35 +28,35 @@ export function Testimonials() {
   const picks = pickReviews();
 
   return (
-    <section className="bg-bg py-16 md:py-24">
+    <section className="fn-section-y bg-bg">
       <Container>
         <div
           ref={sectionRef as React.RefObject<HTMLDivElement>}
           className={cn(
-            "reveal grid gap-10 lg:grid-cols-[340px_1fr] lg:gap-14",
+            "reveal grid gap-10 lg:grid-cols-[360px_1fr] lg:gap-16",
             inView && "in-view"
           )}
         >
           <header className="max-w-md">
-            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
-              <span className="text-accent/60">03</span>
-              <span className="h-px w-6 bg-line" aria-hidden />
-              <span className="text-accent">{t.testimonials.eyebrow}</span>
-            </div>
-            <h2 className="mt-3 whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[52px]">
+            <p className="fn-eyebrow-step">
+              <span className="fn-step-num">04</span>
+              <span className="fn-step-rule" />
+              <span>{t.testimonials.eyebrow}</span>
+            </p>
+            <h2 className="fn-section-title mt-4 md:mt-5">
               {t.testimonials.title}
             </h2>
-            <p className="mt-3 text-[13px] leading-relaxed text-muted md:mt-4 md:text-[17px]">
+            <p className="fn-section-lede mt-4 md:mt-5">
               {t.testimonials.body}
             </p>
 
-            <div className="mt-6 flex items-center gap-4 rounded-md border border-line bg-surface p-4">
+            <div className="mt-7 flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 md:p-5">
               <RatingStars value={4.9} size="lg" />
               <div className="text-xs text-muted">
                 <p className="font-semibold text-ink">
                   {t.testimonials.ratingTitle}
                 </p>
-                <p>{t.testimonials.ratingSubtitle}</p>
+                <p className="mt-0.5">{t.testimonials.ratingSubtitle}</p>
               </div>
             </div>
           </header>
@@ -65,27 +65,27 @@ export function Testimonials() {
             {picks.map((r, i) => (
               <li
                 key={i}
-                className="relative flex flex-col gap-3 rounded-md border border-line bg-surface p-5"
+                className="relative flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5 shadow-[0_4px_14px_rgba(31,24,21,0.04)] transition-all duration-300 ease-premium md:p-6 md:hover:border-accent/30 md:hover:shadow-[0_10px_30px_rgba(199,162,124,0.16)]"
               >
                 <Quote
-                  className="absolute end-4 top-4 size-5 text-accent/30 ltr:scale-x-[-1]"
+                  className="absolute end-4 top-4 size-5 text-accent/35 ltr:scale-x-[-1]"
                   aria-hidden
                 />
                 <RatingStars value={r.rating} size="sm" />
-                <p className="text-sm leading-relaxed text-ink/85 md:text-[15px]">
+                <p className="text-[14.5px] leading-[1.8] text-ink/85 md:text-[15.5px]">
                   &ldquo;{pickLocalized(r.body, locale)}&rdquo;
                 </p>
                 <div className="mt-auto flex items-center justify-between gap-3 pt-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-ink">
+                    <p className="truncate text-[13.5px] font-semibold text-ink">
                       {pickLocalized(r.name, locale)}
                     </p>
-                    <p className="text-[11px] text-muted">
+                    <p className="text-[11.5px] text-muted">
                       {pickLocalized(r.city, locale)}
                     </p>
                   </div>
                   {r.verified ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success">
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-success">
                       <BadgeCheck className="size-3.5" aria-hidden />
                       {locale === "ar" ? "موثّق" : "Verified"}
                     </span>

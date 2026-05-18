@@ -77,7 +77,7 @@ export function ShopToolbar({
   };
 
   return (
-    <div className="sticky top-14 z-20 border-b border-line bg-bg/95 backdrop-blur-md md:top-16 lg:top-[76px]">
+    <div className="sticky top-16 z-20 border-b border-line bg-bg/95 backdrop-blur-md md:top-[68px] lg:top-[80px]">
       {/* Main toolbar row — px matches Container gutter so chips align with product grid */}
       <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
         {showCollectionNav && <ChipNav collections={collections} active={active} />}

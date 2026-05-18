@@ -28,7 +28,7 @@ export const feelings: Feeling[] = [
     },
     href: "/concerns/dark-spots",
     image: {
-      src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1400&q=80",
+      src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1600&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "بشرة بحاجة للإشراق", en: "Skin needing glow" },
     },
   },
@@ -41,7 +41,7 @@ export const feelings: Feeling[] = [
     },
     href: "/concerns/dryness",
     image: {
-      src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1400&q=80",
+      src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1600&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "عناية بحاجز البشرة", en: "Skin barrier care" },
     },
   },
@@ -54,7 +54,7 @@ export const feelings: Feeling[] = [
     },
     href: "/concerns/breakage",
     image: {
-      src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=80",
+      src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1600&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "شعر بحاجة لترطيب", en: "Hair needing repair" },
     },
   },
@@ -70,7 +70,7 @@ export const feelings: Feeling[] = [
     amount: { ar: "٣٤٩ ر.س", en: "349 SAR" },
     saveBadge: { ar: "وفّر ٢٤٨", en: "Save 248" },
     image: {
-      src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=80",
+      src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1600&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "روتين العناية الكامل", en: "Complete care routine" },
     },
   },

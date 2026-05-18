@@ -36,24 +36,24 @@ export function TrustStrip() {
          * a generic Shopify icon strip. Matches /sugarbear's section
          * hand-shake.
          */}
-        <p className="fn-eyebrow mt-7 md:mt-12">
+        <p className="fn-eyebrow mt-9 md:mt-14">
           <span className="fn-rule" />
           <span>{t.home.trustEyebrow}</span>
         </p>
         <h2 id="trust-heading" className="sr-only">
           {t.home.trustEyebrow}
         </h2>
-        <ul className="mt-4 grid gap-x-8 gap-y-4 pb-7 md:mt-6 md:grid-cols-3 md:gap-x-12 md:gap-y-6 md:pb-12">
+        <ul className="mt-5 grid gap-x-8 gap-y-5 pb-9 md:mt-7 md:grid-cols-3 md:gap-x-12 md:gap-y-6 md:pb-14">
           {items.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex items-start gap-3.5 md:gap-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/30 md:size-12">
-                <Icon className="size-4 md:size-5" strokeWidth={1.6} />
+            <li key={title} className="flex items-start gap-4">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/30 md:size-12">
+                <Icon className="size-5" strokeWidth={1.6} />
               </span>
               <div>
-                <h3 className="text-sm font-semibold tracking-tight text-ink md:text-[15px]">
+                <h3 className="text-[14.5px] font-semibold tracking-[-0.005em] text-ink md:text-[15.5px]">
                   {title}
                 </h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-muted md:mt-1.5 md:text-sm">
+                <p className="mt-1 text-[13.5px] leading-[1.75] text-muted md:mt-1.5 md:text-[14.5px]">
                   {body}
                 </p>
               </div>

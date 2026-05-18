@@ -34,22 +34,22 @@ export function ShopByFeeling() {
   const { ref: gridRef, inView: gridVisible } = useInView({ rootMargin: "0px 0px -40px 0px" });
 
   return (
-    <section className="bg-bg py-16 md:py-24">
+    <section className="fn-section-y bg-bg">
       <Container>
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
-          className={cn("reveal mb-8 max-w-2xl md:mb-14", headerVisible && "in-view")}
+          className={cn("reveal mb-10 max-w-2xl md:mb-14", headerVisible && "in-view")}
         >
-          <Flourish width={64} className="mb-3 text-accent md:w-[88px] md:mb-5" />
-          <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
-            <span className="text-accent/60">01</span>
-            <span className="h-px w-6 bg-line" aria-hidden />
-            <span className="text-accent">{t.home.shopByFeelingEyebrow}</span>
-          </div>
-          <h2 className="mt-3 whitespace-pre-line text-balance font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
+          <Flourish width={56} className="mb-4 text-accent md:w-[80px] md:mb-5" />
+          <p className="fn-eyebrow-step">
+            <span className="fn-step-num">01</span>
+            <span className="fn-step-rule" />
+            <span>{t.home.shopByFeelingEyebrow}</span>
+          </p>
+          <h2 className="fn-section-title mt-4 md:mt-5">
             {t.home.shopByFeelingTitle}
           </h2>
-          <p className="mt-3 text-[13px] leading-relaxed text-muted md:mt-4 md:max-w-xl md:text-base">
+          <p className="fn-section-lede mt-4 md:mt-5">
             {t.home.shopByFeelingBody}
           </p>
         </header>
@@ -57,7 +57,7 @@ export function ShopByFeeling() {
         <ul
           ref={gridRef as React.RefObject<HTMLUListElement>}
           className={cn(
-            "reveal grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6",
+            "reveal grid grid-cols-2 gap-3.5 sm:gap-4 lg:grid-cols-4 lg:gap-6",
             gridVisible && "in-view"
           )}
           style={{ transitionDelay: "100ms" }}
@@ -69,7 +69,7 @@ export function ShopByFeeling() {
                 onClick={() =>
                   track("view_item", { surface: "shop_by_feeling", id: f.id })
                 }
-                className="group relative block aspect-[4/5] overflow-hidden rounded-md shadow-card hover-lift focus-ring"
+                className="group relative block aspect-[4/5] overflow-hidden rounded-2xl shadow-[0_8px_22px_rgba(31,24,21,0.08)] hover-lift focus-ring"
               >
                 {f.branded ? (
                   /* ──────────────── Branded card variant ──────────────── */

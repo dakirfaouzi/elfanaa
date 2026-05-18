@@ -73,34 +73,34 @@ export function HowItWorks() {
   const { ref: cardsRef, inView: cardsVisible } = useInView({ rootMargin: "0px 0px -40px 0px" });
 
   return (
-    <section className="relative bg-ink py-16 text-bg md:py-24" aria-labelledby="mechanism-heading">
-      {/* Subtle radial accent — contained by relative on parent */}
+    <section className="fn-section-y relative bg-ink text-bg" aria-labelledby="mechanism-heading">
+      {/* Warm champagne wash — pulls the dark band into the brand palette */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_50%_0%,rgba(186,110,92,0.18),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_50%_0%,rgba(199,162,124,0.20),transparent_62%)]"
       />
 
       <Container>
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
           className={cn(
-            "reveal mx-auto mb-8 max-w-2xl text-center md:mb-16",
+            "reveal mx-auto mb-10 max-w-2xl text-center md:mb-16",
             headerVisible && "in-view"
           )}
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent ring-1 ring-accent/25">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-accent ring-1 ring-accent/30">
             <Zap className="size-3.5" />
             {isAr ? "المنهجية العلمية" : "Clinical Methodology"}
           </div>
           <h2
             id="mechanism-heading"
-            className="mt-4 whitespace-pre-line text-balance font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl"
+            className="fn-section-title text-bg"
           >
             {isAr
               ? "كيف تشتغل التركيبات؟"
               : "How do the formulas work?"}
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-bg/70 md:text-base">
+          <p className="mx-auto mt-5 max-w-xl text-[14.5px] leading-[1.85] text-bg/72 md:text-[16px]">
             {isAr
               ? "كل منتج مبني على مكوّن فعّال بنسبة علاجية — ليس تجميلية. هذا الفرق بين 'محتمل يشتغل' و'مثبت علمياً'."
               : "Every product is built on an active ingredient at a therapeutic dose — not a cosmetic one. That's the difference between 'might work' and 'clinically proven'."}
@@ -118,18 +118,18 @@ export function HowItWorks() {
           {mechanisms.map(({ Icon, ingredient, action, explanation }, i) => (
             <div
               key={i}
-              className="rounded-xl border border-bg/10 bg-bg/[0.04] p-5 backdrop-blur-sm md:p-8"
+              className="rounded-2xl border border-bg/[0.08] bg-bg/[0.045] p-5 backdrop-blur-sm transition-colors duration-300 md:p-8 md:hover:border-accent/30"
             >
-              <div className="mb-5 grid size-12 place-items-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/25">
+              <div className="mb-5 grid size-12 place-items-center rounded-full bg-accent/15 text-accent ring-1 ring-accent/30">
                 <Icon className="size-5" strokeWidth={1.6} />
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.20em] text-accent">
                 {ingredient}
               </p>
-              <h3 className="mt-2 text-lg font-semibold tracking-tight text-bg md:text-xl">
+              <h3 className="mt-2.5 text-[18px] font-semibold tracking-[-0.005em] text-bg md:text-[20px]">
                 {action}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-bg/70">
+              <p className="mt-3 text-[14px] leading-[1.8] text-bg/72 md:text-[15px]">
                 {explanation}
               </p>
             </div>

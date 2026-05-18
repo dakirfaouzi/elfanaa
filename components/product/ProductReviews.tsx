@@ -30,13 +30,14 @@ export function ProductReviews({ product }: Props) {
   if (!aggregate && reviews.length === 0) return null;
 
   return (
-    <section className="bg-bg py-16 md:py-24">
+    <section className="fn-section-y bg-bg">
       <Container>
         <header className="mb-10 max-w-2xl md:mb-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            {t.product.reviewsEyebrow}
+          <p className="fn-eyebrow">
+            <span className="fn-rule" />
+            <span>{t.product.reviewsEyebrow}</span>
           </p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl lg:text-5xl">
+          <h2 className="fn-section-title mt-4 md:mt-5">
             {t.product.reviewsTitle}
           </h2>
         </header>

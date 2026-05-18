@@ -66,36 +66,35 @@ export function BrandStory() {
       ];
 
   return (
-    <section className="bg-surface py-16 md:py-24" aria-labelledby="diff-heading">
+    <section className="fn-section-y bg-surface" aria-labelledby="diff-heading">
       <Container>
-        <header className="mx-auto mb-10 max-w-2xl text-center md:mb-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
-            {isAr ? "ليش فناء مختلف؟" : "Why Fanaa is different"}
+        <header className="mx-auto mb-10 max-w-2xl text-center md:mb-16">
+          <p className="fn-eyebrow justify-center">
+            <span className="fn-rule" />
+            <span>{isAr ? "ليش فناء مختلف؟" : "Why Fanaa is different"}</span>
+            <span className="fn-rule" />
           </p>
-          <h2
-            id="diff-heading"
-            className="mt-3 text-balance font-display text-3xl font-semibold leading-[1.06] tracking-[-0.01em] md:text-4xl lg:text-5xl"
-          >
+          <h2 id="diff-heading" className="fn-section-title mt-5">
             {isAr
               ? "ليست علامة تجارية أخرى.\nإنها منهجية مختلفة."
               : "Not another brand.\nA different methodology."}
           </h2>
         </header>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:gap-8">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
           {pillars.map(({ Icon, title, body }, i) => (
             <div
               key={i}
-              className="flex gap-4 rounded-xl border border-line bg-bg p-4 shadow-sm md:gap-5 md:p-7"
+              className="flex gap-4 rounded-2xl border border-line bg-bg p-5 shadow-[0_4px_14px_rgba(31,24,21,0.04)] transition-all duration-300 ease-premium md:gap-5 md:p-7 md:hover:-translate-y-0.5 md:hover:shadow-[0_10px_30px_rgba(199,162,124,0.16)]"
             >
-              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-accent ring-1 ring-accent/20">
+              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft/70 text-accent ring-1 ring-accent/25">
                 <Icon className="size-5" strokeWidth={1.6} />
               </div>
               <div>
-                <h3 className="text-base font-semibold tracking-tight text-ink md:text-lg">
+                <h3 className="text-[15px] font-semibold tracking-[-0.005em] text-ink md:text-lg">
                   {title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
+                <p className="mt-2 text-[14px] leading-[1.75] text-muted md:text-[15px]">
                   {body}
                 </p>
               </div>

@@ -39,6 +39,49 @@
 }
 
 
+/* ── Numbered eyebrow — "01 · المجموعات" pattern ─────────────────────
+   The home page sections each carry an index. Publishing the numbered
+   variant globally means BestSellers / Testimonials / CollectionRow /
+   BrandStory / HowItWorks / ShopByFeeling / UrgencyCta all converge on
+   the same visual treatment instead of each section inventing their own.
+   Usage:
+     <p class="fn-eyebrow-step">
+       <span class="fn-step-num">01</span>
+       <span class="fn-step-rule"></span>
+       <span>{label}</span>
+     </p>
+*/
+.fn-eyebrow-step {
+  font-family: var(--font-arabic, system-ui), sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: rgb(var(--color-accent));
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.fn-eyebrow-step .fn-step-num {
+  font-family: var(--font-display), serif;
+  font-style: italic;
+  font-size: 13px;
+  color: rgba(var(--color-accent-deep), 0.7);
+  letter-spacing: normal;
+  font-weight: 500;
+}
+.fn-eyebrow-step .fn-step-rule {
+  display: inline-block;
+  height: 1px;
+  width: 28px;
+  background: rgb(var(--color-line));
+}
+[dir="rtl"] .fn-eyebrow-step {
+  letter-spacing: 0.14em;
+  text-transform: none;
+}
+
+
 /* ── Soft gold underline accent (used inline with eyebrows) ──────────── */
 .fn-rule {
   display: inline-block;
@@ -165,4 +208,109 @@
     radial-gradient(110% 60% at 80% 0%, rgba(199, 162, 124, 0.16) 0%, transparent 65%),
     radial-gradient(80% 80% at 0% 100%, rgba(221, 210, 194, 0.40) 0%, transparent 60%),
     linear-gradient(180deg, rgb(var(--color-bg)) 0%, rgb(var(--color-surface)) 100%);
+}
+
+
+/* ── Section rhythm — generous editorial vertical padding ──────────────
+   Premium beauty / wellness sites use much more vertical air than a
+   typical Shopify section. Mobile gets ≥80px top + bottom; desktop
+   stretches to ≥120px. Apply to <section> wrappers across the homepage,
+   collections, and any new editorial surface so they all share one
+   rhythm. Combine with bg utilities (bg-bg / bg-surface / bg-ink) for
+   alternation.                                                          */
+.fn-section-y {
+  padding-block: clamp(72px, 12vw, 120px);
+}
+
+
+/* ── Section heading — unified editorial H2 ───────────────────────────
+   Standardises the section-title typography that sat inconsistently
+   across BestSellers / Testimonials / BrandStory etc. Mobile starts at
+   30px (up from 26-28), desktop reaches 56px. Pairs with .fn-eyebrow or
+   .fn-eyebrow-step. Always whitespace-pre-line ready so titles can use
+   a hard newline for prosody.                                           */
+.fn-section-title {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  font-size: clamp(28px, 6.4vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: rgb(var(--color-ink));
+  white-space: pre-line;
+  text-wrap: balance;
+}
+
+
+/* ── Section lede — calm muted body paragraph beneath a section title  */
+.fn-section-lede {
+  font-size: clamp(14px, 3.6vw, 17px);
+  line-height: 1.75;
+  color: rgb(var(--color-muted));
+  max-width: 32rem;
+}
+
+
+/* ── Premium product card chrome ──────────────────────────────────────
+   The cross-site product card now consumes this utility for its image
+   frame so every grid (homepage best-sellers, /shop, /collections,
+   related products, recommendations) renders with the same warm-sand
+   wash + champagne ring on hover. Touch-first: keeps 1px ring at rest
+   so cards never look "empty" on mobile.                                */
+.fn-card-product-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(var(--color-brand-soft), 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(199, 162, 124, 0.18),
+    0 1px 2px rgba(31, 24, 21, 0.03);
+  transition:
+    transform 450ms var(--ease-premium),
+    box-shadow 450ms var(--ease-premium);
+}
+@media (hover: hover) {
+  .group:hover .fn-card-product-frame {
+    box-shadow:
+      inset 0 0 0 1px rgba(199, 162, 124, 0.42),
+      0 18px 42px rgba(199, 162, 124, 0.18),
+      0 6px 16px rgba(31, 24, 21, 0.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fn-card-product-frame { transition: none; }
+}
+
+
+/* ── Mobile-first touch target helper (44px Apple HIG minimum) ───────
+   Use on icon-only buttons (header burger, search, locale toggle,
+   social pills) so every interactive surface satisfies the 44 × 44 pt
+   touch ergonomics rule.                                               */
+.fn-tap-44 {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+
+/* ── Editorial sticky CTA — used by the mobile bottom-bar across pages  */
+.fn-sticky-bar {
+  border-radius: 999px;
+  box-shadow:
+    0 18px 44px rgba(31, 24, 21, 0.22),
+    0 0 0 1px rgba(199, 162, 124, 0.32);
+}
+
+
+/* ── Star rating numeric helper ────────────────────────────────────── */
+.fn-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-feature-settings: "tnum";
+  color: rgb(var(--color-muted));
+  font-size: 11px;
+}
+.fn-rating .fn-rating-star {
+  color: rgb(var(--color-accent-deep));
+  font-size: 12px;
+  line-height: 1;
 }

@@ -30,7 +30,7 @@ export const collections: Collection[] = [
       en: "Glowing skin and a protected barrier — therapeutic Vitamin C serum and five-ceramide cream, together in a two-minute routine.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1200&q=85",
+      "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1800&q=88&auto=format&fit=crop&crop=center",
     productIds: byCollection("face"),
   },
   {
@@ -44,7 +44,7 @@ export const collections: Collection[] = [
       en: "Five minutes a week is enough. Vegan keratin and organic argan penetrate the hair shaft and mend breakage from within.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1200&q=85",
+      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1800&q=88&auto=format&fit=crop&crop=center",
     productIds: byCollection("hair"),
   },
   {
@@ -58,7 +58,7 @@ export const collections: Collection[] = [
       en: "Three products that work as one system — serum, cream, mask. Face and hair in one complete routine at an exceptional price.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1200&q=85",
+      "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1800&q=88&auto=format&fit=crop&crop=center",
     productIds: products.map((p) => p.id),
   },
 ];
@@ -82,7 +82,7 @@ export const concernCollections: Collection[] = [
       en: "Dark spots and melasma from the Saudi sun? Our formulas break pigmentation at the cell level — not just cover it.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1200&q=85",
+      "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetProblems: ["dark-spots", "uneven-tone"],
     productIds: byProblems(["dark-spots", "uneven-tone"]),
   },
@@ -97,7 +97,7 @@ export const concernCollections: Collection[] = [
       en: "AC and hard water break your skin barrier and dehydrate it. Our products rebuild the barrier and lock moisture in.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1200&q=85",
+      "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetProblems: ["dryness", "barrier-damage", "sensitive-skin"],
     productIds: byProblems(["dryness", "barrier-damage", "sensitive-skin"]),
   },
@@ -112,7 +112,7 @@ export const concernCollections: Collection[] = [
       en: "Heat, dye, and hard water progressively damage hair. Our mask restores lost protein and stops new breakage.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=1200&q=85",
+      "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetProblems: ["breakage", "hair-damage", "hair-dryness", "color-treated"],
     productIds: byProblems(["breakage", "hair-damage", "hair-dryness", "color-treated"]),
   },
@@ -132,7 +132,7 @@ export const genderCollections: Collection[] = [
       en: "Fanaa products developed for Saudi women — glowing skin and strong hair in a simple daily routine.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=1200&q=85",
+      "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetTarget: "women",
     productIds: products
       .filter((p) => p.target === "women" || p.target === "unisex")
@@ -149,7 +149,7 @@ export const genderCollections: Collection[] = [
       en: "Simple, effective care routine for Saudi men — products that protect skin and keep it looking healthy without complexity.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=1200&q=85",
+      "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetTarget: "men",
     productIds: products
       .filter((p) => p.target === "men" || p.target === "unisex")

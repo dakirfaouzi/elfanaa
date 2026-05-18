@@ -17,22 +17,23 @@ type FeaturedCollectionProps = {
 export function FeaturedCollection({ eyebrow, title, href, products }: FeaturedCollectionProps) {
   const { locale } = useLocale();
   return (
-    <section className="py-16 md:py-24">
+    <section className="fn-section-y">
       <Container>
-        <div className="mb-8 flex items-end justify-between gap-6">
+        <div className="mb-10 flex items-end justify-between gap-6 md:mb-12">
           <div>
             {eyebrow ? (
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                {eyebrow}
+              <p className="fn-eyebrow mb-3">
+                <span className="fn-rule" />
+                <span>{eyebrow}</span>
               </p>
             ) : null}
-            <h2 className="font-display text-3xl font-semibold tracking-tight md:text-4xl">
+            <h2 className="fn-section-title">
               {title}
             </h2>
           </div>
           <Link
             href={href}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/80 transition-colors hover:text-ink"
+            className="hidden shrink-0 items-center gap-1.5 text-sm font-medium text-ink/80 transition-colors hover:text-ink sm:inline-flex"
           >
             {locale === "ar" ? "عرض الكل" : "View all"}
             <ArrowRight className="size-4 rtl:rotate-180" />

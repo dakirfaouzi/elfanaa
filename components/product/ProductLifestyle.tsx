@@ -26,12 +26,13 @@ export function ProductLifestyle({ product }: Props) {
   const subhead = product.subheadline;
 
   return (
-    <section className="py-16 md:py-24">
+    <section className="fn-section-y">
       <Container>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          {/* Image — leads on desktop, follows on mobile (object-cover keeps it
-              cinematic at any aspect ratio). */}
-          <div className="relative order-1 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft md:aspect-[5/6] lg:order-2">
+          {/* Image — leads on desktop, follows on mobile. Wrapped in
+              .fn-photo-frame so the editorial framing matches HomeHero
+              and the /sugarbear hero. */}
+          <div className="fn-photo-frame relative order-1 aspect-[4/5] overflow-hidden md:aspect-[5/6] lg:order-2">
             <Image
               src={image.src}
               alt={pickLocalized(image.alt, locale)}
@@ -42,15 +43,16 @@ export function ProductLifestyle({ product }: Props) {
           </div>
 
           <div className="order-2 max-w-lg lg:order-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-              {t.product.lifestyleEyebrow}
+            <p className="fn-eyebrow">
+              <span className="fn-rule" />
+              <span>{t.product.lifestyleEyebrow}</span>
             </p>
-            <h2 className="mt-2 whitespace-pre-line font-display text-3xl font-semibold leading-[1.15] tracking-tight md:text-4xl lg:text-5xl">
+            <h2 className="fn-section-title mt-4 md:mt-5">
               {pickLocalized(headline, locale)}
             </h2>
             <Flourish className="mt-5 text-accent" width={120} />
             {subhead ? (
-              <p className="mt-5 text-base leading-relaxed text-muted md:text-[17px]">
+              <p className="mt-5 text-[15px] leading-[1.8] text-muted md:text-[17px]">
                 {pickLocalized(subhead, locale)}
               </p>
             ) : null}

@@ -43,7 +43,7 @@ export function CollectionHero({
 
   return (
     <section className="relative overflow-hidden bg-ink">
-      <div className="relative h-[68vh] min-h-[480px] w-full md:h-[88vh] md:min-h-[680px]">
+      <div className="relative h-[64vh] min-h-[440px] w-full md:h-[80vh] md:min-h-[620px] lg:h-[88vh] lg:min-h-[680px]">
 
         {/* ── Full-bleed editorial image ── */}
         {hasImage ? (
@@ -56,39 +56,54 @@ export function CollectionHero({
             className="object-cover object-center"
           />
         ) : (
-          /* Brand-tone fallback: warm amber glow on dark canvas */
+          /* Brand-tone fallback: warm champagne glow on espresso canvas */
           <div
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(ellipse 80% 70% at 25% 75%, rgba(186,110,92,0.22) 0%, transparent 68%)",
+                "radial-gradient(ellipse 80% 70% at 25% 75%, rgba(199,162,124,0.32) 0%, transparent 68%)",
             }}
           />
         )}
 
-        {/* ── Three-layer gradient system ─────────────────────────── */}
-        {/* 1 · Top scrim — controls overly bright skies + frames the header */}
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/45 via-transparent to-transparent" />
-        {/* 2 · Bottom gradient — primary text legibility zone */}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink/92 via-ink/50 to-transparent" />
-        {/* 3 · Corner vignette — editorial depth, pulls focus inward */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-ink/60 via-ink/10 to-transparent" />
+        {/* ── Editorial overlay system — warm-toned, not generic dark ─
+         * 1 · Soft top scrim — lets the imagery breathe at the top
+         * 2 · Bottom espresso wash — primary legibility zone for title
+         * 3 · Top-right gold whisper — pulls champagne into the corner
+         */}
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/35 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink/92 via-ink/40 to-transparent" />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(45% 35% at 92% 10%, rgba(199,162,124,0.28) 0%, transparent 60%)",
+          }}
+        />
 
         {/* ── Content ─────────────────────────────────────────────── */}
           <Container
           size="xl"
           className="relative flex h-full flex-col justify-between py-8 md:py-14 lg:py-16"
         >
-          {/* Eyebrow — anchored top, first to appear */}
+          {/* Eyebrow — anchored top, first to appear, gold-accented */}
           <div
             className="animate-rise flex items-center gap-3"
             style={{ animationDelay: "80ms" }}
           >
-            <span className="text-[10px] font-medium tabular-nums text-bg/30">
+            <span className="font-display text-[12px] italic tabular-nums text-accent/85">
               {index}
             </span>
-            <span className="h-px w-6 bg-bg/20" aria-hidden />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-bg/55">
+            <span
+              aria-hidden
+              className="h-px w-7"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(199,162,124,0.55), rgba(199,162,124,0))",
+              }}
+            />
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.24em] text-bg/72">
               {eyebrow}
             </span>
           </div>
@@ -97,7 +112,7 @@ export function CollectionHero({
           <div>
             {/* Arabic title */}
             <h1
-              className="animate-rise font-display text-[32px] font-semibold leading-[1.04] tracking-[-0.02em] text-bg md:text-5xl lg:text-6xl"
+              className="animate-rise font-display text-[34px] font-semibold leading-[1.03] tracking-[-0.02em] text-bg md:text-5xl lg:text-6xl"
               dir="rtl"
               style={{ animationDelay: "220ms" }}
             >
@@ -107,18 +122,22 @@ export function CollectionHero({
             {/* Tagline */}
             {collection.tagline && (
               <p
-                className="animate-rise mt-3 text-[14px] font-medium text-bg/58 md:text-[15px]"
+                className="animate-rise mt-3 text-[14.5px] font-medium text-bg/65 md:text-[16px]"
                 style={{ animationDelay: "370ms" }}
               >
                 {collection.tagline.ar}
               </p>
             )}
 
-            {/* Separator */}
+            {/* Gold separator — the editorial closure beat */}
             <div
-              className="animate-rise mt-6 h-px w-10 bg-bg/18"
+              className="animate-rise mt-6 h-px w-12"
               aria-hidden
-              style={{ animationDelay: "460ms" }}
+              style={{
+                animationDelay: "460ms",
+                background:
+                  "linear-gradient(90deg, rgba(199,162,124,0.65), rgba(199,162,124,0))",
+              }}
             />
 
             {/* Description + item count row — stacked on mobile, inline on sm+ */}
@@ -128,7 +147,7 @@ export function CollectionHero({
             >
               {collection.description ? (
                 <p
-                  className="text-[12px] leading-[1.75] text-bg/48 sm:max-w-md md:text-sm"
+                  className="text-[13px] leading-[1.8] text-bg/58 sm:max-w-md md:text-[14.5px]"
                   dir="rtl"
                 >
                   {collection.description.ar}
@@ -136,7 +155,7 @@ export function CollectionHero({
               ) : (
                 <span />
               )}
-              <span className="shrink-0 text-[11px] font-medium tabular-nums text-bg/32">
+              <span className="shrink-0 text-[11.5px] font-medium tabular-nums text-bg/45">
                 {itemsLabel.replace("{count}", String(itemCount))}
               </span>
             </div>

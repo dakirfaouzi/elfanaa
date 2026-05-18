@@ -58,18 +58,18 @@ export function Header() {
       className={cn(
         "sticky top-0 z-40 border-b transition-colors duration-300",
         scrolled
-          ? "border-line bg-bg/85 backdrop-blur-md"
+          ? "border-line bg-bg/90 backdrop-blur-md"
           : "border-transparent bg-bg"
       )}
     >
       <Container>
-          <div className="flex h-14 items-center gap-3 md:h-16 lg:h-[76px]">
-          {/* Mobile menu trigger */}
+          <div className="flex h-16 items-center gap-2 md:h-[68px] md:gap-3 lg:h-[80px]">
+          {/* Mobile menu trigger — 44px Apple HIG minimum touch target */}
           <button
             type="button"
             aria-label="Open menu"
             onClick={openMobileNav}
-            className="grid size-10 place-items-center rounded-full hover:bg-brand-soft md:hidden"
+            className="fn-tap-44 -ms-2 grid place-items-center rounded-full text-ink/80 transition-colors hover:bg-brand-soft hover:text-ink active:bg-brand-soft/80 md:hidden"
           >
             <Menu className="size-5" />
           </button>
@@ -117,13 +117,13 @@ export function Header() {
             <NavLink href="/about">{t.nav.about}</NavLink>
           </nav>
 
-          <div className="ms-auto flex items-center gap-1">
+          <div className="ms-auto flex items-center gap-0.5 md:gap-1">
             <button
               type="button"
               aria-label={t.nav.search}
               disabled
               aria-disabled="true"
-              className="hidden size-10 cursor-not-allowed place-items-center rounded-full opacity-40 sm:grid"
+              className="fn-tap-44 hidden cursor-not-allowed place-items-center rounded-full opacity-40 sm:grid"
             >
               <Search className="size-5" />
             </button>

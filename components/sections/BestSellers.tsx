@@ -23,22 +23,22 @@ export function BestSellers({ products }: BestSellersProps) {
   const { ref: gridRef, inView: gridVisible } = useInView({ rootMargin: "0px 0px -60px 0px" });
 
   return (
-    <section className="bg-surface py-16 md:py-24">
+    <section className="fn-section-y bg-surface">
       <Container>
         <header
           ref={headerRef as React.RefObject<HTMLElement>}
           className={cn(
-            "reveal mb-8 flex items-end justify-between gap-6 md:mb-14",
+            "reveal mb-10 flex items-end justify-between gap-6 md:mb-14",
             headerVisible && "in-view"
           )}
         >
           <div>
-            <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.2em]">
-              <span className="text-accent/60">02</span>
-              <span className="h-px w-6 bg-line" aria-hidden />
-              <span className="text-accent">{t.home.bestSellersEyebrow}</span>
-            </div>
-            <h2 className="mt-3 whitespace-pre-line font-display text-[28px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-5xl lg:text-[54px]">
+            <p className="fn-eyebrow-step">
+              <span className="fn-step-num">02</span>
+              <span className="fn-step-rule" />
+              <span>{t.home.bestSellersEyebrow}</span>
+            </p>
+            <h2 className="fn-section-title mt-4 md:mt-5">
               {t.home.bestSellersTitle}
             </h2>
           </div>
@@ -54,7 +54,7 @@ export function BestSellers({ products }: BestSellersProps) {
         <div
           ref={gridRef as React.RefObject<HTMLDivElement>}
           className={cn(
-            "reveal grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4",
+            "reveal grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 md:grid-cols-3 md:gap-x-6 md:gap-y-12 lg:grid-cols-4",
             gridVisible && "in-view"
           )}
           style={{ transitionDelay: "100ms" }}
@@ -64,10 +64,10 @@ export function BestSellers({ products }: BestSellersProps) {
           ))}
         </div>
 
-        <div className="mt-10 text-center sm:hidden">
+        <div className="mt-12 text-center sm:hidden">
           <Link
             href="/shop"
-            className="inline-flex h-12 items-center gap-2 rounded-md bg-ink px-7 text-sm font-medium text-bg transition-colors hover:bg-ink/90"
+            className="btn-press fn-cta-glow inline-flex h-[54px] items-center gap-2.5 rounded-full bg-ink px-8 text-[15px] font-semibold text-bg shadow-[0_14px_36px_rgba(31,24,21,0.18)]"
           >
             {t.home.bestSellersCta}
             <ArrowLeft className="size-4 ltr:rotate-180" />

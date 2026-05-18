@@ -25,13 +25,14 @@ export function ProductBenefits({ product }: Props) {
   if (!items || items.length === 0) return null;
 
   return (
-    <section className="bg-surface py-16 md:py-24">
+    <section className="fn-section-y bg-surface">
       <Container>
         <header className="mb-10 max-w-2xl md:mb-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            {t.product.benefitsEyebrow}
+          <p className="fn-eyebrow">
+            <span className="fn-rule" />
+            <span>{t.product.benefitsEyebrow}</span>
           </p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl lg:text-5xl">
+          <h2 className="fn-section-title mt-4 md:mt-5">
             {t.product.benefitsTitle}
           </h2>
         </header>
@@ -45,13 +46,13 @@ export function ProductBenefits({ product }: Props) {
               >)[b.icon] ?? Lucide.Sparkles;
             return (
               <li key={i} className="flex flex-col gap-3">
-                <span className="grid size-11 place-items-center rounded-full bg-accent/10 text-accent">
+                <span className="grid size-12 place-items-center rounded-full bg-accent/12 text-accent ring-1 ring-accent/20">
                   <Icon className="size-5" strokeWidth={1.5} />
                 </span>
-                <h3 className="text-[15px] font-semibold tracking-tight text-ink md:text-base">
+                <h3 className="text-[15.5px] font-semibold tracking-[-0.005em] text-ink md:text-base">
                   {pickLocalized(b.title, locale)}
                 </h3>
-                <p className="text-sm leading-relaxed text-muted">
+                <p className="text-[14px] leading-[1.75] text-muted md:text-[14.5px]">
                   {pickLocalized(b.body, locale)}
                 </p>
               </li>

@@ -57,20 +57,20 @@ export const products: Product[] = [
     },
     images: [
       {
-        src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "سيروم الإشراق — فناء", en: "Fanaa Glow Serum" },
       },
       {
-        src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "تفاصيل السيروم", en: "Serum texture detail" },
       },
       {
-        src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "روتين العناية بالبشرة", en: "Skincare routine" },
       },
     ],
     lifestyleImage: {
-      src: "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=1600&q=85",
+      src: "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=2000&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "بشرة مشرقة وصحية", en: "Glowing healthy skin" },
     },
     price: TIER_OFFER.unit,
@@ -237,20 +237,20 @@ export const products: Product[] = [
     },
     images: [
       {
-        src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "كريم ترميم الحاجز", en: "Fanaa Barrier Cream" },
       },
       {
-        src: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "قوام الكريم", en: "Cream texture" },
       },
       {
-        src: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "عناية يومية", en: "Daily care" },
       },
     ],
     lifestyleImage: {
-      src: "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=1600&q=85",
+      src: "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=2000&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "بشرة مرطبة وصحية", en: "Hydrated healthy skin" },
     },
     price: TIER_OFFER.unit,
@@ -417,20 +417,20 @@ export const products: Product[] = [
     },
     images: [
       {
-        src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "قناع الترميم العميق — فناء", en: "Fanaa Deep Repair Mask" },
       },
       {
-        src: "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1519735777090-ec97162dc266?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "عناية بالشعر", en: "Hair care" },
       },
       {
-        src: "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=1400&q=85",
+        src: "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=2000&q=88&auto=format&fit=crop&crop=center",
         alt: { ar: "شعر صحي ومشرق", en: "Healthy shiny hair" },
       },
     ],
     lifestyleImage: {
-      src: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=1600&q=85",
+      src: "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=2000&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "شعر صحي وقوي", en: "Healthy strong hair" },
     },
     price: TIER_OFFER.unit,

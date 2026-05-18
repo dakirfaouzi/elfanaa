@@ -66,13 +66,13 @@ export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStick
         <button
           type="button"
           onClick={goToCheckout}
-          className="pointer-events-auto flex h-[52px] w-full items-center justify-between gap-3 rounded-md bg-ink px-5 text-bg shadow-elevated active:scale-[0.99]"
+          className="fn-sticky-bar pointer-events-auto flex h-[56px] w-full items-center justify-between gap-3 bg-ink px-5 text-bg transition-transform duration-200 ease-premium active:scale-[0.985]"
         >
-          <span className="inline-flex items-center gap-2 text-sm font-medium">
-            <ShoppingBag className="size-4" />
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold">
+            <ShoppingBag className="size-4 text-accent" />
             {t.sticky.ctaCart}
           </span>
-          <span className="inline-flex items-center gap-2 text-sm font-semibold tabular-nums">
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold tabular-nums">
             {format(subtotal)}
             <ArrowLeft className="size-4 ltr:rotate-180" />
           </span>
@@ -80,7 +80,7 @@ export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStick
       ) : (
         <Link
           href={href}
-          className="pointer-events-auto flex h-[52px] w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-bg shadow-elevated active:scale-[0.99]"
+          className="fn-sticky-bar pointer-events-auto flex h-[56px] w-full items-center justify-center gap-2 bg-ink text-[14px] font-semibold text-bg transition-transform duration-200 ease-premium active:scale-[0.985]"
         >
           {t.sticky.ctaIdle}
           <ArrowLeft className="size-4 ltr:rotate-180" />

@@ -16,7 +16,7 @@ export function CartTrigger() {
       type="button"
       onClick={openCart}
       aria-label={t.common.cart}
-      className="relative grid size-10 place-items-center rounded-full transition-colors hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30"
+      className="fn-tap-44 relative grid place-items-center rounded-full text-ink/85 transition-colors hover:bg-brand-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30"
     >
       <ShoppingBag className="size-5" />
       {hydrated && itemCount > 0 ? (

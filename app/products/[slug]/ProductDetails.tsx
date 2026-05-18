@@ -52,7 +52,7 @@ export function ProductDetails({ product }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 md:gap-7">
       {product.badges?.length ? (
         <div className="flex flex-wrap gap-2">
           {product.badges.map((b, i) => (
@@ -61,8 +61,8 @@ export function ProductDetails({ product }: Props) {
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        <h1 className="whitespace-pre-line font-display text-3xl font-semibold leading-[1.15] tracking-tight text-ink md:text-4xl lg:text-[44px]">
+      <div className="space-y-4">
+        <h1 className="whitespace-pre-line font-display text-[32px] font-semibold leading-[1.08] tracking-[-0.015em] text-ink md:text-4xl lg:text-[46px]">
           {pickLocalized(headline, locale)}
         </h1>
         {product.rating ? (
@@ -74,11 +74,11 @@ export function ProductDetails({ product }: Props) {
           />
         ) : null}
         {subhead ? (
-          <p className="max-w-prose text-base leading-relaxed text-muted">
+          <p className="max-w-prose text-[15px] leading-[1.8] text-muted md:text-[17px]">
             {pickLocalized(subhead, locale)}
           </p>
         ) : (
-          <p className="max-w-prose text-base leading-relaxed text-muted">
+          <p className="max-w-prose text-[15px] leading-[1.8] text-muted md:text-[17px]">
             {pickLocalized(product.description, locale)}
           </p>
         )}
@@ -97,12 +97,18 @@ export function ProductDetails({ product }: Props) {
         data-pdp-primary-cta
         onClick={onAddToCart}
         className={cn(
-          "group relative inline-flex h-14 w-full items-center justify-center gap-2 rounded-md text-base font-semibold transition-all duration-200 ease-premium",
-          "shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30",
+          "group fn-cta-glow relative inline-flex h-[56px] w-full items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-all duration-300 ease-premium md:h-[58px] md:text-base",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
           feedback === "added"
             ? "bg-success text-bg"
-            : "bg-ink text-bg hover:-translate-y-px hover:shadow-elevated active:translate-y-0"
+            : "bg-ink text-bg hover:-translate-y-0.5 active:translate-y-0"
         )}
+        style={{
+          boxShadow:
+            feedback === "added"
+              ? undefined
+              : "0 16px 40px rgba(31,24,21,0.18), 0 0 0 1px rgba(199,162,124,0.30)",
+        }}
       >
         {feedback === "added" ? (
           <>
@@ -113,12 +119,12 @@ export function ProductDetails({ product }: Props) {
           <>
             <ShoppingBag className="size-5" aria-hidden />
             {t.product.orderNow}
-            <ArrowLeft className="size-4 ltr:rotate-180" aria-hidden />
+            <ArrowLeft className="size-4 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" aria-hidden />
           </>
         )}
       </button>
 
-      <p className="-mt-2 text-center text-[12px] text-muted">
+      <p className="-mt-2 text-center text-[12.5px] leading-relaxed text-muted">
         {t.product.cod} · {t.product.delivery} · {t.product.returns}
       </p>
 

@@ -54,7 +54,7 @@ export function HomeHero() {
       />
 
       <Container size="xl" className="relative">
-        <div className="grid items-center gap-10 py-12 md:gap-16 md:py-20 lg:grid-cols-12 lg:gap-20 lg:py-28">
+        <div className="grid items-center gap-8 pb-12 pt-8 sm:gap-10 sm:pb-14 sm:pt-10 md:gap-16 md:py-20 lg:grid-cols-12 lg:gap-20 lg:py-28">
 
           {/* ─── EDITORIAL COLUMN ──────────────────────────────────────
             *   Mobile: order-2 → below the image (image leads visually).
@@ -62,12 +62,12 @@ export function HomeHero() {
             * ─────────────────────────────────────────────────────────── */}
           <div className="order-2 lg:order-1 lg:col-span-6">
             <Flourish
-              width={64}
+              width={56}
               className="animate-rise text-accent [animation-delay:0ms] md:w-[72px]"
             />
 
             {/* 1 · Eyebrow — gold rule + small-caps tracking */}
-            <p className="fn-eyebrow animate-rise mt-5 [animation-delay:150ms]">
+            <p className="fn-eyebrow animate-rise mt-4 [animation-delay:150ms] md:mt-5">
               <span className="fn-rule" />
               <span>{t.home.heroEyebrow}</span>
             </p>
@@ -75,13 +75,13 @@ export function HomeHero() {
             {/* 2 · Headline — editorial serif on deep espresso */}
             <h1
               id="home-hero-title"
-              className="animate-rise mt-5 text-balance whitespace-pre-line font-display text-[34px] font-semibold leading-[1.06] tracking-[-0.01em] text-ink [animation-delay:300ms] sm:text-[44px] md:mt-6 md:text-[60px] lg:text-[72px]"
+              className="animate-rise mt-4 text-balance whitespace-pre-line font-display text-[32px] font-semibold leading-[1.04] tracking-[-0.015em] text-ink [animation-delay:300ms] sm:text-[42px] md:mt-6 md:text-[60px] lg:text-[72px]"
             >
               {t.home.heroTitle}
             </h1>
 
-            {/* 3 · Subheadline — full-weight muted, generous leading */}
-            <p className="animate-rise mt-5 max-w-[520px] text-[14px] leading-[1.85] text-muted [animation-delay:480ms] md:mt-6 md:text-[17px]">
+            {/* 3 · Subheadline — calm muted body, generous leading */}
+            <p className="animate-rise mt-4 max-w-[520px] text-[14.5px] leading-[1.8] text-muted [animation-delay:480ms] md:mt-6 md:text-[17px]">
               {t.home.heroSubtitle}
             </p>
 
@@ -91,13 +91,13 @@ export function HomeHero() {
              * variants so the pill never stretches beyond the column.
              */}
             <div
-              className="animate-rise mt-6 inline-flex max-w-full items-center gap-2 rounded-full bg-bg/85 px-3.5 py-1.5 text-[12px] font-medium text-ink shadow-[0_6px_14px_rgba(199,162,124,0.10)] [animation-delay:580ms] backdrop-blur-sm md:mt-7 md:px-4 md:py-2 md:text-[13px]"
+              className="animate-rise mt-5 inline-flex max-w-full items-center gap-2 rounded-full bg-bg/90 px-3.5 py-2 text-[12.5px] font-medium text-ink shadow-[0_6px_14px_rgba(199,162,124,0.10)] [animation-delay:580ms] backdrop-blur-sm md:mt-7 md:px-4 md:text-[13px]"
               style={{
-                border: "1px solid rgba(199,162,124,0.28)",
+                border: "1px solid rgba(199,162,124,0.30)",
               }}
             >
               <ShieldCheck
-                className="size-3.5 shrink-0 text-accent md:size-4"
+                className="size-4 shrink-0 text-accent"
                 strokeWidth={2}
               />
               <span className="md:hidden">
@@ -111,20 +111,20 @@ export function HomeHero() {
             </div>
 
             {/* 5 · Primary CTA + 6 · social proof line */}
-            <div className="animate-rise mt-7 flex flex-col items-start gap-3 [animation-delay:680ms] md:mt-8 md:gap-5">
+            <div className="animate-rise mt-6 flex flex-col items-start gap-3.5 [animation-delay:680ms] md:mt-8 md:gap-5">
               <Link
                 href="/shop"
-                className="btn-press fn-cta-glow group flex w-full items-center justify-center gap-2.5 rounded-full bg-ink px-6 py-3.5 text-sm font-semibold text-bg transition-all duration-300 ease-premium hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-9 sm:py-0 md:h-14 md:px-11 md:text-base"
+                className="btn-press fn-cta-glow group flex h-[54px] w-full items-center justify-center gap-2.5 rounded-full bg-ink px-7 text-[15px] font-semibold text-bg transition-all duration-300 ease-premium hover:gap-3.5 sm:inline-flex sm:w-auto sm:px-10 md:h-[58px] md:px-12 md:text-base"
                 style={{
                   boxShadow:
-                    "0 16px 40px rgba(31,24,21,0.18), 0 0 0 1px rgba(199,162,124,0.30)",
+                    "0 16px 40px rgba(31,24,21,0.20), 0 0 0 1px rgba(199,162,124,0.32)",
                 }}
               >
                 {t.home.heroCta}
                 <ArrowLeft className="size-4 shrink-0 transition-transform duration-300 ease-premium group-hover:-translate-x-0.5 ltr:rotate-180 rtl:group-hover:translate-x-0.5" />
               </Link>
 
-              <p className="inline-flex items-center gap-2 text-[11px] text-muted md:text-[13px]">
+              <p className="inline-flex items-center gap-2 text-[12px] text-muted md:text-[13px]">
                 <span
                   className="inline-block size-1.5 shrink-0 rounded-full bg-success"
                   aria-hidden
@@ -136,7 +136,7 @@ export function HomeHero() {
 
           {/* ─── EDITORIAL PHOTO ─────────────────────────────────────── */}
           <div className="order-1 lg:order-2 lg:col-span-6">
-            <div className="relative mx-auto w-full max-w-[540px]">
+            <div className="relative mx-auto w-full max-w-[420px] sm:max-w-[480px] lg:max-w-[540px]">
               {/* Soft champagne halo behind the frame */}
               <div
                 aria-hidden
@@ -151,7 +151,7 @@ export function HomeHero() {
               {/* Editorial photograph frame */}
               <div className="fn-photo-frame relative aspect-[4/5] overflow-hidden">
                 <Image
-                  src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1600&q=90"
+                  src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=2000&q=90&auto=format&fit=crop&crop=center"
                   alt={
                     isAr
                       ? "قطرة سيروم ذهبية تنزل في ضوء دافئ — رمز عناية فناء"

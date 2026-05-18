@@ -33,7 +33,7 @@ export function AboutManifesto() {
 
           <figure className="relative order-1 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft shadow-card md:order-2 md:col-span-5">
             <Image
-              src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1400&q=85"
+              src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=1800&q=88&auto=format&fit=crop&crop=center"
               alt={t.about.manifestoEyebrow}
               fill
               sizes="(min-width: 768px) 40vw, 100vw"

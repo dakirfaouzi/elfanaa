@@ -13,30 +13,32 @@ export function ProductIngredients({ product }: { product: Product }) {
   }
 
   return (
-    <section className="border-t border-line bg-surface py-16 md:py-24">
+    <section className="fn-section-y border-t border-line bg-surface">
       <div className="mx-auto max-w-5xl px-6 lg:px-8">
         <div className="mb-12 flex flex-col items-center text-center">
-          <div className="mb-4 grid size-12 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/25">
+          <div className="mb-4 grid size-12 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/30 shadow-[0_6px_20px_rgba(199,162,124,0.18)]">
             <Beaker className="size-5" />
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            {t.product.ingredientsEyebrow}
+          <p className="fn-eyebrow">
+            <span className="fn-rule" />
+            <span>{t.product.ingredientsEyebrow}</span>
+            <span className="fn-rule" />
           </p>
-          <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink md:text-4xl">
+          <h2 className="fn-section-title mt-4">
             {t.product.ingredientsTitle}
           </h2>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {product.ingredients.map((ingredient, i) => (
             <div
               key={i}
-              className="flex flex-col rounded-xl border border-line bg-bg p-6 shadow-sm"
+              className="flex flex-col rounded-2xl border border-line bg-bg p-5 shadow-[0_4px_14px_rgba(31,24,21,0.04)] transition-all duration-300 ease-premium md:p-6 md:hover:-translate-y-0.5 md:hover:shadow-[0_10px_30px_rgba(199,162,124,0.16)]"
             >
-              <h3 className="font-semibold text-ink">
+              <h3 className="text-[15.5px] font-semibold tracking-[-0.005em] text-ink">
                 {pickLocalized(ingredient.name, locale)}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
+              <p className="mt-2 text-[14px] leading-[1.75] text-muted md:text-[14.5px]">
                 {pickLocalized(ingredient.role, locale)}
               </p>
             </div>
