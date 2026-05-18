@@ -3,17 +3,48 @@
 import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Cart, CartLine, Money } from "@/lib/types";
+import type { Cart, CartLine, CartLineSource, Money } from "@/lib/types";
 import { lineTotal } from "@/lib/pricing";
 import { getProductById } from "@/data/products";
 import { siteConfig } from "@/data/site";
 import { STORAGE_KEY_CART } from "@/lib/brand";
 import { track, trackCommerce } from "@/lib/analytics";
 
+type AddOptions = {
+  variantId?: string;
+  /**
+   * Marks a line as a cart-drawer cross-sell (vs. a primary base
+   * product). Drives the deterministic `base / upsell / cross_sell`
+   * slot order written into Google Sheets. See `CartLineSource`.
+   *
+   * Default — when omitted — is `"base"`, which preserves the
+   * behaviour of every existing call-site (PDP buy buttons,
+   * sticky CTAs, `/sugarbear` flow). Only `CrossSellCard` opts
+   * into `"cross_sell"`.
+   */
+  source?: CartLineSource;
+};
+
 type CartState = {
   cart: Cart;
 
-  add: (productId: string, quantity?: number, variantId?: string) => void;
+  /**
+   * Add a product to the cart.
+   *
+   * Backwards-compatible signature:
+   *   - `add(productId)`
+   *   - `add(productId, quantity)`
+   *   - `add(productId, quantity, variantId)`     (legacy)
+   *   - `add(productId, quantity, { source, variantId })`  (new)
+   *
+   * A string third argument is treated as `variantId` for parity
+   * with every pre-existing call site.
+   */
+  add: (
+    productId: string,
+    quantity?: number,
+    variantIdOrOptions?: string | AddOptions
+  ) => void;
   remove: (productId: string, variantId?: string) => void;
   setQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clear: () => void;
@@ -34,9 +65,19 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       cart: emptyCart,
 
-      add: (productId, quantity = 1, variantId) => {
+      add: (productId, quantity = 1, variantIdOrOptions) => {
         const product = getProductById(productId);
         if (!product) return;
+
+        // Backwards-compatible argument handling — accept either a
+        // bare `variantId` string (legacy callers) or an options
+        // object with `{ variantId, source }`.
+        const opts: AddOptions =
+          typeof variantIdOrOptions === "string"
+            ? { variantId: variantIdOrOptions }
+            : variantIdOrOptions ?? {};
+        const variantId = opts.variantId;
+        const source: CartLineSource = opts.source ?? "base";
 
         set((state) => {
           const lines = [...state.cart.lines];
@@ -44,9 +85,23 @@ export const useCart = create<CartState>()(
             (l) => lineKey(l.productId, l.variantId) === lineKey(productId, variantId)
           );
           if (idx >= 0) {
-            lines[idx] = { ...lines[idx], quantity: lines[idx].quantity + quantity };
+            // Merging same productId+variant: keep the prior source
+            // when re-adding a base item, but upgrade to "cross_sell"
+            // if a cross-sell add lands on a previously empty line.
+            // Once a line is "cross_sell" it stays "cross_sell" — the
+            // intent at first add is the most accurate signal.
+            const prev = lines[idx];
+            const mergedSource: CartLineSource =
+              prev.source === "cross_sell" || source === "cross_sell"
+                ? "cross_sell"
+                : "base";
+            lines[idx] = {
+              ...prev,
+              quantity: prev.quantity + quantity,
+              source: mergedSource,
+            };
           } else {
-            lines.push({ productId, variantId, quantity });
+            lines.push({ productId, variantId, quantity, source });
           }
           return { cart: { ...state.cart, lines } };
         });
@@ -55,7 +110,7 @@ export const useCart = create<CartState>()(
           product,
           quantity,
           value: lineTotal(product, quantity),
-          extra: { variant_id: variantId },
+          extra: { variant_id: variantId, source },
         });
       },
 

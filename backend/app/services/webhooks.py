@@ -120,8 +120,26 @@ async def dispatch_to_google_sheets(
                 json=row,
                 headers={"Content-Type": "application/json"},
             )
-        ok = res.is_success
+        transport_ok = res.is_success
         body_preview = (res.text or "")[:300]
+
+        # Apps Script ALWAYS replies HTTP 200, even for auth/JSON errors.
+        # The real success signal is `{"ok": true, ...}` in the JSON body.
+        # A 200 with `{"ok": false, "error": "unauthorized"}` means the
+        # API key is wrong — the row was NOT appended. Treat that as a
+        # failure so production logs surface the real reason silently
+        # dropped orders aren't landing in the sheet.
+        parsed: Optional[Dict[str, Any]] = None
+        try:
+            parsed = json.loads(body_preview) if body_preview else None
+        except json.JSONDecodeError:
+            parsed = None
+        app_ok = (
+            parsed is not None
+            and isinstance(parsed, dict)
+            and parsed.get("ok") is True
+        )
+        ok = transport_ok and (True if parsed is None else app_ok)
 
         if ok:
             log.info(
@@ -134,17 +152,54 @@ async def dispatch_to_google_sheets(
                     "body": body_preview,
                 },
             )
-        else:
+        elif not transport_ok:
             log.warning(
                 "sheets webhook ← non-2xx",
                 extra={
                     "order_id": order_id,
                     "kind": kind,
                     "status": res.status_code,
+                    "final_url_host": res.url.host if res.url else None,
                     "body": body_preview,
                 },
             )
-        return {"ok": ok, "status": res.status_code, "body": body_preview}
+        else:
+            # 200 OK transport, but Apps Script reported a logical error
+            # (unauthorized / invalid_json / setup failure). This is the
+            # most common production failure mode — log loudly with a
+            # remediation hint so the operator can act in seconds.
+            app_error = (
+                parsed.get("error", "unknown")
+                if isinstance(parsed, dict)
+                else "unknown"
+            )
+            hint = (
+                "GOOGLE_SHEETS_API_KEY does not match API_KEY in "
+                "webhook-script.js. Update one to match the other and "
+                "redeploy the Apps Script (Deploy → Manage deployments "
+                "→ ✎ → New version)."
+                if app_error == "unauthorized"
+                else "Open the Apps Script editor → Executions tab → "
+                "inspect the failing run."
+            )
+            log.error(
+                "sheets webhook ← app-level failure (HTTP 200, ok=false)",
+                extra={
+                    "order_id": order_id,
+                    "kind": kind,
+                    "status": res.status_code,
+                    "final_url_host": res.url.host if res.url else None,
+                    "app_error": app_error,
+                    "body": body_preview,
+                    "hint": hint,
+                },
+            )
+        return {
+            "ok": ok,
+            "status": res.status_code,
+            "body": body_preview,
+            "app_ok": app_ok if parsed is not None else None,
+        }
     except Exception as exc:
         log.error(
             "sheets webhook ← exception",
@@ -159,6 +214,64 @@ async def dispatch_to_google_sheets(
         return {"ok": False, "error": str(exc)}
 
 
+# ── Three-slot formatter (mirrors `buildThreeSlotRow` in lib/webhooks/google-sheets.ts) ──
+
+
+# Slot positions are fixed: base, upsell, cross_sell. Empty slots stay
+# present so the column structure round-trips consistently. The Apps
+# Script `_handleUpsell` reuses the slot layout to REPLACE the middle
+# (upsell) slot in place rather than appending to the cell.
+_SLOT_INNER_SEP = " + "
+
+
+def build_three_slot_row(items: list[Dict[str, Any]]) -> Dict[str, str]:
+    """Bucket items into base / upsell / cross_sell, return the
+    three slot-joined strings the Sheets row needs.
+
+    Each `item` is a dict shaped `{sku: str, name: str, quantity: int,
+    source: "base" | "upsell" | "cross_sell"}`. Unknown sources collapse
+    to `"base"` so callers can be permissive without risking a slot
+    bleed.
+
+    Empty slots: SKU/name → `""`, quantity → `0`. The 3-slot structure
+    is always preserved (`"3/0/0"`, never `"3"` — see the production
+    brief: "ensure ALL ordered items and quantities are included
+    consistently and in the correct order").
+    """
+    buckets: Dict[str, list[Dict[str, Any]]] = {
+        "base": [],
+        "upsell": [],
+        "cross_sell": [],
+    }
+    for it in items:
+        src = it.get("source") or "base"
+        if src not in buckets:
+            src = "base"
+        buckets[src].append(it)
+
+    def _slot(key: str) -> Dict[str, Any]:
+        lst = buckets[key]
+        if not lst:
+            return {"sku": "", "name": "", "quantity": 0}
+        return {
+            "sku": _SLOT_INNER_SEP.join(str(it.get("sku") or "") for it in lst if it.get("sku")),
+            "name": _SLOT_INNER_SEP.join(str(it.get("name") or "") for it in lst if it.get("name")),
+            "quantity": sum(int(it.get("quantity") or 0) for it in lst),
+        }
+
+    base = _slot("base")
+    upsell = _slot("upsell")
+    cross = _slot("cross_sell")
+
+    return {
+        "sku": "/".join([base["sku"], upsell["sku"], cross["sku"]]),
+        "productName": "/".join([base["name"], upsell["name"], cross["name"]]),
+        "totalQuantity": "/".join(
+            [str(base["quantity"]), str(upsell["quantity"]), str(cross["quantity"])]
+        ),
+    }
+
+
 def build_sheets_order_row(
     *,
     order_id: str,
@@ -167,9 +280,7 @@ def build_sheets_order_row(
     phone_digits: str,
     full_address: str,
     product_url: str,
-    skus: list[str],
-    product_names_ar: list[str],
-    quantities: list[int],
+    items: list[Dict[str, Any]],
     total_minor: int,
     currency: str = "SAR",
 ) -> Dict[str, Any]:
@@ -180,9 +291,11 @@ def build_sheets_order_row(
     side reads each field by name (NOT by index), so adding optional
     columns later is forward-compatible.
 
-    Multi-product: SKU / Product name / Total quantity are joined with "/"
-    so a single row tells the full story without joining tabs.
+    `items` is a list of `{sku, name, quantity, source}` dicts grouped
+    by source into the deterministic `base / upsell / cross_sell` slot
+    order. See `build_three_slot_row` for the slot semantics.
     """
+    three = build_three_slot_row(items)
     return {
         "kind": "order",
         "orderId": order_id,
@@ -192,9 +305,9 @@ def build_sheets_order_row(
         "phone": phone_digits,
         "fullAddress": full_address,
         "productUrl": product_url,
-        "sku": "/".join(s for s in skus if s),
-        "productName": "/".join(n for n in product_names_ar if n),
-        "totalQuantity": "/".join(str(q) for q in quantities),
+        "sku": three["sku"],
+        "productName": three["productName"],
+        "totalQuantity": three["totalQuantity"],
         "variantPrice": round(total_minor / 100),
         "currency": currency or "SAR",
     }
@@ -245,3 +358,21 @@ def phone_for_sheets(value: str) -> str:
     if not value:
         return ""
     return value.lstrip("+").replace(" ", "")
+
+
+def compose_full_address(city: Optional[str], address: Optional[str]) -> str:
+    """Compose a single "City — Address" string for the Sheets
+    "Full Address" column. Mirrors `composeFullAddress` in
+    `lib/webhooks/google-sheets.ts` so the FastAPI and Next.js
+    fallback routes produce identical strings for the same inputs.
+
+    Empty / whitespace-only inputs collapse to `""` (per the brief:
+    no address → empty string in the sheet).
+    """
+    c = (city or "").strip()
+    a = (address or "").strip()
+    if not c and not a:
+        return ""
+    if c and a:
+        return f"{c} — {a}"
+    return c or a

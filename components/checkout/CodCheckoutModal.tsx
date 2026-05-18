@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -163,10 +163,15 @@ export function CodCheckoutModal() {
       // form keeps the sheet schema unchanged.
       city: form.city.trim(),
       cart: {
-        lines: lines.map(({ productId, variantId, quantity }) => ({
+        lines: lines.map(({ productId, variantId, quantity, source }) => ({
           productId,
           variantId,
           quantity,
+          // Forward the per-line source so the backend can place each
+          // item in the correct slot of the Sheets 3-slot format
+          // (`base / upsell / cross_sell`). Falls back to `"base"`
+          // for any legacy persisted cart line missing the tag.
+          source: source ?? "base",
         })),
         currency: subtotal.currency,
       },
@@ -253,21 +258,35 @@ export function CodCheckoutModal() {
    *   via the `/api/orders/[id]/upsell` route.
    * - Anything else — record the disposition for analytics and the
    *   "Your add-on is in" banner suppression on the thank-you page.
+   *
+   * Navigation choreography (fixes the ~2s flash of `/sugarbear` reported
+   * from real Saudi traffic): we trigger `router.push` FIRST and DO NOT
+   * close the modal here. The destination page (`app/thank-you/[orderId]`)
+   * runs `closeAllUI()` in its mount effect, so the modal remains opaque
+   * over the route transition and the underlying product page never
+   * becomes visible. The previous order (`closeAll()` → `router.push`)
+   * faded the modal out (200ms opacity transition) before the new page
+   * mounted, exposing the product page underneath for the duration of
+   * the client-side navigation. `useCallback` keeps the identity stable
+   * so the `useEffect(...,[upsell, onComplete])` in `PostPurchaseUpsell`
+   * cannot re-fire with a fresh callback and trigger a second
+   * `router.push`.
    */
-  const handleUpsellComplete = (disposition: UpsellStatus) => {
-    if (orderId && disposition !== "accepted") {
-      setUpsellStatus(orderId, disposition);
-    }
-    // Use the all-in-one closer so the cart drawer can't be left dangling
-    // during the route transition. `closeCheckout()` alone is fine in
-    // theory (cart was already closed by `goToCheckout`), but anything
-    // could have re-opened it (the buyer tapped back, hot reload, etc.) —
-    // belt-and-braces avoids a flash on the way to /thank-you.
-    closeAll();
-    if (orderId) {
-      router.push(`/thank-you/${encodeURIComponent(orderId)}`);
-    }
-  };
+  const handleUpsellComplete = useCallback(
+    (disposition: UpsellStatus) => {
+      if (orderId && disposition !== "accepted") {
+        setUpsellStatus(orderId, disposition);
+      }
+      if (orderId) {
+        router.push(`/thank-you/${encodeURIComponent(orderId)}`);
+        return;
+      }
+      // Degraded: no orderId means we have nowhere to send the buyer.
+      // Close so they're not stuck staring at the modal.
+      closeAll();
+    },
+    [orderId, router, closeAll]
+  );
 
   /* ------------------------------- Render ------------------------------- */
 
@@ -453,8 +472,15 @@ function normaliseOrderResponse(raw: ApiOrderResponse): {
     const fa = receipt as FastApiReceipt;
     return {
       orderId: raw.orderId,
+      // Exclude POST-purchase upsell lines so the upsell strategy can
+      // still pick from outside the cart. Both pre-checkout sources
+      // (`base` and `cross_sell`) ARE included so the strategy does not
+      // re-offer a product the customer already added in-cart. Before
+      // cart cross-sell tagging existed, every line had `source ===
+      // "base"`; after the 3-slot rollout we keep the "everything
+      // pre-upsell counts" contract by switching the filter polarity.
       productIds: fa.items
-        .filter((it) => it.source === "base")
+        .filter((it) => it.source !== "upsell")
         .map((it) => it.productId),
       receipt: {
         orderId: raw.orderId,
@@ -490,8 +516,12 @@ function normaliseOrderResponse(raw: ApiOrderResponse): {
     orderId: legacy.orderId,
     productIds:
       legacy.productIds ??
+      // Fallback path — legacy receipts only ever carried `"base"` and
+      // `"post_purchase_upsell"` sources (cross-sell wasn't tagged when
+      // the older shape was written). Excluding post-purchase upsells
+      // preserves the original contract.
       legacy.receipt.lines
-        .filter((l) => l.source === "base")
+        .filter((l) => l.source !== "post_purchase_upsell")
         .map((l) => l.productId),
     receipt: legacy.receipt,
   };

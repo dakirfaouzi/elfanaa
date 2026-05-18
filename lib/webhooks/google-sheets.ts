@@ -148,22 +148,55 @@ export async function dispatchToGoogleSheets({
       signal: AbortSignal.timeout(10_000),
     });
     const body = await safeReadBody(res);
-    if (res.ok) {
+
+    // Apps Script ALWAYS replies HTTP 200, even for auth/JSON errors. The
+    // real success signal lives inside the JSON body: `{"ok": true, ...}`
+    // for a row append, `{"ok": false, "error": "unauthorized"}` for a
+    // bad apiKey, etc. Treat a 200 with `ok: false` as a failure so the
+    // EasyPanel app logs surface the real reason orders aren't landing
+    // in the sheet — otherwise misconfigured API keys are invisible.
+    const parsed = tryParseJson(body);
+    const appOk = parsed && typeof parsed === "object" && (parsed as { ok?: unknown }).ok === true;
+    const transportOk = res.ok;
+    const ok = transportOk && (parsed === undefined ? true : Boolean(appOk));
+
+    if (ok) {
       console.info("[sheets webhook] ← response", {
         kind,
         orderId,
         status: res.status,
+        finalUrlHost: safeUrlHost(res.url),
         body,
       });
-    } else {
+    } else if (!transportOk) {
       console.warn("[sheets webhook] ← non-2xx", {
         kind,
         orderId,
         status: res.status,
+        finalUrlHost: safeUrlHost(res.url),
         body,
       });
+    } else {
+      // 200 OK transport but Apps Script reported a logical error
+      // (unauthorized / invalid_json / setup error). This is the most
+      // common production failure mode — surface it loudly.
+      const appError =
+        (parsed && typeof parsed === "object" && (parsed as { error?: unknown }).error) || "unknown";
+      console.error("[sheets webhook] ← app-level failure (HTTP 200, ok=false)", {
+        kind,
+        orderId,
+        status: res.status,
+        finalUrlHost: safeUrlHost(res.url),
+        appError,
+        body,
+        hint:
+          appError === "unauthorized"
+            ? "GOOGLE_SHEETS_API_KEY does not match API_KEY in webhook-script.js. Update one to match the other and redeploy the Apps Script (Deploy → Manage deployments → ✎ → New version)."
+            : "Open the Apps Script editor → Executions tab → inspect the failing run.",
+      });
     }
-    return { ok: res.ok, status: res.status, body };
+
+    return { ok, status: res.status, body, appOk: parsed ? Boolean(appOk) : null };
   } catch (err) {
     const message = (err as Error).message;
     console.error("[sheets webhook] ← exception", {
@@ -182,6 +215,24 @@ async function safeReadBody(res: Response): Promise<string> {
     return txt.length > 300 ? `${txt.slice(0, 300)}…` : txt;
   } catch {
     return "";
+  }
+}
+
+function tryParseJson(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function safeUrlHost(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
   }
 }
 
@@ -228,4 +279,92 @@ export function composeFullAddress(city?: string, address?: string): string {
   if (!c && !a) return "";
   if (c && a) return `${c} — ${a}`;
   return c || a;
+}
+
+/* ─────────────────────── Three-slot formatter ─────────────────────────── */
+
+/**
+ * A single line as seen by the 3-slot formatter — just the fields the
+ * slot grouping cares about. Both the Next.js fallback and the FastAPI
+ * webhook pipeline build this shape from their respective ORM/route
+ * data and call `buildThreeSlotRow` to get a deterministic `base /
+ * upsell / cross_sell` projection.
+ */
+export type ThreeSlotLine = {
+  sku: string;
+  /** Arabic title, exactly as it should appear in the sheet. */
+  name: string;
+  quantity: number;
+  source: "base" | "upsell" | "cross_sell";
+};
+
+export type ThreeSlotRow = {
+  /** `sku/sku/sku` — empty slots collapse to "" within the join. */
+  sku: string;
+  /** `name/name/name`. */
+  productName: string;
+  /** `q/q/q` — missing slots become `0` so the structure is preserved. */
+  totalQuantity: string;
+};
+
+/** Inner separator inside a single slot when 2+ items share that slot. */
+const SLOT_INNER_SEP = " + ";
+
+/**
+ * Build the deterministic 3-slot `{sku, productName, totalQuantity}`
+ * triplet from a list of order lines.
+ *
+ * Slot order is ALWAYS:
+ *   index 0 → base items   (`source === "base"`, default)
+ *   index 1 → upsell items (`source === "upsell"`)
+ *   index 2 → cross-sell   (`source === "cross_sell"`)
+ *
+ * If a slot has no items, its SKU/name slot is `""` and its quantity
+ * slot is `"0"` so the structure stays parseable downstream. If a slot
+ * has multiple items (e.g. a multi-product base cart), their SKUs /
+ * names are joined with " + " inside the slot and quantities are
+ * summed (the slash separator is reserved for between-slot joins).
+ *
+ * This matches the production brief exactly:
+ *   - `1/1/3`  → 1 base + 1 upsell + 3 cross-sell
+ *   - `3/0/0`  → 3 base, no upsell, no cross-sell
+ *   - `1//`    will NEVER happen — empty SKU slots are still present
+ *               so the row is round-trippable.
+ *
+ * For the typical `/sugarbear` funnel (single base product), the base
+ * slot resolves to the single item's qty/name/sku exactly as before
+ * — the format only widens to 3 slots, never narrows to 1.
+ */
+export function buildThreeSlotRow(lines: ThreeSlotLine[]): ThreeSlotRow {
+  const buckets: Record<"base" | "upsell" | "cross_sell", ThreeSlotLine[]> = {
+    base: [],
+    upsell: [],
+    cross_sell: [],
+  };
+  for (const line of lines) {
+    buckets[line.source].push(line);
+  }
+
+  const slot = (key: "base" | "upsell" | "cross_sell") => {
+    const items = buckets[key];
+    if (items.length === 0) {
+      return { sku: "", name: "", quantity: 0 };
+    }
+    const totalQty = items.reduce((acc, it) => acc + (it.quantity || 0), 0);
+    return {
+      sku: items.map((it) => it.sku).filter(Boolean).join(SLOT_INNER_SEP),
+      name: items.map((it) => it.name).filter(Boolean).join(SLOT_INNER_SEP),
+      quantity: totalQty,
+    };
+  };
+
+  const base = slot("base");
+  const upsell = slot("upsell");
+  const cross = slot("cross_sell");
+
+  return {
+    sku: [base.sku, upsell.sku, cross.sku].join("/"),
+    productName: [base.name, upsell.name, cross.name].join("/"),
+    totalQuantity: [base.quantity, upsell.quantity, cross.quantity].join("/"),
+  };
 }

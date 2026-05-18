@@ -42,6 +42,7 @@ from app.services.pixels import PixelEvent, PixelUser, dispatch_purchase
 from app.services.webhooks import (
     build_sheets_order_row,
     build_sheets_upsell_row,
+    compose_full_address,
     dispatch_signed,
     dispatch_to_google_sheets,
     format_order_date_ksa,
@@ -145,7 +146,11 @@ async def create_order(
                 unit_price_minor=item["unit_price"],
                 line_total_minor=item["line_total"],
                 currency=item["currency"],
-                source="base",
+                # Per-line source carried in from `_reprice_cart` so
+                # cross-sell items end up in the cross-sell slot of
+                # the Sheets row (and the admin DB's `hasCrossSell`
+                # flag becomes accurate for the first time).
+                source=item.get("source", "base"),
             )
         )
     order.events.append(OrderEvent(name="created", payload={}))
@@ -294,7 +299,13 @@ async def _get_order_or_404(session: AsyncSession, order_id: str) -> Order:
 
 
 def _reprice_cart(lines) -> List[Dict[str, Any]]:
-    """Recompute line totals from the catalog. Drops invalid product ids."""
+    """Recompute line totals from the catalog. Drops invalid product ids.
+
+    The per-line `source` is forwarded ("base" / "cross_sell") so the
+    Sheets row builder can place each item in the correct slot of the
+    3-slot `base / upsell / cross_sell` format. Defaults to "base" for
+    legacy payloads that don't tag their cart lines.
+    """
     out: List[Dict[str, Any]] = []
     for line in lines:
         product = get_product(line.product_id)
@@ -305,6 +316,14 @@ def _reprice_cart(lines) -> List[Dict[str, Any]]:
             )
             continue
         total = line_total(product, line.quantity)
+        # `getattr` keeps this resilient if a future schema change
+        # introduces a new shape without the `source` attribute.
+        raw_source = getattr(line, "source", None) or "base"
+        # Only `base` and `cross_sell` are valid for pre-checkout cart
+        # lines — `upsell` lines are added post-checkout via the
+        # `/orders/{id}/upsell/accept` endpoint. Any unexpected value
+        # collapses to "base" to avoid corrupting downstream slot logic.
+        source = "cross_sell" if raw_source == "cross_sell" else "base"
         out.append(
             {
                 "product_id": product.id,
@@ -313,6 +332,7 @@ def _reprice_cart(lines) -> List[Dict[str, Any]]:
                 "unit_price": product.price.amount,
                 "line_total": total.amount,
                 "currency": total.currency,
+                "source": source,
             }
         )
     return out
@@ -361,29 +381,43 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
         )
         return
 
-    # Build per-line lists in stable order so the sheet's SKU / name /
-    # quantity columns line up. Upsell lines are excluded from the base
-    # order row — they get a separate UPSERT after the customer accepts.
-    base_items = [it for it in order.items if it.source != "upsell"]
-    skus: list[str] = []
-    names_ar: list[str] = []
-    quantities: list[int] = []
-    for it in base_items:
+    # Build per-line item dicts tagged with their `source` so the Sheets
+    # row builder can bucket them into the deterministic 3-slot format
+    # `base / upsell / cross_sell`. The base order row deliberately
+    # excludes `upsell`-sourced items — those don't exist yet at this
+    # point (the upsell is accepted post-checkout and merged into the
+    # row in place by the Apps Script via `_handleUpsell`).
+    pre_upsell_items = [it for it in order.items if it.source != "upsell"]
+    items_payload: list[Dict[str, Any]] = []
+    for it in pre_upsell_items:
         product = get_product(it.product_id)
-        skus.append(product.resolved_sku() if product else f"FN-UNKNOWN-{it.product_id}")
-        names_ar.append(it.title)
-        quantities.append(it.quantity)
+        items_payload.append(
+            {
+                "sku": product.resolved_sku() if product else f"FN-UNKNOWN-{it.product_id}",
+                "name": it.title,
+                "quantity": it.quantity,
+                "source": it.source if it.source in ("base", "cross_sell") else "base",
+            }
+        )
+
+    # Compose the "City — Street" string from the (now-declared) payload
+    # fields. Prior to commit fixing this, the popup posted `city` but
+    # `OrderCreateIn` lacked the field, so Pydantic dropped it and we
+    # always wrote `""` here. The Next.js fallback at
+    # `app/api/orders/route.ts` already does the same via
+    # `composeFullAddress(input.city, input.address)`; keeping both in
+    # sync via the shared helper guarantees identical Sheets output
+    # regardless of which backend serves the order.
+    full_address = compose_full_address(payload.city, payload.address)
 
     sheets_row = build_sheets_order_row(
         order_id=order.id,
         order_date_ksa=format_order_date_ksa(order.created_at),
         full_name=order.full_name,
         phone_digits=phone_for_sheets(order.phone_e164 or order.phone_national or ""),
-        full_address="",  # not collected by the minimum-friction popup
+        full_address=full_address,
         product_url=(payload.context.referrer if payload.context else None) or "",
-        skus=skus,
-        product_names_ar=names_ar,
-        quantities=quantities,
+        items=items_payload,
         total_minor=order.subtotal_minor,
         currency=order.currency,
     )
@@ -429,7 +463,13 @@ async def _fanout_after_create(
 
     order_payload = {
         "event": "order.created",
-        "order": _order_to_payload(order),
+        # Pass the input `city`/`address` alongside the order so any
+        # subscriber (admin ingest mirror, CRM hook, shipping partner)
+        # receives the full shipping address without having to round-trip
+        # back to the order's own row. Order persistence in `models.Order`
+        # does not yet have these columns; passing them on the wire is
+        # the minimal-isolation fix per the production brief.
+        "order": _order_to_payload(order, city=payload.city, address=payload.address),
     }
 
     tracking = payload.context
@@ -463,13 +503,18 @@ async def _fanout_after_create(
         event_source_url=tracking.landing_url if tracking else None,
     )
 
+    shipment_payload = {
+        "event": "shipment.requested",
+        "order": _order_to_payload(order, city=payload.city, address=payload.address),
+    }
+
     await asyncio.gather(
         dispatch_signed(
             settings.orders_webhook_url, order_payload, secret=settings.webhook_secret
         ),
         dispatch_signed(
             settings.shipping_webhook_url,
-            {"event": "shipment.requested", "order": _order_to_payload(order)},
+            shipment_payload,
             secret=settings.webhook_secret,
         ),
         dispatch_purchase(pixel_event),
@@ -477,7 +522,20 @@ async def _fanout_after_create(
     )
 
 
-def _order_to_payload(order: Order) -> Dict[str, Any]:
+def _order_to_payload(
+    order: Order,
+    *,
+    city: Optional[str] = None,
+    address: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Serialise an `Order` ORM row for outbound webhooks.
+
+    `city`/`address` arrive from the original `OrderCreateIn` payload
+    (they are not yet persisted on the Order ORM). They are forwarded
+    so downstream subscribers — notably the Next.js admin ingest at
+    `app/api/admin/ingest/orders/route.ts`, which already reads them
+    when present — can store the customer's full shipping address.
+    """
     return {
         "id": order.id,
         "created_at": order.created_at.isoformat(),
@@ -489,6 +547,11 @@ def _order_to_payload(order: Order) -> Dict[str, Any]:
             "phone_e164": order.phone_e164,
             "phone_national": order.phone_national,
         },
+        # Top-level shipping fields — the admin ingest looks for them
+        # at `order.address` / `order.city` (camelCase already matches
+        # the snake_case key thanks to the admin ingest reading both).
+        "city": (city or "").strip() or None,
+        "address": (address or "").strip() or None,
         "items": [
             {
                 "product_id": it.product_id,

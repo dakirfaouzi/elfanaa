@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles, Timer, Check, X, Clock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useLocale } from "@/hooks/useLocale";
@@ -62,6 +62,22 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
     };
   }, []);
 
+  // Single-fire guard for `onComplete`. The funnel ends with exactly one
+  // navigation to `/thank-you/[orderId]`; without this guard, the
+  // `useEffect([upsell, onComplete])` below could re-fire `onComplete`
+  // a second time when the parent re-renders and supplies a new callback
+  // identity — producing a duplicate `router.push` and the back-flash
+  // to the source product page reported from production.
+  const completedRef = useRef(false);
+  const safeComplete = useCallback(
+    (status: UpsellStatus) => {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      onComplete(status);
+    },
+    [onComplete]
+  );
+
   const { secondsLeft, progress, expired } = useCountdown(POST_PURCHASE_TIMER_SECONDS, {
     autoStart: Boolean(upsell),
     onExpire: () => {
@@ -76,7 +92,7 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       // trick), then we move them along without making them click again.
       // 1500ms is long enough to read the two-line expired card and
       // short enough that nobody feels stuck.
-      transitionTimer.current = setTimeout(() => onComplete("expired"), 1500);
+      transitionTimer.current = setTimeout(() => safeComplete("expired"), 1500);
     },
   });
 
@@ -95,9 +111,11 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
   }, [upsell, orderId]);
 
   // No eligible offer → never block the funnel; jump straight to success.
+  // Routed through `safeComplete` so we cannot double-fire if the parent
+  // happens to re-render and pass a fresh `onComplete` reference.
   useEffect(() => {
-    if (!upsell) onComplete("none");
-  }, [upsell, onComplete]);
+    if (!upsell) safeComplete("none");
+  }, [upsell, safeComplete]);
 
   if (!upsell) return null;
 
@@ -173,12 +191,12 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       // Brief celebratory pause before transitioning so the customer sees
       // their tap "land". 900ms is the sweet spot — long enough to feel
       // confirmed, short enough not to feel slow.
-      transitionTimer.current = setTimeout(() => onComplete("accepted"), 900);
+      transitionTimer.current = setTimeout(() => safeComplete("accepted"), 900);
     } catch {
       // Acceptance failed — the main order is still fine. Move on without
       // blocking; surface the error silently to analytics.
       setStatus("error");
-      transitionTimer.current = setTimeout(() => onComplete("declined"), 1200);
+      transitionTimer.current = setTimeout(() => safeComplete("declined"), 1200);
     }
   };
 
@@ -189,7 +207,7 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       order_id: orderId,
       expired,
     });
-    onComplete(expired ? "expired" : "declined");
+    safeComplete(expired ? "expired" : "declined");
   };
 
   return (

@@ -179,10 +179,31 @@ export type ProductReview = {
   verified?: boolean;
 };
 
+/**
+ * How a cart line was introduced. Drives the deterministic
+ * `base / upsell / cross_sell` slot ordering written to the
+ * Google Sheets "Product name" / "Total quantity" / "SKU"
+ * columns by the order webhook.
+ *
+ * - `"base"`        — a product added from a PDP / shop / hero CTA.
+ * - `"cross_sell"`  — a product added from the in-cart cross-sell
+ *                     card (`components/cart/CrossSellCard.tsx`).
+ *
+ * Post-purchase upsells live in a separate flow (added by
+ * `app/api/orders/[orderId]/upsell/route.ts`) and never appear
+ * as a cart line — they get the `"post_purchase_upsell"` source
+ * on the order receipt and the `"upsell"` source in the DB.
+ *
+ * Optional + `"base"` default so legacy persisted carts deserialise
+ * without migration; older entries simply behave as base lines.
+ */
+export type CartLineSource = "base" | "cross_sell";
+
 export type CartLine = {
   productId: string;
   variantId?: string;
   quantity: number;
+  source?: CartLineSource;
 };
 
 export type Cart = {

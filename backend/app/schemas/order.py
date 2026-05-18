@@ -49,6 +49,15 @@ class CartLineIn(_Camel):
     product_id: str = Field(min_length=1, max_length=40)
     quantity: int = Field(ge=1, le=20)
     variant_id: Optional[str] = Field(default=None, max_length=40)
+    # How this line was introduced — see `CartLineSource` in
+    # `lib/types.ts`. Drives the deterministic
+    # `base / upsell / cross_sell` slot order on the Sheets row.
+    # Storefront cart additions are either `"base"` (PDP, hero,
+    # `/sugarbear` flow) or `"cross_sell"` (in-cart cross-sell card).
+    # Defaults to `"base"` for legacy payloads that do not send the
+    # field (and the existing call-sites that haven't been migrated
+    # to the new options-object form of `useCart.add`).
+    source: CartLineSource = "base"
 
 
 class CartIn(_Camel):
@@ -79,6 +88,20 @@ class OrderCreateIn(_Camel):
     cart: CartIn
     locale: LocaleCode = "ar"
     context: Optional[TrackingContext] = None
+    # Shipping address fields — both optional because the
+    # minimum-friction COD popup only collects `city`; longer flows
+    # may also supply a street/district line via `address`. They are
+    # forwarded into the Sheets "Full Address" column (via
+    # `composeFullAddress`) and into the outbound webhook payload so
+    # the admin DB sees them too.
+    #
+    # IMPORTANT: prior to this field being declared, the production
+    # Pydantic model dropped any `city`/`address` posted by the
+    # storefront. Sheets always wrote an empty "Full Address" cell
+    # for FastAPI-served traffic. Do NOT remove these without first
+    # checking `_dispatch_sheets_for_order` + `_order_to_payload`.
+    city: Optional[str] = Field(default=None, max_length=120)
+    address: Optional[str] = Field(default=None, max_length=255)
 
 
 class UpsellAcceptIn(_Camel):

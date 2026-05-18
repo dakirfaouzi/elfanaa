@@ -21,7 +21,13 @@ export function CrossSellCard({ product }: { product: Product }) {
   const image = product.images[0];
 
   const onAdd = () => {
-    add(product.id, 1);
+    // Tag this line as a cart-drawer cross-sell so the order webhook
+    // can place it in the cross-sell slot of the Google Sheets
+    // "Product name" / "Total quantity" / "SKU" columns. Without
+    // this tag, the line is indistinguishable from a primary product
+    // and lands in the base slot — collapsing the 3-slot model the
+    // ops team relies on (`base / upsell / cross_sell`).
+    add(product.id, 1, { source: "cross_sell" });
     track("accept_upsell", { item_id: product.id, surface: "cart_drawer" });
   };
 

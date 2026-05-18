@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { dispatchWebhook } from "@/lib/webhooks/dispatch";
 import {
+  buildThreeSlotRow,
   composeFullAddress,
   dispatchToGoogleSheets,
   formatOrderDateKSA,
   phoneForSheets,
   type SheetsOrderRow,
+  type ThreeSlotLine,
 } from "@/lib/webhooks/google-sheets";
 import { getProductById } from "@/data/products";
 import { lineTotal } from "@/lib/pricing";
 import { sumMoney, pickLocalized } from "@/lib/format";
 import { validateSaudiPhone } from "@/lib/phone";
-import { getProductSku, joinSkus } from "@/lib/sku";
-import type { CodOrderInput, Money } from "@/lib/types";
+import { getProductSku } from "@/lib/sku";
+import type { CartLineSource, CodOrderInput, Money } from "@/lib/types";
 
 /**
  * POST /api/orders
@@ -34,6 +36,29 @@ import type { CodOrderInput, Money } from "@/lib/types";
  * (Postgres / Supabase / Mongo) at the marked extension point.
  */
 export async function POST(req: Request) {
+  // Misrouting guard. In two-tier mode (NEXT_PUBLIC_API_BASE_URL is set)
+  // this route should never receive traffic — the storefront posts
+  // directly to FastAPI where Postgres, pixel CAPI, MaxMind, and the
+  // canonical Sheets dispatch all live. If we land here in two-tier
+  // mode, something is wrong: either the client bundle was built
+  // without the NEXT_PUBLIC_API_BASE_URL build ARG (so `apiUrl()` fell
+  // back to "/api/orders"), or a stale tab is hitting an older bundle.
+  // Log loudly so EasyPanel app logs catch the regression instantly.
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    console.warn("[order] ⚠ fallback route hit in two-tier deploy", {
+      backend: process.env.NEXT_PUBLIC_API_BASE_URL,
+      hint:
+        "Browser POSTed to /api/orders even though NEXT_PUBLIC_API_BASE_URL " +
+        "is set. The likely cause is that the client bundle was built " +
+        "without that variable inlined — set NEXT_PUBLIC_API_BASE_URL as " +
+        "a BUILD argument (Dockerfile builder stage / docker-compose " +
+        "elfanaa_web.build.args / EasyPanel Build Arguments tab) and " +
+        "redeploy. Until then this fallback will still create the order " +
+        "but Google Sheets dispatch may be skipped if GOOGLE_SHEETS_* " +
+        "env vars only live on the API service.",
+    });
+  }
+
   let input: CodOrderInput;
   try {
     input = (await req.json()) as CodOrderInput;
@@ -52,20 +77,26 @@ export async function POST(req: Request) {
   }
 
   // Tier-aware re-pricing. The client's reported amounts are ignored.
-  // Each line is tagged `source: "base"` so downstream systems can distinguish
-  // them from upsell lines added later via /api/orders/[id]/upsell.
+  // The per-line `source` is carried through from the cart payload so
+  // cross-sell items added in the cart drawer end up in the cross-sell
+  // slot of the Sheets row instead of being silently bucketed as base.
   const lineDetails = input.cart.lines
     .map((line) => {
       const product = getProductById(line.productId);
       if (!product) return null;
       const total = lineTotal(product, line.quantity);
+      // `source` defaults to "base" when absent so legacy clients
+      // (older bundles, persisted carts) continue to behave exactly
+      // as they did before the 3-slot upgrade.
+      const source: CartLineSource =
+        line.source === "cross_sell" ? "cross_sell" : "base";
       return {
         productId: product.id,
         title: product.title,
         unitPrice: product.price,
         quantity: line.quantity,
         lineTotal: total,
-        source: "base" as const,
+        source,
       };
     })
     .filter(<T>(x: T): x is NonNullable<T> => Boolean(x));
@@ -75,6 +106,14 @@ export async function POST(req: Request) {
       amount: 0,
       currency: input.cart.currency,
     };
+
+  // Shipping address — captured by the COD popup. Mirrors the FastAPI
+  // service (`backend/app/services/orders.py::_order_to_payload`) so
+  // every outbound webhook (admin ingest mirror, CRM, shipping
+  // partner) sees the customer's full address. The Sheets row builder
+  // below uses the same source via `composeFullAddress`.
+  const shipCity = (input.city ?? "").trim() || undefined;
+  const shipAddress = (input.address ?? "").trim() || undefined;
 
   const order = {
     id: `cod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -86,6 +125,8 @@ export async function POST(req: Request) {
       phoneE164: phoneCheck.ok ? phoneCheck.e164 : undefined,
     },
     locale: input.locale,
+    city: shipCity,
+    address: shipAddress,
     lines: lineDetails,
     totals: { subtotal, total: subtotal },
   };
@@ -96,20 +137,31 @@ export async function POST(req: Request) {
 
   // Sheets row — single operational source of truth even when CRM is down.
   // Layout mirrors `Fanaa_Store Orders - Feuille 1.csv` exactly, so a
-  // non-technical teammate can scan a row left-to-right and see the entire
-  // order without joining tabs.
-  const lineProducts = lineDetails.map((l) => {
+  // non-technical teammate can scan a row left-to-right and see the
+  // entire order without joining tabs.
+  //
+  // Three-slot model: `base / upsell / cross_sell`. The base row only
+  // contains base + cross-sell items (no upsell yet — that arrives via
+  // `/api/orders/[id]/upsell` and the Apps Script replaces the middle
+  // slot in place). Empty slots are preserved so the column structure
+  // stays consistent for every row.
+  //
+  // Examples for the /sugarbear funnel:
+  //   • Sugarbear x3, no cross-sell                 → "3/0/0"
+  //   • Sugarbear x1 + cross-sell x1                → "1/0/1"
+  //   • Sugarbear x1 + cross-sell x3 + upsell (later) → "1/1/3"
+  const threeSlotLines: ThreeSlotLine[] = lineDetails.map((l) => {
     const product = getProductById(l.productId);
-    return { line: l, product };
+    return {
+      sku: product ? getProductSku(product) : `FN-UNKNOWN-${l.productId}`,
+      name: product
+        ? pickLocalized(product.title, "ar")
+        : pickLocalized(l.title, "ar"),
+      quantity: l.quantity,
+      source: l.source,
+    };
   });
-
-  const skuList = lineProducts.map(({ product, line }) =>
-    product ? getProductSku(product) : `FN-UNKNOWN-${line.productId}`
-  );
-  const nameList = lineProducts.map(({ product, line }) =>
-    product ? pickLocalized(product.title, "ar") : pickLocalized(line.title, "ar")
-  );
-  const qtyList = lineProducts.map(({ line }) => String(line.quantity));
+  const threeSlot = buildThreeSlotRow(threeSlotLines);
 
   const sheetsRow: SheetsOrderRow = {
     kind: "order",
@@ -120,9 +172,9 @@ export async function POST(req: Request) {
     phone: phoneForSheets(order.customer.phoneE164 ?? order.customer.phone),
     fullAddress: composeFullAddress(input.city, input.address),
     productUrl: req.headers.get("referer") ?? "",
-    sku: joinSkus(skuList),
-    productName: nameList.join("/"),
-    totalQuantity: qtyList.join("/"),
+    sku: threeSlot.sku,
+    productName: threeSlot.productName,
+    totalQuantity: threeSlot.totalQuantity,
     variantPrice: Math.round(subtotal.amount / 100),
     currency: "SAR",
   };
@@ -168,6 +220,22 @@ export async function POST(req: Request) {
 
   // Return the FULL receipt — the storefront persists this to sessionStorage
   // and the thank-you page renders it without a second round-trip.
+  //
+  // Receipt lines carry the storefront's `ReceiptLineSource` contract
+  // (`"base" | "post_purchase_upsell"`) — `cross_sell` is a backend-only
+  // distinction used for Sheets slot placement, so we collapse it to
+  // `"base"` here. Without this, the receipt persisted to sessionStorage
+  // would contain values the `OrderReceipt` component doesn't know how
+  // to render.
+  const receiptLines = order.lines.map((l) => ({
+    productId: l.productId,
+    title: l.title,
+    unitPrice: l.unitPrice,
+    quantity: l.quantity,
+    lineTotal: l.lineTotal,
+    source: "base" as const,
+  }));
+
   return NextResponse.json({
     ok: true,
     orderId: order.id,
@@ -178,7 +246,7 @@ export async function POST(req: Request) {
       paymentMethod: order.paymentMethod,
       locale: order.locale,
       customer: order.customer,
-      lines: order.lines,
+      lines: receiptLines,
       totals: order.totals,
     },
   });
