@@ -65,9 +65,30 @@ def _fallback_sku(product_id: str, slug: str) -> str:
     return f"FN-{token}-{tail}"
 
 
-# ── Launch trio ──────────────────────────────────────────────────────────────
-# Mirrors `data/products.ts`. Keep IDs and base prices identical or the
-# server will reject orders the storefront created.
+# ── Catalog ──────────────────────────────────────────────────────────────────
+# MIRRORS `data/products.ts` 1:1 — id, slug, sku, AR/EN title, price, tiers,
+# and collection. The backend re-prices server-side, so a drift here causes
+# orders to be silently mutilated:
+#
+#   • An item whose `id` is not in this tuple is treated as *unknown* and
+#     dropped from the cart by `_reprice_cart`. That is exactly what made
+#     the base product disappear in production after the 3-slot rollout —
+#     the storefront was sending `p_004` (Sugarbear) and the backend had
+#     no entry, so the row ended up bucketed as cross-sell only and
+#     Sheets read `"0/0/3"` → `"0/1/3"` after the upsell merge.
+#
+#   • The frontend `data/products.ts` is the source of truth for product
+#     copy / images / CRO surface. The backend mirror keeps ONLY the
+#     fields needed to re-price and to feed the operational Sheets row
+#     (SKU, AR title, price, tier ladder, collection).
+#
+#   • When you add or rename a product on the storefront, mirror the
+#     `id`, `sku`, `title_ar`, `title_en`, `price`, `offer_tiers`, and
+#     `collection` here. The runtime guard in `_reprice_cart`
+#     (`OrderError("product_unknown", ..., 422)`) refuses to persist an
+#     order whose ids the backend cannot resolve — so any future drift
+#     surfaces on the FIRST attempted order instead of corrupting the
+#     row silently.
 
 _TIERS: tuple[OfferTier, ...] = (
     OfferTier(quantity=1, total=Money(amount=19900, currency="SAR")),
@@ -78,32 +99,54 @@ _TIERS: tuple[OfferTier, ...] = (
 _BASE_PRICE = Money(amount=19900, currency="SAR")
 
 PRODUCTS: tuple[Product, ...] = (
+    # P_001 — Glow Serum (face)
     Product(
         id="p_001",
-        slug="majlis-floor-cushion",
-        title_ar="وسادة مجلس أرضية",
-        title_en="Majlis Floor Cushion",
+        slug="glow-serum",
+        sku="FN-SERUM-001",
+        title_ar="سيروم الإشراق",
+        title_en="Glow Serum",
         price=_BASE_PRICE,
         offer_tiers=_TIERS,
-        collection="majlis",
+        collection="face",
     ),
+    # P_002 — Barrier Repair Cream (face)
     Product(
         id="p_002",
-        slug="courtyard-lantern",
-        title_ar="فانوس الفناء",
-        title_en="Courtyard Lantern",
+        slug="barrier-cream",
+        sku="FN-CREAM-002",
+        title_ar="كريم ترميم الحاجز",
+        title_en="Barrier Repair Cream",
         price=_BASE_PRICE,
         offer_tiers=_TIERS,
-        collection="lighting",
+        collection="face",
     ),
+    # P_003 — Deep Repair Hair Mask (hair)
     Product(
         id="p_003",
-        slug="ceramic-vase",
-        title_ar="مزهرية سيراميك",
-        title_en="Ceramic Vase",
+        slug="hair-mask",
+        sku="FN-HAIRMASK-003",
+        title_ar="قناع الترميم العميق",
+        title_en="Deep Repair Mask",
         price=_BASE_PRICE,
         offer_tiers=_TIERS,
-        collection="decor",
+        collection="hair",
+    ),
+    # P_004 — Sugarbear Hair Vitamins (hair) — canonical /sugarbear funnel
+    #
+    # Until this entry existed the FastAPI re-pricer dropped every
+    # /sugarbear cart line silently (the customer paid for it, the
+    # Sheets row went out as "0/…/…", and the Thank-you page lost the
+    # base product). See commit message + ROOT_CAUSE note above.
+    Product(
+        id="p_004",
+        slug="sugarbear-hair",
+        sku="FN-SUG-004",
+        title_ar="فيتامينات سوجاربير للشعر",
+        title_en="Sugarbear Hair Vitamins",
+        price=_BASE_PRICE,
+        offer_tiers=_TIERS,
+        collection="hair",
     ),
 )
 
@@ -119,3 +162,13 @@ def get_products(ids: Iterable[str]) -> List[Product]:
         if p is not None:
             out.append(p)
     return out
+
+
+def known_product_ids() -> frozenset[str]:
+    """Stable set of every product id the re-pricer can resolve.
+
+    Exposed for cross-system checks — see `_reprice_cart` and the
+    storefront/backend parity helpers. Returning a `frozenset` makes
+    callers' membership checks O(1) and immutable.
+    """
+    return frozenset(p.id for p in PRODUCTS)

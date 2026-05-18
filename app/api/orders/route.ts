@@ -80,26 +80,75 @@ export async function POST(req: Request) {
   // The per-line `source` is carried through from the cart payload so
   // cross-sell items added in the cart drawer end up in the cross-sell
   // slot of the Sheets row instead of being silently bucketed as base.
-  const lineDetails = input.cart.lines
-    .map((line) => {
-      const product = getProductById(line.productId);
-      if (!product) return null;
-      const total = lineTotal(product, line.quantity);
-      // `source` defaults to "base" when absent so legacy clients
-      // (older bundles, persisted carts) continue to behave exactly
-      // as they did before the 3-slot upgrade.
-      const source: CartLineSource =
-        line.source === "cross_sell" ? "cross_sell" : "base";
-      return {
-        productId: product.id,
-        title: product.title,
-        unitPrice: product.price,
-        quantity: line.quantity,
-        lineTotal: total,
-        source,
-      };
-    })
-    .filter(<T>(x: T): x is NonNullable<T> => Boolean(x));
+  //
+  // Unknown product ids are a HARD ERROR (422). Previously this route
+  // silently filtered them out via `.filter(Boolean)` — exactly the
+  // bug that erased the BASE product from `/sugarbear` orders in
+  // production (catalog drift between storefront and a stale FastAPI
+  // catalog mirror). Failing loud is the only way to keep the
+  // storefront and the backend re-pricer in lockstep.
+  const unknownIds: string[] = [];
+  const lineDetailsRaw = input.cart.lines.map((line) => {
+    const product = getProductById(line.productId);
+    if (!product) {
+      unknownIds.push(line.productId);
+      return null;
+    }
+    const total = lineTotal(product, line.quantity);
+    // `source` defaults to "base" when absent so legacy clients
+    // (older bundles, persisted carts) continue to behave exactly
+    // as they did before the 3-slot upgrade.
+    const source: CartLineSource =
+      line.source === "cross_sell" ? "cross_sell" : "base";
+    return {
+      productId: product.id,
+      title: product.title,
+      unitPrice: product.price,
+      quantity: line.quantity,
+      lineTotal: total,
+      source,
+    };
+  });
+
+  if (unknownIds.length > 0) {
+    console.error("[order] rejected — unknown product ids", {
+      ids: unknownIds,
+      hint:
+        "Storefront sent product ids the Next.js catalog cannot resolve. " +
+        "Mirror data/products.ts on the API side and redeploy.",
+    });
+    return NextResponse.json(
+      {
+        error: "product_unknown",
+        errors: unknownIds.map((id) => `product:${id}`),
+      },
+      { status: 422 },
+    );
+  }
+
+  const lineDetails = lineDetailsRaw.filter(
+    <T>(x: T): x is NonNullable<T> => Boolean(x),
+  );
+
+  // Slot-0 invariant: if the cart has lines, the base slot must be
+  // populated. If every surviving line is tagged `cross_sell` (e.g.
+  // the customer removed the original base product before checkout),
+  // promote the first one back to `base` so the Sheets row reads
+  // "X/0/0" instead of the regression-shape "0/0/X" and the receipt
+  // on the Thank-you page has a primary product to render.
+  if (
+    lineDetails.length > 0 &&
+    !lineDetails.some((l) => l.source === "base")
+  ) {
+    const orphan = lineDetails.find((l) => l.source === "cross_sell");
+    if (orphan) {
+      console.info(
+        "[order] promoting orphan cross-sell to base slot — no base in cart",
+        { productId: orphan.productId },
+      );
+      orphan.source = "base";
+    }
+  }
 
   const subtotal: Money =
     sumMoney(lineDetails.map((l) => l.lineTotal)) ?? {

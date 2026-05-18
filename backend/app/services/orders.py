@@ -299,22 +299,54 @@ async def _get_order_or_404(session: AsyncSession, order_id: str) -> Order:
 
 
 def _reprice_cart(lines) -> List[Dict[str, Any]]:
-    """Recompute line totals from the catalog. Drops invalid product ids.
+    """Recompute line totals from the catalog.
 
     The per-line `source` is forwarded ("base" / "cross_sell") so the
     Sheets row builder can place each item in the correct slot of the
     3-slot `base / upsell / cross_sell` format. Defaults to "base" for
     legacy payloads that don't tag their cart lines.
+
+    Unknown products are a HARD ERROR.
+
+    Why this is strict: prior to this guard the function dropped
+    unknown ids with a `log.warning` and continued. In production this
+    meant a storefront → backend catalog drift (e.g. the missing
+    `p_004` Sugarbear entry that landed the live "0/1/3" regression)
+    silently mutilated orders — the BASE product disappeared from
+    `order.items`, the Sheets row went out as `"0/0/N"`, and the
+    Thank-you page lost the base line. The customer was charged for
+    the upsell + cross-sell, the base never reached fulfilment, and
+    ops only noticed via support tickets.
+
+    A loud 422 ("product_unknown") forces the failure into:
+       1. the customer's UX (they see the error and retry / call us)
+       2. the FastAPI access logs (concrete `product_id` in the error)
+       3. the EasyPanel container logs (`log.error`)
+    so the operator can update `app/services/catalog.py` and redeploy
+    before any further orders silently corrupt the sheet.
     """
     out: List[Dict[str, Any]] = []
     for line in lines:
         product = get_product(line.product_id)
         if product is None:
-            log.warning(
-                "skipping unknown product on order",
-                extra={"product_id": line.product_id},
+            # Loud failure — see docstring rationale.
+            log.error(
+                "order rejected — unknown product id (catalog drift)",
+                extra={
+                    "product_id": line.product_id,
+                    "hint": (
+                        "Storefront sent a product id the backend cannot "
+                        "price. Mirror the storefront catalog into "
+                        "backend/app/services/catalog.py::PRODUCTS and "
+                        "redeploy the API container."
+                    ),
+                },
             )
-            continue
+            raise OrderError(
+                "product_unknown",
+                f"unknown product id: {line.product_id}",
+                422,
+            )
         total = line_total(product, line.quantity)
         # `getattr` keeps this resilient if a future schema change
         # introduces a new shape without the `source` attribute.
@@ -399,6 +431,24 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
                 "source": it.source if it.source in ("base", "cross_sell") else "base",
             }
         )
+
+    # Slot-0 invariant: if the order has any line, the base slot must
+    # be populated. Otherwise the Sheets row reads "0/0/N" and ops sees
+    # an order with no base product (the literal failure mode the live
+    # "0/1/3" regression produced). This can legitimately happen when a
+    # customer adds a base product, then a cross-sell, then removes the
+    # base before checkout — leaving only cross-sells tagged. Promote
+    # the first cross-sell into the base slot so the row reflects the
+    # real order shape and the Thank-you receipt has a primary line.
+    if items_payload and not any(it["source"] == "base" for it in items_payload):
+        for it in items_payload:
+            if it["source"] == "cross_sell":
+                it["source"] = "base"
+                log.info(
+                    "promoting orphan cross-sell to base slot — order had no base item",
+                    extra={"order_id": order.id, "product": it.get("sku")},
+                )
+                break
 
     # Compose the "City — Street" string from the (now-declared) payload
     # fields. Prior to commit fixing this, the popup posted `city` but
