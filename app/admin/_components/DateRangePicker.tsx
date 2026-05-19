@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
 import {
@@ -22,15 +30,27 @@ import { Calendar } from "./calendar/Calendar";
  * UX contract (matches Meta Ads Manager / Stripe / Shopify Analytics):
  *   • Trigger button shows the active range label (e.g. "Last 30 days"
  *     or "Jan 12 – Feb 10").
- *   • Popover on desktop (anchored to the trigger, right-aligned to
- *     avoid clipping the viewport edge) with a left-rail of presets
- *     and a right-pane calendar for custom ranges.
- *   • Bottom-sheet on mobile (< 640px) with a drag handle, identical
- *     internal layout in a single column.
+ *   • Popover on desktop, portaled to <body> with viewport-aware
+ *     collision detection — flips above the trigger when there is no
+ *     room below, and clamps horizontally so it never escapes the
+ *     viewport.
+ *   • Bottom-sheet on mobile (< 640px) anchored to the bottom of the
+ *     viewport, with a drag handle and the same internal layout in a
+ *     single column.  CSS owns the bottom-sheet position; the JS
+ *     positioner skips inline coords on mobile.
  *   • Esc / click-outside / Apply / preset selection all close.
  *   • Auto-applies presets immediately (no extra click).
  *   • Custom range applies on Apply only — gives the user a chance to
  *     finish picking both endpoints.
+ *
+ * Why portal?
+ * ───────────
+ * The admin topbar uses `backdrop-filter`, which per CSS spec creates
+ * a containing block for `position: fixed` descendants — without the
+ * portal, the bottom-sheet would be clipped *inside* the topbar's
+ * 64px-tall band on mobile.  Portaling to `document.body` lifts the
+ * popover out of every ancestor's containing-block / overflow chain
+ * so it can render anywhere on screen with predictable coordinates.
  *
  * URL contract (unchanged)
  * ────────────────────────
@@ -145,12 +165,27 @@ function detectActivePreset(searchParams: URLSearchParams): PresetId {
   return match ? match.id : "last_30";
 }
 
+/** Computed coordinates for the desktop popover.  Mobile uses `null`
+ *  so the CSS bottom-sheet rule owns positioning. */
+type PopCoords = { top: number; left?: number; right?: number } | null;
+
+const MOBILE_BREAKPOINT = 640;
+const VIEWPORT_MARGIN = 16;
+
 export function DateRangePicker() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
   const [open, setOpen] = useState(false);
+
+  // Avoid hydration mismatch — portals require `document` which
+  // doesn't exist during SSR, so we only render the popover after
+  // the first client mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Local working-copy of the picked range so the user can experiment
   // without thrashing the URL on every click.  Committed only on
@@ -217,15 +252,22 @@ export function DateRangePicker() {
     setOpen(false);
   }, [draft, commit]);
 
-  /* ── Outside-click & Escape ────────────────────────────────── */
+  /* ── Refs for trigger + portaled popover (used for click-outside,
+   *    positioning, and scroll-aware re-layout). ──────────────── */
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+
+  /* ── Outside-click & Escape ────────────────────────────────── */
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
-      if (!rootRef.current) return;
       const target = e.target as Node | null;
-      if (target && rootRef.current.contains(target)) return;
+      if (!target) return;
+      // "Inside" = either the trigger button (so toggling works) or
+      // the portaled popover.  Anywhere else closes.
+      if (triggerRef.current?.contains(target)) return;
+      if (popRef.current?.contains(target)) return;
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -241,24 +283,129 @@ export function DateRangePicker() {
     };
   }, [open]);
 
-  /* ── Body-scroll lock while the mobile sheet is open ───────── */
-
+  /* ── Body-scroll lock while the mobile sheet is open ─────────
+   *
+   * Locks `<html>` AND `<body>` so the page underneath doesn't drift
+   * during a touch gesture inside the sheet.  Captures the previous
+   * inline overflow values and restores them on close — idempotent
+   * against route changes or fast open/close cycles. */
   useEffect(() => {
     if (!open || typeof window === "undefined") return;
-    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
     if (!isMobile) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const root = document.documentElement;
+    const body = document.body;
+    const prevHtml = root.style.overflow;
+    const prevBody = body.style.overflow;
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      root.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [open]);
+
+  /* ── Collision-aware positioning (desktop only) ─────────────── */
+
+  const [coords, setCoords] = useState<PopCoords>(null);
+
+  useLayoutEffect(() => {
+    if (!open || typeof window === "undefined") return;
+
+    const compute = () => {
+      const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
+      if (isMobile) {
+        // CSS bottom-sheet rule owns positioning — skip inline coords.
+        setCoords(null);
+        return;
+      }
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+
+      const tr = trigger.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Width is capped to the popover's CSS max, then squeezed if the
+      // viewport itself is narrower than that.
+      const popW = Math.min(640, vw - VIEWPORT_MARGIN * 2);
+      // Use measured height if available (after first paint); fall back
+      // to a generous guess so the first frame still picks a plausible
+      // side.  The next compute() pass after paint refines it.
+      const popH = popRef.current?.offsetHeight ?? 460;
+
+      // ── Vertical: prefer below; flip above only when below clips ──
+      const spaceBelow = vh - tr.bottom - VIEWPORT_MARGIN;
+      const spaceAbove = tr.top - VIEWPORT_MARGIN;
+
+      let top: number;
+      if (popH + 8 <= spaceBelow || spaceBelow >= spaceAbove) {
+        // Below fits — or below has at least as much room as above.
+        top = Math.min(tr.bottom + 8, vh - popH - VIEWPORT_MARGIN);
+        if (top < VIEWPORT_MARGIN) top = VIEWPORT_MARGIN;
+      } else {
+        // Flip above.
+        top = Math.max(VIEWPORT_MARGIN, tr.top - 8 - popH);
+      }
+
+      // ── Horizontal: anchor by the trigger's right edge.  If that
+      //    would push the popover past the left viewport edge, switch
+      //    to a left-anchor instead. ──
+      const rightOffset = Math.max(VIEWPORT_MARGIN, vw - tr.right);
+      const leftEdgeIfRightAnchored = vw - rightOffset - popW;
+
+      let next: PopCoords;
+      if (leftEdgeIfRightAnchored < VIEWPORT_MARGIN) {
+        // Right-anchoring would clip the left side — left-anchor instead.
+        let left = Math.max(VIEWPORT_MARGIN, tr.left);
+        if (left + popW > vw - VIEWPORT_MARGIN) {
+          left = Math.max(VIEWPORT_MARGIN, vw - VIEWPORT_MARGIN - popW);
+        }
+        next = { top, left };
+      } else {
+        next = { top, right: rightOffset };
+      }
+      setCoords(next);
+    };
+
+    // First measurement; refine again after the popover has actually
+    // painted (so we have its real height for collision-flip logic).
+    compute();
+    const raf = requestAnimationFrame(compute);
+
+    // Re-position on scroll (capture: any scrollable ancestor counts)
+    // and resize, including the visual viewport changes that happen
+    // when Chrome Android collapses its URL bar.
+    window.addEventListener("scroll", compute, { capture: true, passive: true });
+    window.addEventListener("resize", compute, { passive: true });
+    window.visualViewport?.addEventListener("resize", compute);
+    window.visualViewport?.addEventListener("scroll", compute);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", compute, { capture: true } as EventListenerOptions);
+      window.removeEventListener("resize", compute);
+      window.visualViewport?.removeEventListener("resize", compute);
+      window.visualViewport?.removeEventListener("scroll", compute);
     };
   }, [open]);
 
   /* ── Render ────────────────────────────────────────────────── */
 
+  // Inline style object — undefined keys are dropped (so when we choose
+  // left-anchor, `right` is omitted and CSS doesn't see a stale value).
+  const popStyle = coords
+    ? {
+        top: coords.top,
+        ...(coords.right !== undefined ? { right: coords.right } : { right: "auto" as const }),
+        ...(coords.left !== undefined ? { left: coords.left } : { left: "auto" as const }),
+      }
+    : undefined;
+
   return (
-    <div ref={rootRef} className="fa-daterange" data-open={open ? "true" : "false"}>
+    <div className="fa-daterange" data-open={open ? "true" : "false"}>
       <button
+        ref={triggerRef}
         type="button"
         className="fa-btn fa-daterange-trigger"
         onClick={() => setOpen((v) => !v)}
@@ -270,73 +417,84 @@ export function DateRangePicker() {
         <ChevronDown size={14} />
       </button>
 
-      {open && (
-        <>
-          {/* Overlay: invisible on desktop (click-catcher), dimmed
-           * sheet backdrop on mobile.  CSS owns the visual difference. */}
-          <button
-            type="button"
-            aria-hidden
-            className="fa-daterange-overlay"
-            onClick={() => setOpen(false)}
-            tabIndex={-1}
-          />
+      {mounted && open
+        ? createPortal(
+            <div className="fa-daterange-portal" data-open="true">
+              {/* Click-catcher / mobile backdrop.  Always present so
+               *  taps outside the panel close it.  CSS owns the
+               *  transparent-vs-dimmed difference between desktop +
+               *  mobile breakpoints. */}
+              <button
+                type="button"
+                aria-hidden
+                className="fa-daterange-overlay"
+                onClick={() => setOpen(false)}
+                tabIndex={-1}
+              />
 
-          <div role="dialog" aria-label="Date range" className="fa-daterange-pop">
-            <div className="fa-daterange-sheet-handle" aria-hidden />
+              <div
+                ref={popRef}
+                role="dialog"
+                aria-label="Date range"
+                className="fa-daterange-pop"
+                style={popStyle}
+              >
+                <div className="fa-daterange-sheet-handle" aria-hidden />
 
-            <div className="fa-daterange-presets" role="listbox" aria-label="Date presets">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  data-active={p.id === activePreset ? "true" : "false"}
-                  role="option"
-                  aria-selected={p.id === activePreset}
-                  onClick={() => applyPreset(p)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="fa-daterange-cal">
-              <Calendar value={draft} onChange={setDraft} maxDate={endOfDay(new Date())} />
-
-              <div className="fa-daterange-footer">
-                <div className="fa-meta">
-                  {draft.from
-                    ? draft.to && draft.to.getTime() !== draft.from.getTime()
-                      ? `${format(draft.from, "MMM d, yyyy")} – ${format(draft.to, "MMM d, yyyy")}`
-                      : format(draft.from, "MMM d, yyyy")
-                    : "Pick start & end dates"}
+                <div className="fa-daterange-presets" role="listbox" aria-label="Date presets">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      data-active={p.id === activePreset ? "true" : "false"}
+                      role="option"
+                      aria-selected={p.id === activePreset}
+                      onClick={() => applyPreset(p)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    type="button"
-                    className="fa-btn"
-                    data-tone="ghost"
-                    onClick={() => setOpen(false)}
-                    aria-label="Cancel"
-                  >
-                    <X size={14} />
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="fa-btn"
-                    data-tone="primary"
-                    onClick={applyCustom}
-                    disabled={!draft.from || !draft.to}
-                  >
-                    Apply
-                  </button>
+
+                <div className="fa-daterange-cal">
+                  <Calendar value={draft} onChange={setDraft} maxDate={endOfDay(new Date())} />
+
+                  <div className="fa-daterange-footer">
+                    <div className="fa-meta">
+                      {draft.from
+                        ? draft.to && draft.to.getTime() !== draft.from.getTime()
+                          ? `${format(draft.from, "MMM d, yyyy")} – ${format(draft.to, "MMM d, yyyy")}`
+                          : format(draft.from, "MMM d, yyyy")
+                        : "Pick start & end dates"}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="fa-btn"
+                        data-tone="ghost"
+                        onClick={() => setOpen(false)}
+                        aria-label="Cancel"
+                      >
+                        <X size={14} />
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="fa-btn"
+                        data-tone="primary"
+                        onClick={applyCustom}
+                        disabled={!draft.from || !draft.to}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </>
-      )}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

@@ -15,8 +15,8 @@ import { AdminPrefsProvider } from "./_components/AdminPrefs";
  *   • Wrap children in `AdminPrefsProvider` so theme + refresh
  *     controls work on every dashboard page.
  *   • Hold the mobile drawer's open state and toggle
- *     `fa-mobile-open` on the wrapping `.fa-admin` so CSS can lock
- *     body scroll and slide the sidebar in.
+ *     `fa-mobile-open` on the `<html>` root so CSS can lock the
+ *     viewport scroll and slide the sidebar in.
  *   • Auto-close the drawer on every pathname change so navigation
  *     from inside the drawer feels native (tap nav → drawer closes
  *     → new page shows immediately).
@@ -51,12 +51,19 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
+  // Toggle the drawer-open class on `<html>` (NOT `.fa-admin`).  The
+  // page scroll container is the viewport (`<html>`), so the lock CSS
+  // (`html.fa-mobile-open { overflow: hidden }`) must target the root
+  // to actually freeze background scroll while the drawer is open.
+  // Cleanup on unmount guarantees a stuck class can never trap scroll
+  // (e.g. after a route change, the previous effect's cleanup runs
+  // before the new one applies the current `menuOpen` state).
   useEffect(() => {
-    const parent = document.querySelector(".fa-admin");
-    if (!parent) return;
-    if (menuOpen) parent.classList.add("fa-mobile-open");
-    else parent.classList.remove("fa-mobile-open");
-    return () => parent.classList.remove("fa-mobile-open");
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (menuOpen) root.classList.add("fa-mobile-open");
+    else root.classList.remove("fa-mobile-open");
+    return () => root.classList.remove("fa-mobile-open");
   }, [menuOpen]);
 
   if (bare) {

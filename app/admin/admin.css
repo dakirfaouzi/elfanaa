@@ -21,7 +21,7 @@
  *   • Tables can switch to a card-list pattern via `.fa-table-stack`.
  *   • Date picker becomes a bottom sheet < 640px.
  *   • Body never overflows horizontally (`min-width: 0` on every
- *     flex/grid child, `overflow-x: hidden` on `html, body`).
+ *     flex/grid child, `overflow-x: clip` on `.fa-admin`).
  *   • Safe-area insets for notched iPhones (status bar + home bar).
  *   • Touch targets ≥ 40 px tall.
  *   • Uses `100svh` not `100vh` so Chrome Android's URL bar collapse
@@ -29,17 +29,25 @@
  */
 
 /* ────────────────────────────────────────────────────────────────
- * Global mobile safety — applied only to the admin tree so the
- * storefront is unaffected.  The selector chain `html:has(.fa-admin)`
- * targets the document root only when an admin layout is rendered.
+ * Scroll-container discipline
+ * ----------------------------------------------------------------
+ * The storefront's `app/globals.css` already sets `overflow-x: clip`
+ * on `<html>`.  `clip` is the modern, sticky-safe sibling of
+ * `hidden`: it suppresses horizontal overflow WITHOUT creating a
+ * new block-formatting context, so it doesn't turn `<html>` into a
+ * scroll container.  Crucially this means:
+ *
+ *   • The viewport scroll (mouse wheel, trackpad, touch swipe,
+ *     iOS momentum) all keep working naturally on `<html>`.
+ *   • `position: sticky` headers inside admin still attach to the
+ *     viewport, not to a hijacked inner scroller.
+ *   • No double scrollbars, no scroll trapping.
+ *
+ * Horizontal containment for the admin tree itself is enforced via
+ * `overflow-x: clip` on `.fa-admin` (below) — same idea, scoped to
+ * the admin DOM so we never touch the storefront's behaviour and
+ * never accidentally create a nested scroll container under `<body>`.
  * ──────────────────────────────────────────────────────────────── */
-html:has(.fa-admin),
-html:has(.fa-admin) body {
-  overflow-x: hidden;
-  /* `overscroll-behavior-y: none` on Android Chrome stops the rubber-band
-   * effect from making the topbar appear to "float" during scroll. */
-  overscroll-behavior-y: none;
-}
 
 /* ────────────────────────────────────────────────────────────────
  * LIGHT THEME (default)
@@ -103,6 +111,10 @@ html:has(.fa-admin) body {
     rgb(var(--fa-bg));
   color: rgb(var(--fa-text));
   min-height: 100svh;
+  /* `clip` (not `hidden`) — see top-of-file comment.  This keeps the
+   * admin tree from leaking horizontally without breaking the
+   * viewport scroll on `<html>` or trapping wheel events on iOS. */
+  overflow-x: clip;
   font-feature-settings: "ss01", "cv11";
   padding-bottom: env(safe-area-inset-bottom);
   /* iOS/Chrome: keep selection legible. */
@@ -225,7 +237,7 @@ html[data-fa-theme="dark"] .fa-admin {
     box-shadow: 24px 0 60px -16px rgba(0, 0, 0, 0.35);
     padding-bottom: calc(22px + env(safe-area-inset-bottom));
   }
-  .fa-admin.fa-mobile-open .fa-sidebar { transform: translateX(0); }
+  html.fa-mobile-open .fa-sidebar { transform: translateX(0); }
 }
 
 .fa-sidebar-overlay {
@@ -244,7 +256,7 @@ html[data-fa-theme="dark"] .fa-admin {
     pointer-events: none;
     transition: opacity 200ms ease;
   }
-  .fa-admin.fa-mobile-open .fa-sidebar-overlay {
+  html.fa-mobile-open .fa-sidebar-overlay {
     opacity: 1;
     pointer-events: auto;
   }
@@ -394,6 +406,15 @@ html[data-fa-theme="dark"] .fa-nav-item[data-active="true"] {
 
 /* ────────────────────────────────────────────────────────────────
  * TOPBAR — premium analytics action bar
+ * ----------------------------------------------------------------
+ * Two-layer layout:
+ *   .fa-topbar       — sticky, full-bleed background + safe-area
+ *                      inset (so the blur reaches the screen edge).
+ *   .fa-topbar-inner — the actual grid, capped at the same
+ *                      `max-width: 1480px` as `.fa-content` so the
+ *                      analytics controls align with the dashboard
+ *                      content right-edge instead of being glued
+ *                      to the viewport edge on wide screens.
  * ──────────────────────────────────────────────────────────────── */
 
 .fa-topbar {
@@ -404,17 +425,23 @@ html[data-fa-theme="dark"] .fa-nav-item[data-active="true"] {
   backdrop-filter: saturate(140%) blur(14px);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   border-bottom: 1px solid rgb(var(--fa-line));
+  /* iPhone notch / status bar safe area when the app is added to the
+   * home screen as PWA. */
+  padding-top: env(safe-area-inset-top);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+html[data-fa-theme="dark"] .fa-topbar { background: rgb(var(--fa-bg) / 0.78); }
+
+.fa-topbar-inner {
   padding: 14px 28px;
+  max-width: 1480px;
+  margin: 0 auto;
+  width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 14px;
-  /* iPhone notch / status bar safe area when the app is added to the
-   * home screen as PWA. */
-  padding-top: max(14px, env(safe-area-inset-top));
-  transition: background-color 200ms ease, border-color 200ms ease;
 }
-html[data-fa-theme="dark"] .fa-topbar { background: rgb(var(--fa-bg) / 0.78); }
 
 .fa-topbar-title {
   display: flex;
@@ -472,33 +499,32 @@ html[data-fa-theme="dark"] .fa-topbar { background: rgb(var(--fa-bg) / 0.78); }
 
 @media (max-width: 1024px) {
   .fa-menu-btn { display: inline-flex; }
-  .fa-topbar {
+  .fa-topbar-inner {
     padding: 12px 16px;
     gap: 10px;
-    padding-top: max(12px, env(safe-area-inset-top));
   }
   .fa-topbar-title h1 { font-size: 17px; }
   .fa-topbar-title span { font-size: 10px; letter-spacing: 0.16em; }
 }
 
-/* < 640px: split into two rows — title row + actions row that
- * scrolls horizontally if needed (rare). */
+/* < 640px: split into two rows — title row + actions row.
+ *
+ * Note: NO `overflow-x: auto` on the actions row.  The popover is
+ * portaled to `document.body` (see `DateRangePicker.tsx`) precisely
+ * so it can never be clipped by an ancestor's overflow — but the
+ * sub-elements (refresh + theme buttons) wrap naturally instead,
+ * which is more thumb-friendly than a hidden horizontal scroller. */
 @media (max-width: 640px) {
-  .fa-topbar {
+  .fa-topbar-inner {
     grid-template-columns: auto 1fr;
     row-gap: 10px;
   }
   .fa-topbar-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 0 2px 2px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .fa-topbar-actions::-webkit-scrollbar { display: none; }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -1147,24 +1173,53 @@ select.fa-input {
 
 /* ────────────────────────────────────────────────────────────────
  * Scroll lock when mobile drawer is open
+ * ----------------------------------------------------------------
+ * The scroll container is the document viewport (`<html>`), so the
+ * lock must apply to the document root — `overflow: hidden` on
+ * `.fa-admin` (which is `overflow-x: clip` and NOT a scroll
+ * container itself) would do nothing.
+ *
+ * `html.fa-mobile-open` is toggled by `AdminShell` *only while the
+ * drawer is actually open* and is media-query gated to mobile.
+ * Closing the drawer removes the class → scroll restored.
  * ──────────────────────────────────────────────────────────────── */
 
-.fa-admin.fa-mobile-open { overflow: hidden; touch-action: none; }
-@media (min-width: 1025px) {
-  .fa-admin.fa-mobile-open { overflow: visible; touch-action: auto; }
+@media (max-width: 1024px) {
+  html.fa-mobile-open,
+  html.fa-mobile-open body {
+    overflow: hidden;
+    touch-action: none;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
  * DATE RANGE PICKER — premium analytics control
  *
  * Anatomy:
- *   .fa-daterange           — wrapper (positions popover)
+ *   .fa-daterange           — wrapper around the trigger (in topbar)
  *   .fa-daterange-trigger   — visible button on the topbar
- *   .fa-daterange-overlay   — full-screen catcher (mobile only)
+ *   .fa-daterange-portal    — root of the popover (portaled to <body>)
+ *   .fa-daterange-overlay   — click-catcher / mobile backdrop
  *   .fa-daterange-pop       — popover panel (desktop) / sheet (mobile)
  *   .fa-daterange-presets   — left rail of preset buttons
  *   .fa-daterange-cal       — calendar grid (right pane)
  *   .fa-daterange-footer    — apply/cancel
+ *
+ * Positioning strategy
+ * --------------------
+ * The popover is portaled into `document.body` so it can NEVER be
+ * clipped by an ancestor's `overflow`, `backdrop-filter`, or any
+ * other CSS that creates a containing block (the admin topbar uses
+ * `backdrop-filter` which would otherwise trap a `position: fixed`
+ * descendant inside the topbar's boundary on the bottom sheet).
+ *
+ *   • Desktop: `top` / `left` / `right` are set by JS via inline
+ *     style (`getBoundingClientRect()` from the trigger, collision-
+ *     checked against the viewport edges).  Re-computed on scroll
+ *     and resize.
+ *   • Mobile (< 640px): the JS skips the inline coords and the CSS
+ *     bottom-sheet rule (with `!important` to win over any leftover
+ *     inline coordinates) anchors the panel to the viewport bottom.
  *
  * Responsive contract:
  *   ≥ 720px wide popover  → side-by-side presets + calendar
@@ -1181,17 +1236,29 @@ select.fa-input {
   /* Inherits .fa-btn — composition is done in JSX. */
 }
 
+/* The portal wrapper is always pointer-events: none so the calendar
+ * tail end never blocks page interaction beneath it; pop + overlay
+ * children opt back in to pointer events explicitly. */
+.fa-daterange-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+
 .fa-daterange-overlay {
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 38;
-  display: none;
+  pointer-events: auto;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
 }
-.fa-daterange[data-open="true"] .fa-daterange-overlay { display: block; }
 
 @media (max-width: 640px) {
-  .fa-daterange[data-open="true"] .fa-daterange-overlay {
+  .fa-daterange-overlay {
     background: var(--fa-overlay);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
@@ -1199,18 +1266,23 @@ select.fa-input {
 }
 
 .fa-daterange-pop {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 39;
+  position: fixed;
+  /* `top` / `left` / `right` are set via inline style from JS
+   * (`useLayoutEffect` collision-aware positioner).  Fallbacks here
+   * just keep it on screen until the first measurement lands. */
+  top: 16px;
+  right: 16px;
+  z-index: 81;
   width: min(640px, calc(100vw - 32px));
+  max-height: calc(100svh - 32px);
   background: rgb(var(--fa-surface));
   border: 1px solid rgb(var(--fa-line));
   border-radius: 16px;
   box-shadow: var(--fa-shadow-pop);
   display: grid;
   grid-template-columns: 192px 1fr;
-  overflow: hidden;
+  overflow: hidden auto;
+  pointer-events: auto;
   /* Subtle pop animation — no layout-shifting. */
   transform-origin: top right;
   animation: faPopIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1230,14 +1302,20 @@ select.fa-input {
 /* Mobile bottom sheet — the popover transforms into a slide-up
  * sheet anchored to the bottom of the viewport.  This guarantees
  * Chrome Android renders the picker fully on-screen and never
- * clips against the URL bar. */
+ * clips against the URL bar.
+ *
+ * `!important` is used here intentionally to defeat any leftover
+ * `top` / `left` / `right` inline style from a previous desktop-
+ * width measurement (e.g. if the user resizes from desktop to
+ * mobile while the popover is open). */
 @media (max-width: 640px) {
   .fa-daterange-pop {
-    position: fixed;
-    inset: auto 0 0 0;
-    top: auto;
-    right: 0;
-    width: 100%;
+    top: auto !important;
+    right: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     max-height: 90svh;
     border-radius: 18px 18px 0 0;
     border-bottom: 0;

@@ -40,9 +40,9 @@ type SidebarProps = {
  *
  * Desktop: persistent sticky left column (264 px).
  * Mobile (< 1024 px): same markup, but `admin.css` slides it in as a
- * drawer when the parent `.fa-admin` has `.fa-mobile-open`. The
- * `Sidebar` itself doesn't know whether it's docked or floating —
- * that's all CSS — which keeps this file as a thin nav declaration.
+ * drawer when `<html>` has `.fa-mobile-open`. The `Sidebar` itself
+ * doesn't know whether it's docked or floating — that's all CSS —
+ * which keeps this file as a thin nav declaration.
  */
 export function Sidebar({ onMobileClose }: SidebarProps) {
   const pathname = usePathname();
