@@ -83,7 +83,7 @@ export function TrafficClient() {
             <tbody>
               {data.samples.map((s) => (
                 <tr key={s.id} style={{ cursor: "default" }}>
-                  <td className="fa-mono" style={{ color: "rgb(170 152 134)" }}>{formatDate(s.ts)}</td>
+                  <td className="fa-mono" style={{ color: "rgb(var(--fa-text-dim))" }}>{formatDate(s.ts)}</td>
                   <td>{[s.city, s.country].filter(Boolean).join(" · ") || "—"}</td>
                   <td>{s.isp ?? "—"}</td>
                   <td>{[s.device, s.browser, s.os].filter(Boolean).join(" · ") || "—"}</td>
@@ -94,10 +94,10 @@ export function TrafficClient() {
                       fontWeight: 600,
                       color:
                         s.score < 30
-                          ? "rgb(158 60 56)"
+                          ? "rgb(var(--fa-danger))"
                           : s.score < 60
-                          ? "rgb(186 130 32)"
-                          : "rgb(92 122 88)",
+                          ? "rgb(var(--fa-warn))"
+                          : "rgb(var(--fa-positive))",
                     }}
                   >
                     {s.score}

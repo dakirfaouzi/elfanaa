@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Sidebar } from "./_components/Sidebar";
 import { Topbar } from "./_components/Topbar";
+import { AdminPrefsProvider } from "./_components/AdminPrefs";
 
 /**
  * Admin shell. The login page lives outside the chrome — every other
@@ -11,18 +12,19 @@ import { Topbar } from "./_components/Topbar";
  *
  * Responsibilities owned here (kept thin on purpose):
  *   • Decide whether to mount chrome at all (login = bare).
- *   • Hold the mobile drawer's open state and the `fa-mobile-open`
- *     class on the wrapping `.fa-admin` so CSS can lock body scroll
- *     and slide the sidebar in.
+ *   • Wrap children in `AdminPrefsProvider` so theme + refresh
+ *     controls work on every dashboard page.
+ *   • Hold the mobile drawer's open state and toggle
+ *     `fa-mobile-open` on the wrapping `.fa-admin` so CSS can lock
+ *     body scroll and slide the sidebar in.
  *   • Auto-close the drawer on every pathname change so navigation
  *     from inside the drawer feels native (tap nav → drawer closes
  *     → new page shows immediately).
- *   • Close the drawer when the viewport grows back past the
- *     desktop breakpoint so an open mobile drawer never gets stuck
- *     on a desktop resize (rotation on a tablet, devtools toggle).
+ *   • Close the drawer when the viewport grows back past the desktop
+ *     breakpoint so an open mobile drawer never gets stuck on a
+ *     desktop resize (rotation, devtools toggle).
  *
- * No business logic, no fetches.  Auth is enforced upstream by
- * `middleware.ts`.
+ * Auth is enforced upstream by `middleware.ts`; nothing here checks it.
  */
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -36,7 +38,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1025px)");
+    let mq: MediaQueryList;
+    try {
+      mq = window.matchMedia("(min-width: 1025px)");
+    } catch {
+      return;
+    }
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setMenuOpen(false);
     };
@@ -45,28 +52,34 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const html = document.documentElement;
-    const parent = html.querySelector(".fa-admin");
+    const parent = document.querySelector(".fa-admin");
     if (!parent) return;
     if (menuOpen) parent.classList.add("fa-mobile-open");
     else parent.classList.remove("fa-mobile-open");
     return () => parent.classList.remove("fa-mobile-open");
   }, [menuOpen]);
 
-  if (bare) return <>{children}</>;
+  if (bare) {
+    // The login page does not need theme/refresh controls but we
+    // still mount the provider so any future linkable state
+    // (e.g. honouring system theme on the login screen) just works.
+    return <AdminPrefsProvider>{children}</AdminPrefsProvider>;
+  }
 
   return (
-    <div className="fa-shell">
-      <div
-        className="fa-sidebar-overlay"
-        aria-hidden={!menuOpen}
-        onClick={() => setMenuOpen(false)}
-      />
-      <Sidebar onMobileClose={() => setMenuOpen(false)} />
-      <div className="fa-main">
-        <Topbar onMenuToggle={() => setMenuOpen((v) => !v)} />
-        <main className="fa-content">{children}</main>
+    <AdminPrefsProvider>
+      <div className="fa-shell">
+        <div
+          className="fa-sidebar-overlay"
+          aria-hidden={!menuOpen}
+          onClick={() => setMenuOpen(false)}
+        />
+        <Sidebar onMobileClose={() => setMenuOpen(false)} />
+        <div className="fa-main">
+          <Topbar onMenuToggle={() => setMenuOpen((v) => !v)} />
+          <main className="fa-content">{children}</main>
+        </div>
       </div>
-    </div>
+    </AdminPrefsProvider>
   );
 }

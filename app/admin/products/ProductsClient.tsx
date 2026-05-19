@@ -69,7 +69,7 @@ export function ProductsClient() {
                   <tr key={r.productId} style={{ cursor: "default" }} className="fa-row-static">
                     <td data-label="Product">
                       <div>{r.slug ?? r.productId}</div>
-                      <code style={{ fontSize: 11, color: "rgb(170 152 134)" }}>{r.productId}</code>
+                      <code style={{ fontSize: 11, color: "rgb(var(--fa-text-dim))" }}>{r.productId}</code>
                     </td>
                     <td data-label="Views" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.views)}</td>
                     <td data-label="CTA clicks" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.ctaClicks)}</td>

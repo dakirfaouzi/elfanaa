@@ -54,11 +54,14 @@ function LoginForm() {
         minHeight: "100svh",
         display: "grid",
         placeItems: "center",
-        padding: 24,
+        padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",
+        /* The `.fa-admin` ancestor already paints the themed background
+         * via CSS; this overlay just adds the centred halo + soft floor
+         * gradient regardless of light/dark.  Both swatches use the
+         * `--fa-accent` token so they inherit the active palette. */
         background:
-          "radial-gradient(1100px 700px at 80% -10%, rgba(200,162,123,0.18), transparent 55%), " +
-          "radial-gradient(900px 600px at -10% 100%, rgba(232,220,203,0.55), transparent 60%), " +
-          "rgb(246 240 231)",
+          "radial-gradient(1100px 700px at 80% -10%, rgb(var(--fa-accent) / 0.16), transparent 55%), " +
+          "radial-gradient(900px 600px at -10% 100%, rgb(var(--fa-bg-2) / 0.6), transparent 60%)",
       }}
     >
       <form
@@ -67,8 +70,7 @@ function LoginForm() {
         style={{
           width: "100%",
           maxWidth: 400,
-          boxShadow:
-            "0 1px 2px rgba(56,40,24,0.05), 0 24px 60px -20px rgba(56,40,24,0.18)",
+          boxShadow: "var(--fa-shadow-pop)",
         }}
       >
         <div
@@ -87,8 +89,9 @@ function LoginForm() {
             fontFamily: "ui-serif, Georgia, serif",
             fontSize: 22,
             fontWeight: 600,
-            color: "rgb(42 33 28)",
+            color: "rgb(var(--fa-text))",
             letterSpacing: "-0.01em",
+            margin: 0,
             marginBottom: 6,
           }}
         >
@@ -97,7 +100,7 @@ function LoginForm() {
         <p
           style={{
             fontSize: 13,
-            color: "rgb(125 107 93)",
+            color: "rgb(var(--fa-text-muted))",
             lineHeight: 1.5,
             marginBottom: 22,
           }}
@@ -158,7 +161,7 @@ function LoginForm() {
           style={{
             marginTop: 18,
             fontSize: 11.5,
-            color: "rgb(170 152 134)",
+            color: "rgb(var(--fa-text-dim))",
             letterSpacing: 0.08,
             textAlign: "center",
             textTransform: "uppercase",

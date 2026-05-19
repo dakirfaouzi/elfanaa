@@ -92,9 +92,9 @@ export function ErrorState({ error }: { error: unknown }) {
     <div
       className="fa-card fa-card-pad-lg"
       style={{
-        borderColor: "rgba(158, 60, 56, 0.36)",
+        borderColor: "rgb(var(--fa-danger) / 0.36)",
         background:
-          "linear-gradient(180deg, rgba(158, 60, 56, 0.04) 0%, rgb(255 253 249) 60%)",
+          "linear-gradient(180deg, rgb(var(--fa-danger) / 0.04) 0%, rgb(var(--fa-surface)) 60%)",
       }}
     >
       <div className="fa-row" style={{ alignItems: "flex-start", gap: 14 }}>
@@ -104,13 +104,13 @@ export function ErrorState({ error }: { error: unknown }) {
             width: 40,
             height: 40,
             borderRadius: 12,
-            background: "rgba(158, 60, 56, 0.10)",
-            color: "rgb(158 60 56)",
+            background: "rgb(var(--fa-danger) / 0.10)",
+            color: "rgb(var(--fa-danger))",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            border: "1px solid rgba(158, 60, 56, 0.22)",
+            border: "1px solid rgb(var(--fa-danger) / 0.22)",
           }}
         >
           <AlertTriangle size={18} />
@@ -120,14 +120,14 @@ export function ErrorState({ error }: { error: unknown }) {
             style={{
               fontWeight: 600,
               fontSize: 16,
-              color: "rgb(42 33 28)",
+              color: "rgb(var(--fa-text))",
               fontFamily: "ui-serif, Georgia, serif",
               letterSpacing: "-0.005em",
             }}
           >
             {isAuth ? "Session expired" : "Couldn't load metrics"}
           </div>
-          <div style={{ fontSize: 13.5, marginTop: 4, color: "rgb(125 107 93)", lineHeight: 1.45 }}>
+          <div style={{ fontSize: 13.5, marginTop: 4, color: "rgb(var(--fa-text-muted))", lineHeight: 1.45 }}>
             {message}
           </div>
           {detail && (
@@ -138,9 +138,9 @@ export function ErrorState({ error }: { error: unknown }) {
                 marginTop: 10,
                 padding: "10px 12px",
                 borderRadius: 10,
-                background: "rgb(240 232 218)",
-                color: "rgb(125 107 93)",
-                border: "1px solid rgb(232 220 203)",
+                background: "rgb(var(--fa-bg-2))",
+                color: "rgb(var(--fa-text-muted))",
+                border: "1px solid rgb(var(--fa-line))",
                 wordBreak: "break-word",
               }}
             >
@@ -191,26 +191,26 @@ export function PartialDataBanner({
     <div
       className="fa-card"
       style={{
-        borderColor: "rgba(186, 130, 32, 0.42)",
-        background: "rgba(186, 130, 32, 0.06)",
+        borderColor: "rgb(var(--fa-warn) / 0.42)",
+        background: "rgb(var(--fa-warn) / 0.08)",
         padding: "12px 16px",
       }}
     >
       <div className="fa-row" style={{ alignItems: "flex-start", gap: 12 }}>
         <AlertTriangle
           size={16}
-          style={{ color: "rgb(186 130 32)", flexShrink: 0, marginTop: 2 }}
+          style={{ color: "rgb(var(--fa-warn))", flexShrink: 0, marginTop: 2 }}
         />
-        <div style={{ fontSize: 13, color: "rgb(42 33 28)", flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, color: "rgb(var(--fa-text))", flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, marginBottom: 3 }}>
             Some metrics failed to load. Showing what we have.
           </div>
-          <div style={{ fontSize: 12.5, color: "rgb(125 107 93)" }}>
+          <div style={{ fontSize: 12.5, color: "rgb(var(--fa-text-muted))" }}>
             {errors.length} sub-quer{errors.length === 1 ? "y" : "ies"} returned an error.{" "}
             <Link
               href="/admin/settings"
               style={{
-                color: "rgb(165 130 95)",
+                color: "rgb(var(--fa-accent-deep))",
                 textDecoration: "underline",
                 textUnderlineOffset: 2,
                 fontWeight: 500,

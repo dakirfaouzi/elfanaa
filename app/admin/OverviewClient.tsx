@@ -226,12 +226,12 @@ function FunnelRow({ label, v, max }: { label: string; v: number; max: number })
   const pct = max > 0 ? Math.max(2, Math.round((v / max) * 100)) : 0;
   return (
     <div className="fa-funnel-row">
-      <div style={{ color: "rgb(42 33 28)", fontSize: 13.5, fontWeight: 500 }}>{label}</div>
+      <div style={{ color: "rgb(var(--fa-text))", fontSize: 13.5, fontWeight: 500 }}>{label}</div>
       <div className="fa-funnel-bar">
         <span style={{ width: `${pct}%` }} />
       </div>
       <div className="fa-mono" style={{ textAlign: "right", fontWeight: 600 }}>{formatNumber(v)}</div>
-      <div className="fa-mono" style={{ textAlign: "right", color: "rgb(170 152 134)" }}>{pct}%</div>
+      <div className="fa-mono" style={{ textAlign: "right", color: "rgb(var(--fa-text-dim))" }}>{pct}%</div>
     </div>
   );
 }
@@ -246,18 +246,19 @@ function Empty() {
 }
 
 /**
- * Donut legend. Palette mirrors `DonutChart.PALETTE` (luxury cream/gold
- * spectrum) so colour swatches line up exactly with the chart cells.
+ * Donut legend. Swatch colours come from the live `--fa-chart-*` CSS
+ * variables on `.fa-admin` so the legend automatically follows the
+ * active theme (light cream / warm charcoal).
  */
 function Legend({ data }: { data: Array<{ label: string; value: number }> }) {
   const colors = [
-    "#C8A27B", // champagne
-    "#7B9A76", // sage
-    "#B48CA0", // dusty mauve
-    "#C8AA82", // light champagne
-    "#AF9680", // warm taupe
-    "#BAAF70", // honey
-    "#A09484", // warm grey
+    "var(--fa-chart-1-rgb, var(--fa-chart-1))",
+    "var(--fa-chart-2-rgb, var(--fa-chart-2))",
+    "var(--fa-chart-3-rgb, var(--fa-chart-3))",
+    "var(--fa-chart-4-rgb, var(--fa-chart-4))",
+    "var(--fa-chart-5-rgb, var(--fa-chart-5))",
+    "var(--fa-chart-6-rgb, var(--fa-chart-6))",
+    "var(--fa-chart-7-rgb, var(--fa-chart-7))",
   ];
   return (
     <div className="fa-stack-sm" style={{ marginTop: 12 }}>
@@ -269,13 +270,13 @@ function Legend({ data }: { data: Array<{ label: string; value: number }> }) {
                 width: 10,
                 height: 10,
                 borderRadius: 999,
-                background: colors[i % colors.length],
-                boxShadow: "0 0 0 2px rgb(255 253 249)",
+                background: `rgb(${colors[i % colors.length]})`,
+                boxShadow: "0 0 0 2px rgb(var(--fa-surface))",
               }}
             />
-            <span style={{ color: "rgb(42 33 28)" }}>{d.label}</span>
+            <span style={{ color: "rgb(var(--fa-text))" }}>{d.label}</span>
           </span>
-          <span className="fa-mono" style={{ color: "rgb(125 107 93)" }}>
+          <span className="fa-mono" style={{ color: "rgb(var(--fa-text-muted))" }}>
             {formatNumber(d.value)}
           </span>
         </div>

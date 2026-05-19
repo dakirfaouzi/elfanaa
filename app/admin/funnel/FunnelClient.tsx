@@ -58,12 +58,12 @@ export function FunnelClient() {
                     textAlign: "right",
                     color:
                       i === 0
-                        ? "rgb(170 152 134)"
+                        ? "rgb(var(--fa-text-dim))"
                         : s.dropRate > 50
-                        ? "rgb(158 60 56)"
+                        ? "rgb(var(--fa-danger))"
                         : s.dropRate > 25
-                        ? "rgb(186 130 32)"
-                        : "rgb(92 122 88)",
+                        ? "rgb(var(--fa-warn))"
+                        : "rgb(var(--fa-positive))",
                   }}
                 >
                   {i === 0 ? "—" : `↓ ${formatPercent(s.dropRate)}`}

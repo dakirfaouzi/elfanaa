@@ -72,7 +72,7 @@ export function OrdersClient() {
                 left: 12,
                 top: "50%",
                 transform: "translateY(-50%)",
-                color: "rgb(125 107 93)",
+                color: "rgb(var(--fa-text-muted))",
               }}
             />
             <input
@@ -164,7 +164,7 @@ export function OrdersClient() {
                     <td
                       data-label="Date"
                       className="fa-mono"
-                      style={{ color: "rgb(170 152 134)" }}
+                      style={{ color: "rgb(var(--fa-text-dim))" }}
                     >
                       {formatDate(r.createdAt)}
                     </td>
@@ -181,7 +181,7 @@ export function OrdersClient() {
           <button className="fa-btn" disabled={page <= 1} onClick={() => setParam("page", String(page - 1))}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ fontSize: 12.5, color: "rgb(125 107 93)", padding: "0 6px" }}>
+          <span style={{ fontSize: 12.5, color: "rgb(var(--fa-text-muted))", padding: "0 6px" }}>
             Page {page} of {data.pages}
           </span>
           <button className="fa-btn" disabled={page >= data.pages} onClick={() => setParam("page", String(page + 1))}>

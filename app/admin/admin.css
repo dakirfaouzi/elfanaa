@@ -1,26 +1,49 @@
-/* Fanaa Admin — premium luxury cream + champagne surface.
+/* Fanaa Admin — premium luxury cream + champagne surface (light)
+ *                +  warm charcoal + champagne surface  (dark)
  *
  * Brand direction: Shopify Analytics meets GCC luxury editorial.
  *
- * Token scheme:
- *   • Namespaced under `--fa-*` so the storefront's `:root` palette is
- *     never affected. Loaded only inside `app/admin/layout.tsx`.
- *   • Values mirror the storefront's `--color-*` tokens in
- *     `styles/tokens.css` (cream backgrounds, espresso ink, rose-gold
- *     accent) so the admin reads as part of the same brand universe.
+ * Token scheme
+ * ────────────
+ * All component classes read from `--fa-*` CSS variables on `.fa-admin`.
+ * The light palette lives on `.fa-admin` itself; the dark palette lives
+ * on `html[data-fa-theme="dark"] .fa-admin` and overrides every token
+ * the components need.  This means a theme swap is one attribute on
+ * `<html>`, applied synchronously by the inline bootstrap script in
+ * `layout.tsx` — zero flash, zero React hydration cost.
  *
- * Why a dedicated stylesheet (and not Tailwind utilities everywhere)?
- *   • Tailwind utilities make 12 admin pages re-skin into a 1000-line
- *     diff; tokenised CSS classes keep visual changes to ONE file.
- *   • Operator-facing density is different from storefront marketing.
- *     This file owns it.
+ * Loaded only inside `app/admin/layout.tsx` so the storefront's
+ * `:root` palette is never affected.
  *
- * Mobile-first principles applied throughout:
- *   • Sidebar collapses into a slide-in drawer < 1024px (with overlay).
+ * Mobile-first principles applied throughout
+ * ──────────────────────────────────────────
+ *   • Sidebar collapses into a slide-in drawer < 1024px with overlay.
  *   • Tables can switch to a card-list pattern via `.fa-table-stack`.
- *   • Touch targets are ≥ 40 px tall on mobile.
- *   • All paddings + font sizes have a phone-friendly downshift.
+ *   • Date picker becomes a bottom sheet < 640px.
+ *   • Body never overflows horizontally (`min-width: 0` on every
+ *     flex/grid child, `overflow-x: hidden` on `html, body`).
+ *   • Safe-area insets for notched iPhones (status bar + home bar).
+ *   • Touch targets ≥ 40 px tall.
+ *   • Uses `100svh` not `100vh` so Chrome Android's URL bar collapse
+ *     doesn't cause layout shift.
  */
+
+/* ────────────────────────────────────────────────────────────────
+ * Global mobile safety — applied only to the admin tree so the
+ * storefront is unaffected.  The selector chain `html:has(.fa-admin)`
+ * targets the document root only when an admin layout is rendered.
+ * ──────────────────────────────────────────────────────────────── */
+html:has(.fa-admin),
+html:has(.fa-admin) body {
+  overflow-x: hidden;
+  /* `overscroll-behavior-y: none` on Android Chrome stops the rubber-band
+   * effect from making the topbar appear to "float" during scroll. */
+  overscroll-behavior-y: none;
+}
+
+/* ────────────────────────────────────────────────────────────────
+ * LIGHT THEME (default)
+ * ──────────────────────────────────────────────────────────────── */
 
 .fa-admin {
   /* ── Surfaces ─────────────────────────────────────────────────── */
@@ -43,13 +66,14 @@
   --fa-accent-2: 222 188 152;   /* #DEBC98 — light champagne */
   --fa-accent-deep: 165 130 95; /* #A5825F — deep tone for active */
   --fa-accent-soft: 240 224 200;/* #F0E0C8 — pale halo */
+  --fa-accent-ink: 255 252 244; /* text on accent CTA */
 
   /* ── Semantic ─────────────────────────────────────────────────── */
-  --fa-positive: 92 122 88;      /* #5C7A58 sage */
-  --fa-positive-soft: 213 226 200; /* tag bg */
-  --fa-warn: 186 130 32;         /* warm amber */
+  --fa-positive: 92 122 88;        /* #5C7A58 sage */
+  --fa-positive-soft: 213 226 200;
+  --fa-warn: 186 130 32;
   --fa-warn-soft: 244 226 178;
-  --fa-danger: 158 60 56;        /* warm rose */
+  --fa-danger: 158 60 56;
   --fa-danger-soft: 240 198 195;
 
   /* ── Chart palette (luxury, no neon/cold) ────────────────────── */
@@ -61,12 +85,16 @@
   --fa-chart-6: 200 175 110;     /* honey */
   --fa-chart-7: 160 148 132;     /* warm grey */
 
-  /* ── Misc ─────────────────────────────────────────────────────── */
-  --fa-grid: 232 220 203;
+  /* ── Shadows ──────────────────────────────────────────────────── */
   --fa-shadow-soft: 0 1px 2px rgba(56, 40, 24, 0.04),
                     0 4px 12px -2px rgba(56, 40, 24, 0.05);
   --fa-shadow-lift: 0 1px 3px rgba(56, 40, 24, 0.06),
                     0 12px 28px -8px rgba(56, 40, 24, 0.10);
+  --fa-shadow-pop: 0 18px 40px -16px rgba(56, 40, 24, 0.22);
+
+  /* ── Misc ─────────────────────────────────────────────────────── */
+  --fa-grid: 232 220 203;
+  --fa-overlay: rgba(42, 33, 28, 0.32);
 
   color-scheme: light;
   background:
@@ -76,16 +104,75 @@
   color: rgb(var(--fa-text));
   min-height: 100svh;
   font-feature-settings: "ss01", "cv11";
-  /* iOS Safari respect bottom safe area on the page wrapper. */
   padding-bottom: env(safe-area-inset-bottom);
+  /* iOS/Chrome: keep selection legible. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  /* Smooth theme swap across every property that uses a token. */
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
 }
 
-.fa-admin * { box-sizing: border-box; }
+/* ────────────────────────────────────────────────────────────────
+ * DARK THEME — warm charcoal, NOT pure black.  Champagne accents
+ * preserved so the brand identity carries across themes.
+ * ──────────────────────────────────────────────────────────────── */
+
+html[data-fa-theme="dark"] .fa-admin {
+  --fa-bg: 24 21 19;            /* #181513 — warm soft black */
+  --fa-bg-2: 32 28 24;          /* #201C18 */
+  --fa-surface: 38 33 28;       /* #26211C — card body */
+  --fa-surface-2: 46 40 34;     /* #2E2822 — hover */
+
+  --fa-line: 60 52 42;          /* #3C342A */
+  --fa-line-strong: 80 68 56;   /* #504438 */
+
+  --fa-text: 245 238 226;       /* warm ivory */
+  --fa-text-muted: 188 174 156; /* #BCAE9C */
+  --fa-text-dim: 145 131 113;   /* #918371 */
+
+  --fa-accent: 210 172 132;     /* slightly lifted champagne */
+  --fa-accent-2: 226 192 158;
+  --fa-accent-deep: 175 138 100;
+  --fa-accent-soft: 60 48 36;
+  --fa-accent-ink: 24 21 19;
+
+  --fa-positive: 137 168 130;
+  --fa-positive-soft: 50 65 47;
+  --fa-warn: 215 168 90;
+  --fa-warn-soft: 70 55 30;
+  --fa-danger: 200 110 100;
+  --fa-danger-soft: 70 38 35;
+
+  --fa-chart-1: 210 172 132;
+  --fa-chart-2: 137 168 130;
+  --fa-chart-3: 195 152 175;
+  --fa-chart-4: 220 188 152;
+  --fa-chart-5: 188 165 140;
+  --fa-chart-6: 215 192 124;
+  --fa-chart-7: 180 168 152;
+
+  --fa-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5),
+                    0 6px 20px -4px rgba(0, 0, 0, 0.4);
+  --fa-shadow-lift: 0 1px 3px rgba(0, 0, 0, 0.55),
+                    0 16px 36px -8px rgba(0, 0, 0, 0.5);
+  --fa-shadow-pop: 0 24px 50px -18px rgba(0, 0, 0, 0.6);
+
+  --fa-overlay: rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+  background:
+    radial-gradient(1100px 700px at 100% -10%, rgba(210, 172, 132, 0.10), transparent 55%),
+    radial-gradient(900px 600px at -10% 100%, rgba(60, 52, 42, 0.55), transparent 60%),
+    rgb(var(--fa-bg));
+  color: rgb(var(--fa-text));
+}
+
+.fa-admin * { box-sizing: border-box; min-width: 0; }
 
 /* ────────────────────────────────────────────────────────────────
  * SHELL — sidebar + main column
- * Mobile (< 1024px): sidebar is hidden by default, slides in as a
- * drawer when `.fa-mobile-open` is added to `.fa-admin`.
  * ──────────────────────────────────────────────────────────────── */
 
 .fa-shell {
@@ -102,6 +189,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: 100%;
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -119,8 +207,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* Subtle right-edge shadow for the "floating" feel. */
-  box-shadow: 1px 0 0 rgba(232, 220, 203, 0.5), 24px 0 60px -40px rgba(56, 40, 24, 0.08);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.02), 24px 0 60px -40px rgba(56, 40, 24, 0.08);
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
 
 @media (max-width: 1024px) {
@@ -130,9 +218,11 @@
     width: min(304px, 86vw);
     z-index: 60;
     transform: translateX(-110%);
+    /* `will-change: transform` keeps the slide animation buttery on
+     * Chrome Android (otherwise we get a 1-frame paint jank). */
+    will-change: transform;
     transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 24px 0 60px -16px rgba(56, 40, 24, 0.25);
-    /* Account for iOS safe area on the bottom. */
+    box-shadow: 24px 0 60px -16px rgba(0, 0, 0, 0.35);
     padding-bottom: calc(22px + env(safe-area-inset-bottom));
   }
   .fa-admin.fa-mobile-open .fa-sidebar { transform: translateX(0); }
@@ -146,8 +236,9 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(42, 33, 28, 0.32);
+    background: var(--fa-overlay);
     backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     z-index: 55;
     opacity: 0;
     pointer-events: none;
@@ -177,8 +268,8 @@
   position: relative;
   box-shadow:
     0 10px 24px -10px rgba(165, 130, 95, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 0 rgba(165, 130, 95, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(165, 130, 95, 0.20);
   flex-shrink: 0;
 }
 
@@ -191,7 +282,7 @@
   font-family: ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 600;
   font-size: 18px;
-  color: rgb(255 252 244);
+  color: rgb(var(--fa-accent-ink));
   text-shadow: 0 1px 0 rgba(165, 130, 95, 0.4);
   letter-spacing: 0.02em;
 }
@@ -222,7 +313,7 @@
   appearance: none;
   background: transparent;
   border: 0;
-  padding: 4px;
+  padding: 6px;
   margin-left: auto;
   border-radius: 8px;
   color: rgb(var(--fa-text-muted));
@@ -239,9 +330,11 @@
   gap: 2px;
   overflow-y: auto;
   flex: 1 1 auto;
-  /* Hide scrollbar — only visible if the user has many nav items. */
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--fa-line)) transparent;
+  /* Reserve a hair of room so the last item never gets cut by the
+   * iOS safe-area inset. */
+  padding-bottom: 4px;
 }
 .fa-nav-section {
   padding: 14px 10px 6px;
@@ -262,7 +355,7 @@
   font-size: 14px;
   letter-spacing: 0.005em;
   transition:
-    background 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
     color 160ms ease,
     box-shadow 160ms ease;
   border: 1px solid transparent;
@@ -282,32 +375,47 @@
   border-color: rgba(200, 162, 123, 0.28);
   box-shadow: inset 3px 0 0 rgb(var(--fa-accent-deep));
 }
+html[data-fa-theme="dark"] .fa-nav-item[data-active="true"] {
+  background:
+    linear-gradient(90deg,
+      rgba(210, 172, 132, 0.22) 0%,
+      rgba(210, 172, 132, 0.04) 100%);
+}
 .fa-nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
 
 .fa-nav-foot {
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid rgb(var(--fa-line));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* ────────────────────────────────────────────────────────────────
- * TOPBAR
+ * TOPBAR — premium analytics action bar
  * ──────────────────────────────────────────────────────────────── */
 
 .fa-topbar {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(246, 240, 231, 0.85);
+  background: rgb(var(--fa-bg) / 0.85);
   backdrop-filter: saturate(140%) blur(14px);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   border-bottom: 1px solid rgb(var(--fa-line));
-  padding: 16px 28px;
-  display: flex;
+  padding: 14px 28px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
+  /* iPhone notch / status bar safe area when the app is added to the
+   * home screen as PWA. */
+  padding-top: max(14px, env(safe-area-inset-top));
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
+html[data-fa-theme="dark"] .fa-topbar { background: rgb(var(--fa-bg) / 0.78); }
+
 .fa-topbar-title {
   display: flex;
   flex-direction: column;
@@ -320,6 +428,9 @@
   font-family: ui-serif, Georgia, serif;
   color: rgb(var(--fa-text));
   line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .fa-topbar-title span {
   font-size: 11px;
@@ -328,8 +439,18 @@
   color: rgb(var(--fa-text-dim));
   margin-top: 3px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.fa-topbar-right { display: flex; align-items: center; gap: 10px; }
+
+.fa-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
 
 .fa-menu-btn {
   display: none;
@@ -345,15 +466,39 @@
   color: rgb(var(--fa-text));
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .fa-menu-btn:hover { background: rgb(var(--fa-surface-2)); border-color: rgb(var(--fa-line-strong)); }
 
 @media (max-width: 1024px) {
   .fa-menu-btn { display: inline-flex; }
-  .fa-topbar { padding: 12px 16px; gap: 10px; }
+  .fa-topbar {
+    padding: 12px 16px;
+    gap: 10px;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
   .fa-topbar-title h1 { font-size: 17px; }
   .fa-topbar-title span { font-size: 10px; letter-spacing: 0.16em; }
+}
+
+/* < 640px: split into two rows — title row + actions row that
+ * scrolls horizontally if needed (rare). */
+@media (max-width: 640px) {
+  .fa-topbar {
+    grid-template-columns: auto 1fr;
+    row-gap: 10px;
+  }
+  .fa-topbar-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 2px 2px;
+    flex-wrap: nowrap;
+  }
+  .fa-topbar-actions::-webkit-scrollbar { display: none; }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -374,7 +519,10 @@
   .fa-content { padding: 22px 18px 96px; gap: 20px; }
 }
 @media (max-width: 640px) {
-  .fa-content { padding: 18px 14px 96px; gap: 18px; }
+  .fa-content {
+    padding: 18px 14px calc(96px + env(safe-area-inset-bottom));
+    gap: 16px;
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -399,8 +547,6 @@
 @media (max-width: 640px) {
   .fa-grid { gap: 12px; }
   .fa-grid-4, .fa-grid-3, .fa-grid-2 { grid-template-columns: 1fr; }
-  /* Allow KPI grids to stay 2-col on phones for density when the
-   * page opts in via `.fa-grid-2-phone`. */
   .fa-grid-2-phone { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -415,11 +561,14 @@
   padding: 18px 20px;
   position: relative;
   box-shadow: var(--fa-shadow-soft);
-  transition: box-shadow 220ms ease, transform 220ms ease, border-color 220ms ease;
-}
-.fa-card:hover {
-  /* Subtle lift — only KPI/clickable cards should opt in; we apply
-   * via `.fa-card-hover` so static cards don't shift on cursor. */
+  transition:
+    box-shadow 220ms ease,
+    transform 220ms ease,
+    border-color 220ms ease,
+    background-color 200ms ease;
+  /* Cards must NEVER let internal content leak outside their box —
+   * key for charts on narrow phones. */
+  min-width: 0;
 }
 .fa-card-hover:hover {
   box-shadow: var(--fa-shadow-lift);
@@ -465,8 +614,9 @@
 }
 
 @media (max-width: 640px) {
-  .fa-kpi-value { font-size: 22px; }
+  .fa-kpi-value { font-size: 22px; margin-top: 6px; }
   .fa-kpi-label { font-size: 9.5px; letter-spacing: 0.18em; }
+  .fa-kpi-sub { font-size: 11.5px; }
 }
 
 .fa-delta {
@@ -482,13 +632,13 @@
 }
 .fa-delta[data-tone="up"] {
   color: rgb(var(--fa-positive));
-  background: rgba(123, 154, 118, 0.14);
-  border: 1px solid rgba(123, 154, 118, 0.28);
+  background: rgb(var(--fa-positive) / 0.14);
+  border: 1px solid rgb(var(--fa-positive) / 0.30);
 }
 .fa-delta[data-tone="down"] {
   color: rgb(var(--fa-danger));
-  background: rgba(158, 60, 56, 0.10);
-  border: 1px solid rgba(158, 60, 56, 0.28);
+  background: rgb(var(--fa-danger) / 0.10);
+  border: 1px solid rgb(var(--fa-danger) / 0.28);
 }
 .fa-delta[data-tone="flat"] {
   color: rgb(var(--fa-text-muted));
@@ -534,10 +684,12 @@
   font-weight: 500;
   letter-spacing: 0.005em;
   cursor: pointer;
+  white-space: nowrap;
   transition:
-    background 160ms ease,
+    background-color 160ms ease,
     border-color 160ms ease,
     box-shadow 160ms ease,
+    color 160ms ease,
     transform 120ms ease;
 }
 .fa-btn:hover {
@@ -546,15 +698,19 @@
 }
 .fa-btn:active { transform: translateY(0.5px); }
 .fa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.fa-btn:focus-visible {
+  outline: 2px solid rgb(var(--fa-accent));
+  outline-offset: 2px;
+}
 
 .fa-btn[data-tone="primary"] {
   background:
     linear-gradient(180deg, rgb(var(--fa-accent-2)) 0%, rgb(var(--fa-accent)) 100%);
-  color: rgb(255 252 244);
+  color: rgb(var(--fa-accent-ink));
   border-color: rgb(var(--fa-accent-deep));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.35) inset,
-    0 -1px 0 rgba(165, 130, 95, 0.18) inset,
+    0 -1px 0 rgba(165, 130, 95, 0.20) inset,
     0 8px 22px -10px rgba(165, 130, 95, 0.45);
 }
 .fa-btn[data-tone="primary"]:hover { filter: brightness(1.03); border-color: rgb(var(--fa-accent-deep)); }
@@ -565,6 +721,33 @@
   color: rgb(var(--fa-text-muted));
 }
 .fa-btn[data-tone="ghost"]:hover { color: rgb(var(--fa-text)); background: rgb(var(--fa-surface-2)); }
+
+/* Icon-only square buttons used in the topbar (theme toggle, etc.). */
+.fa-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 10px;
+  background: rgb(var(--fa-surface));
+  border: 1px solid rgb(var(--fa-line));
+  color: rgb(var(--fa-text-muted));
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease;
+}
+.fa-icon-btn:hover {
+  background: rgb(var(--fa-surface-2));
+  border-color: rgb(var(--fa-line-strong));
+  color: rgb(var(--fa-text));
+}
+.fa-icon-btn:active { transform: translateY(0.5px); }
+.fa-icon-btn:focus-visible {
+  outline: 2px solid rgb(var(--fa-accent));
+  outline-offset: 2px;
+}
 
 /* ────────────────────────────────────────────────────────────────
  * Inputs
@@ -580,19 +763,23 @@
   color: rgb(var(--fa-text));
   font-size: 14px;
   outline: none;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .fa-input::placeholder { color: rgb(var(--fa-text-dim)); }
 .fa-input:hover { border-color: rgb(var(--fa-line-strong)); }
 .fa-input:focus {
   border-color: rgb(var(--fa-accent));
   background: rgb(var(--fa-surface));
-  box-shadow: 0 0 0 4px rgba(200, 162, 123, 0.14);
+  box-shadow: 0 0 0 4px rgb(var(--fa-accent) / 0.16);
 }
-select.fa-input { padding-right: 30px; appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, rgb(var(--fa-text-muted)) 50%),
-                    linear-gradient(135deg, rgb(var(--fa-text-muted)) 50%, transparent 50%);
+select.fa-input {
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgb(var(--fa-text-muted)) 50%),
+    linear-gradient(135deg, rgb(var(--fa-text-muted)) 50%, transparent 50%);
   background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
@@ -623,7 +810,7 @@ select.fa-input { padding-right: 30px; appearance: none;
   cursor: pointer;
   border: 1px solid transparent;
   background: transparent;
-  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
   font-family: inherit;
   letter-spacing: 0.005em;
 }
@@ -662,20 +849,17 @@ select.fa-input { padding-right: 30px; appearance: none;
   z-index: 1;
 }
 .fa-table tr:last-child td { border-bottom: none; }
-.fa-table tbody tr { transition: background 120ms ease; }
+.fa-table tbody tr { transition: background-color 120ms ease; }
 .fa-table tbody tr:hover { background: rgb(var(--fa-surface-2)); cursor: pointer; }
 .fa-table tbody tr.fa-row-static { cursor: default; }
 .fa-table tbody tr.fa-row-static:hover { background: transparent; }
 
-/* Wrap tables in `.fa-table-wrap` to enable horizontal scroll fallback
- * when a table is too wide for its container.  Pair with `.fa-card`. */
 .fa-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
-/* Mobile card-list pattern — opt-in via class.  Each row collapses
- * into a 2-column grid (label + value) using `td[data-label]`. */
 @media (max-width: 640px) {
   .fa-table-stack thead { display: none; }
   .fa-table-stack tr {
@@ -703,10 +887,8 @@ select.fa-input { padding-right: 30px; appearance: none;
     font-weight: 600;
     align-self: center;
   }
-  /* When the td has no data-label, hide the label slot. */
   .fa-table-stack td:not([data-label])::before { content: none; }
   .fa-table-stack td:not([data-label]) { display: block; grid-column: 1 / -1; }
-  /* Right-align numeric values stay flush right inside the value cell. */
   .fa-table-stack td[data-align="right"] { text-align: right; }
 }
 
@@ -730,23 +912,23 @@ select.fa-input { padding-right: 30px; appearance: none;
 }
 .fa-tag[data-tone="positive"] {
   color: rgb(var(--fa-positive));
-  border-color: rgba(123, 154, 118, 0.32);
-  background: rgba(123, 154, 118, 0.10);
+  border-color: rgb(var(--fa-positive) / 0.32);
+  background: rgb(var(--fa-positive) / 0.10);
 }
 .fa-tag[data-tone="warn"] {
   color: rgb(var(--fa-warn));
-  border-color: rgba(186, 130, 32, 0.28);
-  background: rgba(186, 130, 32, 0.08);
+  border-color: rgb(var(--fa-warn) / 0.30);
+  background: rgb(var(--fa-warn) / 0.08);
 }
 .fa-tag[data-tone="danger"] {
   color: rgb(var(--fa-danger));
-  border-color: rgba(158, 60, 56, 0.28);
-  background: rgba(158, 60, 56, 0.08);
+  border-color: rgb(var(--fa-danger) / 0.28);
+  background: rgb(var(--fa-danger) / 0.08);
 }
 .fa-tag[data-tone="accent"] {
   color: rgb(var(--fa-accent-deep));
-  border-color: rgba(200, 162, 123, 0.36);
-  background: rgba(200, 162, 123, 0.10);
+  border-color: rgb(var(--fa-accent) / 0.36);
+  background: rgb(var(--fa-accent) / 0.10);
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -761,7 +943,7 @@ select.fa-input { padding-right: 30px; appearance: none;
   color: rgb(var(--fa-text-muted));
   font-size: 13px;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(200, 162, 123, 0.08), transparent 60%),
+    radial-gradient(120% 60% at 50% -10%, rgb(var(--fa-accent) / 0.08), transparent 60%),
     rgb(var(--fa-surface-2));
 }
 .fa-empty strong {
@@ -784,7 +966,7 @@ select.fa-input { padding-right: 30px; appearance: none;
     linear-gradient(135deg, rgb(var(--fa-accent-soft)) 0%, rgb(var(--fa-bg-2)) 100%);
   color: rgb(var(--fa-accent-deep));
   margin: 0 auto 14px;
-  border: 1px solid rgba(200, 162, 123, 0.28);
+  border: 1px solid rgb(var(--fa-accent) / 0.28);
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -794,8 +976,9 @@ select.fa-input { padding-right: 30px; appearance: none;
 .fa-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(42, 33, 28, 0.36);
+  background: var(--fa-overlay);
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 50;
 }
 .fa-drawer {
@@ -809,7 +992,7 @@ select.fa-input { padding-right: 30px; appearance: none;
   z-index: 51;
   display: flex;
   flex-direction: column;
-  box-shadow: -24px 0 60px -20px rgba(56, 40, 24, 0.25);
+  box-shadow: -24px 0 60px -20px rgba(0, 0, 0, 0.25);
 }
 .fa-drawer-header {
   padding: 20px 24px;
@@ -871,7 +1054,7 @@ select.fa-input { padding-right: 30px; appearance: none;
   border-radius: 999px;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(56, 40, 24, 0.04);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 .fa-funnel-bar > span {
   position: absolute;
@@ -897,7 +1080,12 @@ select.fa-input { padding-right: 30px; appearance: none;
   .fa-funnel-row > :nth-child(1) { grid-area: label; }
   .fa-funnel-row > :nth-child(2) { grid-area: bar; }
   .fa-funnel-row > :nth-child(3) { grid-area: value; text-align: right; }
-  .fa-funnel-row > :nth-child(4) { grid-area: extra; text-align: left; color: rgb(var(--fa-text-dim)); font-size: 12px; }
+  .fa-funnel-row > :nth-child(4) {
+    grid-area: extra;
+    text-align: left;
+    color: rgb(var(--fa-text-dim));
+    font-size: 12px;
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -906,7 +1094,7 @@ select.fa-input { padding-right: 30px; appearance: none;
 
 .fa-toast {
   position: fixed;
-  bottom: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
   right: 18px;
   background: rgb(var(--fa-surface));
   border: 1px solid rgb(var(--fa-line-strong));
@@ -944,7 +1132,7 @@ select.fa-input { padding-right: 30px; appearance: none;
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Code blocks (order ids, paths)
+ * Code blocks
  * ──────────────────────────────────────────────────────────────── */
 
 .fa-admin code {
@@ -958,11 +1146,413 @@ select.fa-input { padding-right: 30px; appearance: none;
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Lock body scroll when the mobile drawer is open.  Applied on
- * `.fa-admin` by AdminShell when needed.
+ * Scroll lock when mobile drawer is open
  * ──────────────────────────────────────────────────────────────── */
 
 .fa-admin.fa-mobile-open { overflow: hidden; touch-action: none; }
 @media (min-width: 1025px) {
   .fa-admin.fa-mobile-open { overflow: visible; touch-action: auto; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * DATE RANGE PICKER — premium analytics control
+ *
+ * Anatomy:
+ *   .fa-daterange           — wrapper (positions popover)
+ *   .fa-daterange-trigger   — visible button on the topbar
+ *   .fa-daterange-overlay   — full-screen catcher (mobile only)
+ *   .fa-daterange-pop       — popover panel (desktop) / sheet (mobile)
+ *   .fa-daterange-presets   — left rail of preset buttons
+ *   .fa-daterange-cal       — calendar grid (right pane)
+ *   .fa-daterange-footer    — apply/cancel
+ *
+ * Responsive contract:
+ *   ≥ 720px wide popover  → side-by-side presets + calendar
+ *   < 720px               → stacked, presets above calendar
+ *   < 640px               → bottom sheet (slides up from bottom)
+ * ════════════════════════════════════════════════════════════════ */
+
+.fa-daterange {
+  position: relative;
+  display: inline-flex;
+}
+
+.fa-daterange-trigger {
+  /* Inherits .fa-btn — composition is done in JSX. */
+}
+
+.fa-daterange-overlay {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 38;
+  display: none;
+}
+.fa-daterange[data-open="true"] .fa-daterange-overlay { display: block; }
+
+@media (max-width: 640px) {
+  .fa-daterange[data-open="true"] .fa-daterange-overlay {
+    background: var(--fa-overlay);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+}
+
+.fa-daterange-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 39;
+  width: min(640px, calc(100vw - 32px));
+  background: rgb(var(--fa-surface));
+  border: 1px solid rgb(var(--fa-line));
+  border-radius: 16px;
+  box-shadow: var(--fa-shadow-pop);
+  display: grid;
+  grid-template-columns: 192px 1fr;
+  overflow: hidden;
+  /* Subtle pop animation — no layout-shifting. */
+  transform-origin: top right;
+  animation: faPopIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes faPopIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@media (max-width: 720px) {
+  .fa-daterange-pop {
+    grid-template-columns: 1fr;
+    width: min(420px, calc(100vw - 32px));
+  }
+}
+
+/* Mobile bottom sheet — the popover transforms into a slide-up
+ * sheet anchored to the bottom of the viewport.  This guarantees
+ * Chrome Android renders the picker fully on-screen and never
+ * clips against the URL bar. */
+@media (max-width: 640px) {
+  .fa-daterange-pop {
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    right: 0;
+    width: 100%;
+    max-height: 90svh;
+    border-radius: 18px 18px 0 0;
+    border-bottom: 0;
+    grid-template-columns: 1fr;
+    box-shadow: 0 -24px 60px -16px rgba(0, 0, 0, 0.35);
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: faSheetIn 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: bottom center;
+  }
+  @keyframes faSheetIn {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+}
+
+.fa-daterange-presets {
+  border-right: 1px solid rgb(var(--fa-line));
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgb(var(--fa-bg-2) / 0.5);
+}
+.fa-daterange-presets button {
+  appearance: none;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 12px;
+  min-height: 38px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgb(var(--fa-text-muted));
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.fa-daterange-presets button:hover {
+  background: rgb(var(--fa-surface));
+  color: rgb(var(--fa-text));
+}
+.fa-daterange-presets button[data-active="true"] {
+  background: rgb(var(--fa-accent) / 0.12);
+  color: rgb(var(--fa-text));
+  border-color: rgb(var(--fa-accent) / 0.32);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .fa-daterange-presets {
+    border-right: 0;
+    border-bottom: 1px solid rgb(var(--fa-line));
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+}
+
+.fa-daterange-cal {
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.fa-daterange-sheet-handle {
+  display: none;
+}
+@media (max-width: 640px) {
+  .fa-daterange-sheet-handle {
+    display: block;
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgb(var(--fa-line-strong));
+    margin: 8px auto 4px;
+  }
+}
+
+.fa-daterange-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--fa-line));
+}
+.fa-daterange-footer .fa-meta { font-size: 11px; }
+
+/* ────────────────────────────────────────────────────────────────
+ * CALENDAR (inside DateRangePicker)
+ * ──────────────────────────────────────────────────────────────── */
+
+.fa-cal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.fa-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+.fa-cal-month {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(var(--fa-text));
+  font-family: ui-serif, Georgia, serif;
+  letter-spacing: -0.005em;
+}
+.fa-cal-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgb(var(--fa-line));
+  background: rgb(var(--fa-surface));
+  color: rgb(var(--fa-text-muted));
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.fa-cal-nav:hover {
+  background: rgb(var(--fa-surface-2));
+  color: rgb(var(--fa-text));
+  border-color: rgb(var(--fa-line-strong));
+}
+.fa-cal-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fa-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgb(var(--fa-text-dim));
+}
+.fa-cal-weekdays > span {
+  text-align: center;
+  padding: 6px 0;
+}
+
+.fa-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+/* Each cell is a button — large enough for thumb tap (≥ 36px).
+ * Date numbers are mono so the column edges line up. */
+.fa-cal-cell {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fa-text));
+  cursor: pointer;
+  border-radius: 8px;
+  position: relative;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.fa-cal-cell[data-outside="true"] {
+  color: rgb(var(--fa-text-dim));
+  opacity: 0.55;
+}
+.fa-cal-cell[data-today="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(var(--fa-accent));
+}
+.fa-cal-cell:hover:not(:disabled) {
+  background: rgb(var(--fa-surface-2));
+}
+.fa-cal-cell:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.fa-cal-cell[data-in-range="true"] {
+  background: rgb(var(--fa-accent) / 0.12);
+  color: rgb(var(--fa-text));
+  border-radius: 0;
+}
+.fa-cal-cell[data-range-start="true"],
+.fa-cal-cell[data-range-end="true"] {
+  background: rgb(var(--fa-accent));
+  color: rgb(var(--fa-accent-ink));
+  border-radius: 8px;
+  font-weight: 600;
+}
+.fa-cal-cell[data-range-start="true"][data-range-end="true"] {
+  border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+  .fa-cal-cell { height: 42px; font-size: 14px; }
+  .fa-cal-weekdays > span { padding: 8px 0; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * REFRESH CONTROL  +  AUTO-REFRESH MENU
+ * ════════════════════════════════════════════════════════════════ */
+
+.fa-refresh {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(var(--fa-line));
+  background: rgb(var(--fa-surface));
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.fa-refresh:hover { border-color: rgb(var(--fa-line-strong)); }
+
+.fa-refresh-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0 12px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgb(var(--fa-text-muted));
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.fa-refresh-btn:hover { color: rgb(var(--fa-text)); background: rgb(var(--fa-surface-2)); }
+.fa-refresh-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+.fa-refresh-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.fa-refresh-btn[data-spinning="true"] svg { animation: faSpin 900ms linear infinite; }
+@keyframes faSpin {
+  to { transform: rotate(360deg); }
+}
+
+.fa-refresh-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgb(var(--fa-line));
+}
+
+.fa-refresh-interval {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0 10px;
+  height: 38px;
+  color: rgb(var(--fa-text-muted));
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.fa-refresh-interval[data-active="true"] {
+  color: rgb(var(--fa-positive));
+}
+
+/* "Updated 2 min ago" tag, lives outside the button group so it
+ * collapses cleanly on tight viewports. */
+.fa-refresh-stamp {
+  font-size: 11.5px;
+  color: rgb(var(--fa-text-dim));
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .fa-refresh-stamp { display: none; }
+  .fa-refresh-btn { padding: 0 10px; }
+  .fa-refresh-btn span { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * THEME TOGGLE — minimal icon-only switch
+ * ════════════════════════════════════════════════════════════════ */
+
+.fa-theme-toggle {
+  /* Inherits .fa-icon-btn. */
+}
+.fa-theme-toggle svg { transition: transform 200ms ease, opacity 200ms ease; }
+.fa-theme-toggle[data-mode="dark"] svg { transform: rotate(-15deg); }
+
+/* ════════════════════════════════════════════════════════════════
+ * Visually-hidden helper (for screen-reader-only labels).
+ * ════════════════════════════════════════════════════════════════ */
+.fa-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
