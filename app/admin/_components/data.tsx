@@ -89,29 +89,45 @@ export function ErrorState({ error }: { error: unknown }) {
   const isAuth = status === 401;
 
   return (
-    <div className="fa-card fa-card-pad-lg" style={{ borderColor: "rgba(234,102,102,0.4)" }}>
+    <div
+      className="fa-card fa-card-pad-lg"
+      style={{
+        borderColor: "rgba(158, 60, 56, 0.36)",
+        background:
+          "linear-gradient(180deg, rgba(158, 60, 56, 0.04) 0%, rgb(255 253 249) 60%)",
+      }}
+    >
       <div className="fa-row" style={{ alignItems: "flex-start", gap: 14 }}>
         <span
           aria-hidden
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            background: "rgba(234,102,102,0.12)",
-            color: "rgb(234,102,102)",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            background: "rgba(158, 60, 56, 0.10)",
+            color: "rgb(158 60 56)",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
+            border: "1px solid rgba(158, 60, 56, 0.22)",
           }}
         >
           <AlertTriangle size={18} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 15, color: "rgb(244,201,201)" }}>
+          <div
+            style={{
+              fontWeight: 600,
+              fontSize: 16,
+              color: "rgb(42 33 28)",
+              fontFamily: "ui-serif, Georgia, serif",
+              letterSpacing: "-0.005em",
+            }}
+          >
             {isAuth ? "Session expired" : "Couldn't load metrics"}
           </div>
-          <div style={{ fontSize: 13, marginTop: 4, color: "rgb(200,205,215)" }}>
+          <div style={{ fontSize: 13.5, marginTop: 4, color: "rgb(125 107 93)", lineHeight: 1.45 }}>
             {message}
           </div>
           {detail && (
@@ -119,11 +135,12 @@ export function ErrorState({ error }: { error: unknown }) {
               style={{
                 fontFamily: "ui-monospace, SFMono-Regular, monospace",
                 fontSize: 11.5,
-                marginTop: 8,
-                padding: "8px 10px",
-                borderRadius: 8,
-                background: "rgba(0,0,0,0.18)",
-                color: "rgb(176,182,196)",
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "rgb(240 232 218)",
+                color: "rgb(125 107 93)",
+                border: "1px solid rgb(232 220 203)",
                 wordBreak: "break-word",
               }}
             >
@@ -174,20 +191,31 @@ export function PartialDataBanner({
     <div
       className="fa-card"
       style={{
-        borderColor: "rgba(232,168,88,0.45)",
-        background: "rgba(232,168,88,0.06)",
-        padding: "10px 14px",
+        borderColor: "rgba(186, 130, 32, 0.42)",
+        background: "rgba(186, 130, 32, 0.06)",
+        padding: "12px 16px",
       }}
     >
-      <div className="fa-row" style={{ alignItems: "flex-start", gap: 10 }}>
-        <AlertTriangle size={15} style={{ color: "rgb(232,168,88)", flexShrink: 0, marginTop: 2 }} />
-        <div style={{ fontSize: 13, color: "rgb(214,196,168)", flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>
+      <div className="fa-row" style={{ alignItems: "flex-start", gap: 12 }}>
+        <AlertTriangle
+          size={16}
+          style={{ color: "rgb(186 130 32)", flexShrink: 0, marginTop: 2 }}
+        />
+        <div style={{ fontSize: 13, color: "rgb(42 33 28)", flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, marginBottom: 3 }}>
             Some metrics failed to load. Showing what we have.
           </div>
-          <div style={{ fontSize: 12, color: "rgb(176,167,148)" }}>
+          <div style={{ fontSize: 12.5, color: "rgb(125 107 93)" }}>
             {errors.length} sub-quer{errors.length === 1 ? "y" : "ies"} returned an error.{" "}
-            <Link href="/admin/settings" style={{ color: "rgb(232,168,88)", textDecoration: "underline" }}>
+            <Link
+              href="/admin/settings"
+              style={{
+                color: "rgb(165 130 95)",
+                textDecoration: "underline",
+                textUnderlineOffset: 2,
+                fontWeight: 500,
+              }}
+            >
               Run diagnostics →
             </Link>
           </div>

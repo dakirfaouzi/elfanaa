@@ -226,31 +226,58 @@ function FunnelRow({ label, v, max }: { label: string; v: number; max: number })
   const pct = max > 0 ? Math.max(2, Math.round((v / max) * 100)) : 0;
   return (
     <div className="fa-funnel-row">
-      <div style={{ color: "rgb(158,165,180)", fontSize: 13 }}>{label}</div>
+      <div style={{ color: "rgb(42 33 28)", fontSize: 13.5, fontWeight: 500 }}>{label}</div>
       <div className="fa-funnel-bar">
         <span style={{ width: `${pct}%` }} />
       </div>
-      <div className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(v)}</div>
-      <div className="fa-mono" style={{ textAlign: "right", color: "rgb(110,118,132)" }}>{pct}%</div>
+      <div className="fa-mono" style={{ textAlign: "right", fontWeight: 600 }}>{formatNumber(v)}</div>
+      <div className="fa-mono" style={{ textAlign: "right", color: "rgb(170 152 134)" }}>{pct}%</div>
     </div>
   );
 }
 
 function Empty() {
-  return <div className="fa-empty"><strong>No data in range</strong>Once events arrive, this table fills automatically.</div>;
+  return (
+    <div className="fa-empty">
+      <strong>No data in range</strong>
+      Once events arrive, this view fills automatically.
+    </div>
+  );
 }
 
+/**
+ * Donut legend. Palette mirrors `DonutChart.PALETTE` (luxury cream/gold
+ * spectrum) so colour swatches line up exactly with the chart cells.
+ */
 function Legend({ data }: { data: Array<{ label: string; value: number }> }) {
-  const colors = ["rgb(199,162,124)", "rgb(132,130,246)", "rgb(92,156,245)", "rgb(76,191,142)", "rgb(232,168,88)", "rgb(234,102,102)", "rgb(158,165,180)"];
+  const colors = [
+    "#C8A27B", // champagne
+    "#7B9A76", // sage
+    "#B48CA0", // dusty mauve
+    "#C8AA82", // light champagne
+    "#AF9680", // warm taupe
+    "#BAAF70", // honey
+    "#A09484", // warm grey
+  ];
   return (
-    <div className="fa-stack-sm" style={{ marginTop: 8 }}>
+    <div className="fa-stack-sm" style={{ marginTop: 12 }}>
       {data.map((d, i) => (
-        <div key={i} className="fa-row" style={{ fontSize: 12 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 9, height: 9, borderRadius: 999, background: colors[i % colors.length] }} />
-            {d.label}
+        <div key={i} className="fa-row" style={{ fontSize: 12.5 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background: colors[i % colors.length],
+                boxShadow: "0 0 0 2px rgb(255 253 249)",
+              }}
+            />
+            <span style={{ color: "rgb(42 33 28)" }}>{d.label}</span>
           </span>
-          <span className="fa-mono" style={{ color: "rgb(158,165,180)" }}>{formatNumber(d.value)}</span>
+          <span className="fa-mono" style={{ color: "rgb(125 107 93)" }}>
+            {formatNumber(d.value)}
+          </span>
         </div>
       ))}
     </div>

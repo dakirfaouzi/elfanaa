@@ -72,7 +72,7 @@ export function OrdersClient() {
                 left: 12,
                 top: "50%",
                 transform: "translateY(-50%)",
-                color: "rgb(110,118,132)",
+                color: "rgb(125 107 93)",
               }}
             />
             <input
@@ -118,51 +118,70 @@ export function OrdersClient() {
         {isLoading || !data ? (
           <div className="fa-empty">Loading…</div>
         ) : data.rows.length === 0 ? (
-          <div className="fa-empty"><strong>No orders in range</strong>Once orders flow in, they appear here.</div>
+          <div className="fa-empty">
+            <strong>No orders in range</strong>
+            Once orders start flowing in, they appear here in real time.
+          </div>
         ) : (
-          <table className="fa-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>City</th>
-                <th style={{ textAlign: "right" }}>Items</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((r) => (
-                <tr key={r.id} onClick={() => setActive(r.id)}>
-                  <td>
-                    <code style={{ fontSize: 11.5 }}>{r.id}</code>
-                    <div style={{ marginTop: 4, display: "flex", gap: 4 }}>
-                      {r.hasUpsell && <span className="fa-tag" data-tone="accent">upsell</span>}
-                      {r.hasCrossSell && <span className="fa-tag" data-tone="positive">cross-sell</span>}
-                    </div>
-                  </td>
-                  <td>{r.customerName}</td>
-                  <td className="fa-mono">{r.phone}</td>
-                  <td>{r.city ?? "—"}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.itemCount)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatCurrency(r.totalMinor, r.currency)}</td>
-                  <td><StatusTag status={r.status} /></td>
-                  <td className="fa-mono" style={{ color: "rgb(158,165,180)" }}>{formatDate(r.createdAt)}</td>
+          <div className="fa-table-wrap">
+            <table className="fa-table fa-table-stack">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>City</th>
+                  <th style={{ textAlign: "right" }}>Items</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th>Status</th>
+                  <th>Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.rows.map((r) => (
+                  <tr key={r.id} onClick={() => setActive(r.id)}>
+                    <td data-label="Order">
+                      <code style={{ fontSize: 11.5 }}>{r.id}</code>
+                      {(r.hasUpsell || r.hasCrossSell) && (
+                        <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {r.hasUpsell && <span className="fa-tag" data-tone="accent">upsell</span>}
+                          {r.hasCrossSell && <span className="fa-tag" data-tone="positive">cross-sell</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td data-label="Customer">{r.customerName}</td>
+                    <td data-label="Phone" className="fa-mono">{r.phone}</td>
+                    <td data-label="City">{r.city ?? "—"}</td>
+                    <td data-label="Items" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>
+                      {formatNumber(r.itemCount)}
+                    </td>
+                    <td data-label="Total" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>
+                      {formatCurrency(r.totalMinor, r.currency)}
+                    </td>
+                    <td data-label="Status">
+                      <StatusTag status={r.status} />
+                    </td>
+                    <td
+                      data-label="Date"
+                      className="fa-mono"
+                      style={{ color: "rgb(170 152 134)" }}
+                    >
+                      {formatDate(r.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {data && data.pages > 1 && (
-        <div className="fa-row" style={{ justifyContent: "flex-end", gap: 8 }}>
+        <div className="fa-row" style={{ justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
           <button className="fa-btn" disabled={page <= 1} onClick={() => setParam("page", String(page - 1))}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ fontSize: 12.5, color: "rgb(158,165,180)", padding: "0 6px" }}>
+          <span style={{ fontSize: 12.5, color: "rgb(125 107 93)", padding: "0 6px" }}>
             Page {page} of {data.pages}
           </span>
           <button className="fa-btn" disabled={page >= data.pages} onClick={() => setParam("page", String(page + 1))}>

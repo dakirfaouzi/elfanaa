@@ -58,62 +58,83 @@ export function DateRangePicker() {
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          className="fa-card"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 6px)",
-            width: 280,
-            zIndex: 30,
-            padding: 10,
-          }}
-        >
-          <div className="fa-stack-sm">
-            {PRESETS.map((p) => (
+        <>
+          {/* Invisible click-catcher — closes the popover when the user
+           * taps anywhere outside.  Keyed below the dialog so the
+           * dialog itself remains interactive.  Lives under the
+           * sticky topbar (z-index 30) but above page content. */}
+          <button
+            type="button"
+            aria-hidden
+            onClick={() => setOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "transparent",
+              border: 0,
+              padding: 0,
+              cursor: "default",
+              zIndex: 38,
+            }}
+          />
+          <div
+            role="dialog"
+            className="fa-card"
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "calc(100% + 8px)",
+              width: "min(308px, calc(100vw - 32px))",
+              zIndex: 39,
+              padding: 12,
+              boxShadow: "0 18px 40px -16px rgba(56, 40, 24, 0.22)",
+            }}
+          >
+            <div className="fa-stack-sm">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="fa-pill"
+                  data-active={p.id === current ? "true" : "false"}
+                  onClick={() => apply(p.id)}
+                  style={{ width: "100%", textAlign: "left" }}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <hr className="fa-rule" />
+              <div className="fa-meta">Custom range</div>
+              <input
+                type="date"
+                className="fa-input"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+              <input
+                type="date"
+                className="fa-input"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
               <button
-                key={p.id}
                 type="button"
-                className="fa-pill"
-                data-active={p.id === current ? "true" : "false"}
-                onClick={() => apply(p.id)}
-                style={{ width: "100%", textAlign: "left" }}
+                className="fa-btn"
+                data-tone="primary"
+                onClick={() => {
+                  if (!customFrom || !customTo) return;
+                  apply(
+                    "custom",
+                    new Date(customFrom).toISOString(),
+                    new Date(customTo).toISOString()
+                  );
+                }}
               >
-                {p.label}
+                Apply custom
               </button>
-            ))}
-            <hr className="fa-rule" />
-            <div className="fa-meta">Custom range</div>
-            <input
-              type="date"
-              className="fa-input"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-            />
-            <input
-              type="date"
-              className="fa-input"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-            />
-            <button
-              type="button"
-              className="fa-btn"
-              data-tone="primary"
-              onClick={() => {
-                if (!customFrom || !customTo) return;
-                apply(
-                  "custom",
-                  new Date(customFrom).toISOString(),
-                  new Date(customTo).toISOString()
-                );
-              }}
-            >
-              Apply custom
-            </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

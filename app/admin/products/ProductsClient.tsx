@@ -49,39 +49,41 @@ export function ProductsClient() {
             Track product_view + cta_click events to populate.
           </div>
         ) : (
-          <table className="fa-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th style={{ textAlign: "right" }}>Views</th>
-                <th style={{ textAlign: "right" }}>CTA clicks</th>
-                <th style={{ textAlign: "right" }}>CTR</th>
-                <th style={{ textAlign: "right" }}>Add to cart</th>
-                <th style={{ textAlign: "right" }}>Orders</th>
-                <th style={{ textAlign: "right" }}>CR</th>
-                <th style={{ textAlign: "right" }}>AOV</th>
-                <th style={{ textAlign: "right" }}>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.productId} style={{ cursor: "default" }}>
-                  <td>
-                    <div>{r.slug ?? r.productId}</div>
-                    <code style={{ fontSize: 11, color: "rgb(110,118,132)" }}>{r.productId}</code>
-                  </td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.views)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.ctaClicks)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatPercent(r.ctr)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.addToCarts)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.orders)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatPercent(r.conversionRate)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatCurrency(r.aovMinor)}</td>
-                  <td className="fa-mono" style={{ textAlign: "right" }}>{formatCurrency(r.revenueMinor)}</td>
+          <div className="fa-table-wrap">
+            <table className="fa-table fa-table-stack">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th style={{ textAlign: "right" }}>Views</th>
+                  <th style={{ textAlign: "right" }}>CTA clicks</th>
+                  <th style={{ textAlign: "right" }}>CTR</th>
+                  <th style={{ textAlign: "right" }}>Add to cart</th>
+                  <th style={{ textAlign: "right" }}>Orders</th>
+                  <th style={{ textAlign: "right" }}>CR</th>
+                  <th style={{ textAlign: "right" }}>AOV</th>
+                  <th style={{ textAlign: "right" }}>Revenue</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.productId} style={{ cursor: "default" }} className="fa-row-static">
+                    <td data-label="Product">
+                      <div>{r.slug ?? r.productId}</div>
+                      <code style={{ fontSize: 11, color: "rgb(170 152 134)" }}>{r.productId}</code>
+                    </td>
+                    <td data-label="Views" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.views)}</td>
+                    <td data-label="CTA clicks" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.ctaClicks)}</td>
+                    <td data-label="CTR" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatPercent(r.ctr)}</td>
+                    <td data-label="Add to cart" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.addToCarts)}</td>
+                    <td data-label="Orders" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.orders)}</td>
+                    <td data-label="CR" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatPercent(r.conversionRate)}</td>
+                    <td data-label="AOV" data-align="right" className="fa-mono" style={{ textAlign: "right" }}>{formatCurrency(r.aovMinor)}</td>
+                    <td data-label="Revenue" data-align="right" className="fa-mono" style={{ textAlign: "right", fontWeight: 600 }}>{formatCurrency(r.revenueMinor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

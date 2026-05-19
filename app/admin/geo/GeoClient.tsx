@@ -64,7 +64,7 @@ function List({ rows }: { rows: Array<{ label: string; sub: string; value: numbe
           <tr key={i} style={{ cursor: "default" }}>
             <td>
               <div>{r.label}</div>
-              {r.sub && <code style={{ fontSize: 11, color: "rgb(110,118,132)" }}>{r.sub}</code>}
+              {r.sub && <code style={{ fontSize: 11, color: "rgb(170 152 134)" }}>{r.sub}</code>}
             </td>
             <td className="fa-mono" style={{ textAlign: "right" }}>{formatNumber(r.value)}</td>
           </tr>

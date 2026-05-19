@@ -56,7 +56,14 @@ export function FunnelClient() {
                   className="fa-mono"
                   style={{
                     textAlign: "right",
-                    color: i === 0 ? "rgb(110,118,132)" : s.dropRate > 50 ? "rgb(234,102,102)" : s.dropRate > 25 ? "rgb(232,168,88)" : "rgb(76,191,142)",
+                    color:
+                      i === 0
+                        ? "rgb(170 152 134)"
+                        : s.dropRate > 50
+                        ? "rgb(158 60 56)"
+                        : s.dropRate > 25
+                        ? "rgb(186 130 32)"
+                        : "rgb(92 122 88)",
                   }}
                 >
                   {i === 0 ? "—" : `↓ ${formatPercent(s.dropRate)}`}
