@@ -283,29 +283,15 @@ export function DateRangePicker() {
     };
   }, [open]);
 
-  /* ── Body-scroll lock while the mobile sheet is open ─────────
+  /* ── No body-scroll lock ─────────────────────────────────────
    *
-   * Locks `<html>` AND `<body>` so the page underneath doesn't drift
-   * during a touch gesture inside the sheet.  Captures the previous
-   * inline overflow values and restores them on close — idempotent
-   * against route changes or fast open/close cycles. */
-  useEffect(() => {
-    if (!open || typeof window === "undefined") return;
-    const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
-    if (!isMobile) return;
-    const root = document.documentElement;
-    const body = document.body;
-    const prevHtml = root.style.overflow;
-    const prevBody = body.style.overflow;
-    root.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    return () => {
-      root.style.overflow = prevHtml;
-      body.style.overflow = prevBody;
-    };
-  }, [open]);
+   * The picker is a non-modal dropdown on every breakpoint.  Locking
+   * page scroll while it's open prevents the user from scrolling the
+   * dashboard underneath to reference figures while the calendar is
+   * up — and creates a stutter when the dropdown re-positions itself
+   * from a scroll event.  Click-outside / Escape still close it. */
 
-  /* ── Collision-aware positioning (desktop only) ─────────────── */
+  /* ── Collision-aware positioning ───────────────────────────── */
 
   const [coords, setCoords] = useState<PopCoords>(null);
 
@@ -313,19 +299,23 @@ export function DateRangePicker() {
     if (!open || typeof window === "undefined") return;
 
     const compute = () => {
-      const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
-      if (isMobile) {
-        // CSS bottom-sheet rule owns positioning — skip inline coords.
-        setCoords(null);
-        return;
-      }
       const trigger = triggerRef.current;
       if (!trigger) return;
-
       const tr = trigger.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
 
+      // Mobile: anchored top dropdown — top from trigger, spanning the
+      // viewport between left/right safe margins.  CSS `width: auto`
+      // (forced via the < 640px media query) lets the box stretch.
+      if (isMobile) {
+        const top = Math.max(VIEWPORT_MARGIN, tr.bottom + 8);
+        setCoords({ top, left: VIEWPORT_MARGIN, right: VIEWPORT_MARGIN });
+        return;
+      }
+
+      // Desktop: collision-aware popover.
       // Width is capped to the popover's CSS max, then squeezed if the
       // viewport itself is narrower than that.
       const popW = Math.min(640, vw - VIEWPORT_MARGIN * 2);
@@ -419,11 +409,19 @@ export function DateRangePicker() {
 
       {mounted && open
         ? createPortal(
-            <div className="fa-daterange-portal" data-open="true">
-              {/* Click-catcher / mobile backdrop.  Always present so
-               *  taps outside the panel close it.  CSS owns the
-               *  transparent-vs-dimmed difference between desktop +
-               *  mobile breakpoints. */}
+            // `fa-admin` re-asserts the `--fa-*` token cascade inside
+            // the portal subtree (the portal mounts to <body>, which
+            // is OUTSIDE the .fa-admin tree where the variables are
+            // defined).  Without this class, `rgb(var(--fa-surface))`
+            // on the popover resolves to an invalid value and falls
+            // back to transparent — which was the "invisible
+            // popover" bug.  `.fa-daterange-portal` then neutralises
+            // the layout side-effects `.fa-admin` would otherwise
+            // impose (full-viewport gradient, min-height, etc.).
+            <div className="fa-admin fa-daterange-portal" data-open="true">
+              {/* Invisible click-catcher.  Always transparent — the
+               *  picker is a non-modal dropdown, not a modal sheet,
+               *  so the dashboard underneath must stay visible. */}
               <button
                 type="button"
                 aria-hidden

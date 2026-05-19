@@ -1199,32 +1199,50 @@ select.fa-input {
  *   .fa-daterange           — wrapper around the trigger (in topbar)
  *   .fa-daterange-trigger   — visible button on the topbar
  *   .fa-daterange-portal    — root of the popover (portaled to <body>)
- *   .fa-daterange-overlay   — click-catcher / mobile backdrop
- *   .fa-daterange-pop       — popover panel (desktop) / sheet (mobile)
+ *   .fa-daterange-overlay   — invisible click-catcher
+ *   .fa-daterange-pop       — popover panel (anchored under trigger)
  *   .fa-daterange-presets   — left rail of preset buttons
  *   .fa-daterange-cal       — calendar grid (right pane)
  *   .fa-daterange-footer    — apply/cancel
  *
- * Positioning strategy
- * --------------------
- * The popover is portaled into `document.body` so it can NEVER be
+ * Portal & token cascade
+ * ----------------------
+ * The popover is portaled into `document.body` so it can never be
  * clipped by an ancestor's `overflow`, `backdrop-filter`, or any
  * other CSS that creates a containing block (the admin topbar uses
  * `backdrop-filter` which would otherwise trap a `position: fixed`
- * descendant inside the topbar's boundary on the bottom sheet).
+ * descendant inside the topbar's boundary).
  *
- *   • Desktop: `top` / `left` / `right` are set by JS via inline
- *     style (`getBoundingClientRect()` from the trigger, collision-
- *     checked against the viewport edges).  Re-computed on scroll
- *     and resize.
- *   • Mobile (< 640px): the JS skips the inline coords and the CSS
- *     bottom-sheet rule (with `!important` to win over any leftover
- *     inline coordinates) anchors the panel to the viewport bottom.
+ * CRITICAL: the portal wrapper carries `fa-admin fa-daterange-portal`
+ * className so the `--fa-*` CSS custom properties cascade INTO the
+ * portaled subtree — variables are scoped to their cascade tree and
+ * the portal escapes the regular admin DOM, so without the class the
+ * `background: rgb(var(--fa-surface))` declaration on the popover
+ * would resolve to an invalid value and fall back to transparent.
+ * The `.fa-daterange-portal` selector then neutralises every
+ * `.fa-admin` LAYOUT side-effect (full-viewport gradient background,
+ * `min-height: 100svh`, safe-area padding, `overflow-x: clip`) so
+ * the wrapper is a transparent fixed overlay layer — only its
+ * children (overlay + popover) paint anything.
+ *
+ * Positioning strategy
+ * --------------------
+ *   • Desktop (≥ 641px): `top` / `left` / `right` are set by JS via
+ *     inline style (`getBoundingClientRect()` from the trigger,
+ *     collision-checked against viewport edges).  Re-computed on
+ *     scroll and resize.
+ *   • Mobile (< 640px): JS still anchors `top` to the trigger's
+ *     bottom but sets `left` and `right` to 16-px margins so the
+ *     panel spans the viewport width.  CSS forces `width: auto`
+ *     so both `left` and `right` are honoured (without `width: auto`
+ *     the over-constrained box would silently drop `right`).
  *
  * Responsive contract:
  *   ≥ 720px wide popover  → side-by-side presets + calendar
  *   < 720px               → stacked, presets above calendar
- *   < 640px               → bottom sheet (slides up from bottom)
+ *   < 640px               → anchored top dropdown spanning viewport
+ *                           width (no bottom-sheet, no drag handle,
+ *                           no backdrop blur).
  * ════════════════════════════════════════════════════════════════ */
 
 .fa-daterange {
@@ -1236,16 +1254,38 @@ select.fa-input {
   /* Inherits .fa-btn — composition is done in JSX. */
 }
 
-/* The portal wrapper is always pointer-events: none so the calendar
- * tail end never blocks page interaction beneath it; pop + overlay
- * children opt back in to pointer events explicitly. */
+/* Portal wrapper.
+ *
+ * `fa-admin` re-asserts the CSS variable cascade (light + dark) for
+ * the portaled subtree; the rules below neutralise the layout
+ * properties `.fa-admin` would otherwise impose on what should be a
+ * transparent full-viewport overlay layer. */
 .fa-daterange-portal {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 9999;
   pointer-events: none;
+  background: transparent !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  /* No `overflow-x: clip` here — clip on a fixed overlay layer can
+   * cause some browsers (older Safari) to drop the layer from the
+   * paint tree.  Default `visible` is fine; children are themselves
+   * `position: fixed` and self-clip with `overflow: hidden auto`. */
+  overflow: visible !important;
+  /* New stacking context so the popover's z-index is isolated and
+   * page-level z-indices (Recharts tooltips, etc.) can never sit on
+   * top of it. */
+  isolation: isolate;
+  /* Kill any inherited transition that could fade the wrapper. */
+  transition: none !important;
 }
 
+/* Invisible click-catcher — closes the popover when the user clicks
+ * anywhere outside it.  Deliberately TRANSPARENT and WITHOUT any
+ * backdrop-filter / dimming: per spec the picker is a non-modal
+ * dropdown, so the dashboard must remain visible & readable behind
+ * it, with the picker itself sitting opaque on top. */
 .fa-daterange-overlay {
   position: fixed;
   inset: 0;
@@ -1255,35 +1295,42 @@ select.fa-input {
   padding: 0;
   margin: 0;
   cursor: default;
-}
-
-@media (max-width: 640px) {
-  .fa-daterange-overlay {
-    background: var(--fa-overlay);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-  }
+  /* Make absolutely sure no inherited backdrop-filter / opacity / etc.
+   * sneaks in from any global resets. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
 }
 
 .fa-daterange-pop {
   position: fixed;
-  /* `top` / `left` / `right` are set via inline style from JS
-   * (`useLayoutEffect` collision-aware positioner).  Fallbacks here
-   * just keep it on screen until the first measurement lands. */
+  /* JS positions; these are pre-paint fallbacks so the first frame
+   * doesn't land off-screen if the layout pass hasn't run yet. */
   top: 16px;
   right: 16px;
-  z-index: 81;
+  z-index: 10000;
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100svh - 32px);
+  /* HARD OPAQUE surface — the dashboard MUST NOT bleed through.
+   * Resolves to #FFFDF9 (light) / #26211C (dark) via the token
+   * cascade re-established by `.fa-admin` on the portal wrapper. */
   background: rgb(var(--fa-surface));
   border: 1px solid rgb(var(--fa-line));
   border-radius: 16px;
   box-shadow: var(--fa-shadow-pop);
   display: grid;
   grid-template-columns: 192px 1fr;
+  /* Internal scroll only if the picker grows taller than the
+   * available viewport space. */
   overflow: hidden auto;
   pointer-events: auto;
-  /* Subtle pop animation — no layout-shifting. */
+  /* Force a new stacking context so internal absolute / sticky
+   * children can't poke through to the dashboard behind. */
+  isolation: isolate;
+  /* No backdrop-filter, no transparency, no blend modes. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
   transform-origin: top right;
   animation: faPopIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1299,36 +1346,33 @@ select.fa-input {
   }
 }
 
-/* Mobile bottom sheet — the popover transforms into a slide-up
- * sheet anchored to the bottom of the viewport.  This guarantees
- * Chrome Android renders the picker fully on-screen and never
- * clips against the URL bar.
+/* Mobile (< 640px): anchored TOP dropdown spanning the viewport
+ * with 16-px safe margins.
  *
- * `!important` is used here intentionally to defeat any leftover
- * `top` / `left` / `right` inline style from a previous desktop-
- * width measurement (e.g. if the user resizes from desktop to
- * mobile while the popover is open). */
+ * Why `width: auto !important`?
+ *   When BOTH `left` and `right` are set inline (by the JS
+ *   positioner) AND `width` is an explicit value (from the base
+ *   rule above), the box is over-constrained and CSS drops `right`.
+ *   Forcing `width: auto` lets the box stretch between the
+ *   JS-supplied `left` and `right`, so the picker always spans the
+ *   full safe viewport width regardless of trigger horizontal
+ *   position.
+ *
+ * No bottom-sheet, no drag handle, no backdrop blur — this is a
+ * non-modal dropdown, identical in behaviour to the desktop popover
+ * but anchored to span the narrow viewport. */
 @media (max-width: 640px) {
   .fa-daterange-pop {
-    top: auto !important;
-    right: 0 !important;
-    left: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: 90svh;
-    border-radius: 18px 18px 0 0;
-    border-bottom: 0;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100svh - 100px - env(safe-area-inset-top));
     grid-template-columns: 1fr;
-    box-shadow: 0 -24px 60px -16px rgba(0, 0, 0, 0.35);
-    padding-bottom: env(safe-area-inset-bottom);
-    animation: faSheetIn 240ms cubic-bezier(0.16, 1, 0.3, 1);
-    transform-origin: bottom center;
+    border-radius: 14px;
+    box-shadow: var(--fa-shadow-pop);
+    transform-origin: top center;
+    animation: faPopIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
-  @keyframes faSheetIn {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
-  }
+  .fa-daterange-sheet-handle { display: none !important; }
 }
 
 .fa-daterange-presets {
@@ -1382,18 +1426,11 @@ select.fa-input {
   min-width: 0;
 }
 
+/* Bottom-sheet drag-handle — kept in the DOM for a11y / no-script
+ * gracefulness but visually hidden everywhere now that the picker is
+ * an anchored-top dropdown on every breakpoint. */
 .fa-daterange-sheet-handle {
-  display: none;
-}
-@media (max-width: 640px) {
-  .fa-daterange-sheet-handle {
-    display: block;
-    width: 44px;
-    height: 4px;
-    border-radius: 999px;
-    background: rgb(var(--fa-line-strong));
-    margin: 8px auto 4px;
-  }
+  display: none !important;
 }
 
 .fa-daterange-footer {
