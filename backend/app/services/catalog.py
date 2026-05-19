@@ -36,6 +36,11 @@ class Product:
     offer_tiers: tuple[OfferTier, ...] = field(default_factory=tuple)
     collection: str = ""
     sku: str = ""
+    # Optional bespoke landing page (e.g. `/sugarbear`). When omitted,
+    # `canonical_path()` falls back to `/products/<slug>`. Mirrors the
+    # `landingPath` field on the storefront `Product` type — see
+    # `lib/product-href.ts::productHref` for the parallel TS resolver.
+    landing_path: str = ""
 
     def title(self, locale: str = "ar") -> str:
         return self.title_ar if locale == "ar" else self.title_en
@@ -50,6 +55,31 @@ class Product:
         if self.sku:
             return self.sku
         return _fallback_sku(self.id, self.slug)
+
+    def canonical_path(self) -> str:
+        """Path-only canonical URL for this product.
+
+        Returns the bespoke landing path when set (e.g. `/sugarbear`),
+        falling back to the generic PDP route (`/products/<slug>`).
+        Always starts with `/`. Mirrors `productHref()` in TS.
+        """
+        if self.landing_path:
+            return self.landing_path
+        return f"/products/{self.slug or self.id}"
+
+    def canonical_url(self, site_url: str = "") -> str:
+        """Full canonical URL — `site_url` prefix + canonical path.
+
+        `site_url` is read from settings (`SITE_URL` env var) and is
+        typically `https://elfanaa.com`. When `site_url` is empty
+        (local dev / unset env) the function returns the path-only
+        form so the Sheets cell still reflects the right product
+        instead of being blank.
+        """
+        path = self.canonical_path()
+        if not site_url:
+            return path
+        return f"{site_url.rstrip('/')}{path}"
 
 
 def _fallback_sku(product_id: str, slug: str) -> str:
@@ -147,6 +177,7 @@ PRODUCTS: tuple[Product, ...] = (
         price=_BASE_PRICE,
         offer_tiers=_TIERS,
         collection="hair",
+        landing_path="/sugarbear",
     ),
 )
 

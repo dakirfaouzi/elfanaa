@@ -5,14 +5,22 @@
  * CSV template in `Fanaa_Store Orders - Feuille 1.csv`. Sending a flat object
  * keeps Apps Script trivial (`sheet.appendRow([...])`).
  *
- * Two payload kinds:
- *   • `kind: "order"`  → append a new row when a COD order is confirmed.
- *   • `kind: "upsell"` → upsert the existing row in-place when the
- *                        post-purchase 99-SAR offer is accepted. The Apps
- *                        Script side stores `orderId → rowIndex` in its
- *                        PropertiesService so this works even after a deploy.
+ * Three payload kinds:
+ *   • `kind: "order"`         → append a new row when a COD order is confirmed.
+ *   • `kind: "order_update"`  → rewrite SKU/Name/Quantity/URL/Price of an
+ *                               existing row in place when the order grows
+ *                               (post-purchase upsell accepted, additional
+ *                               offers accepted, …). Carries the FULL final
+ *                               state of the order. Supports an UNBOUNDED
+ *                               number of slash-joined product segments —
+ *                               there is no 3-slot ceiling.
+ *   • `kind: "upsell"`        → LEGACY shape. Apps Script's _handleUpsell
+ *                               still understands it for backward compatibility
+ *                               with the single-tier Next.js fallback that
+ *                               can't reconstruct the full order. New code
+ *                               should send `order_update` instead.
  *
- * Best-effort: a failed sheet append must NEVER block an order ack. The
+ * Best-effort: a failed sheet write must NEVER block an order ack. The
  * order route wraps every dispatcher in `Promise.allSettled`.
  */
 
@@ -73,8 +81,54 @@ export type SheetsOrderRow = {
   currency: "SAR";
 };
 
-/* ─────────────────────────── Upsell payload ─────────────────────────────── */
+/* ───────────────────── Order-update payload (full state) ────────────────── */
 
+/**
+ * Full-state rewrite of an existing order row. Used whenever a new
+ * line is added to an already-persisted order (post-purchase upsell,
+ * additional upsells, late cross-sells, …). Apps Script locates the
+ * row by `orderId` and overwrites the SKU / Product name / Total
+ * quantity / Product URL / Variant price columns with these values.
+ *
+ * The slash-joined fields carry an UNBOUNDED number of segments —
+ * one per accepted product line, in deterministic order
+ * (base → upsell → cross_sell, insertion order within each bucket).
+ * There is no 3-slot ceiling: `"S1/S2/S3/S4/S5/S6"` is valid and
+ * round-trips through the Apps Script exactly as written.
+ */
+export type SheetsOrderUpdateRow = {
+  kind: "order_update";
+
+  /** Original order id — Apps Script uses this to locate the existing row. */
+  orderId: string;
+
+  /** Full slash-joined SKU list, one segment per product. */
+  sku: string;
+  /** Full slash-joined Arabic product names, one segment per product. */
+  productName: string;
+  /** Full slash-joined quantities, one segment per product. */
+  totalQuantity: string;
+  /** Full slash-joined per-product canonical URLs, one segment per product. */
+  productUrl: string;
+
+  /** Final order total in major units (e.g. `298`). Includes every line. */
+  variantPrice: number;
+
+  /** Always "SAR". */
+  currency: "SAR";
+};
+
+/* ─────────────────────── Upsell payload (legacy) ────────────────────────── */
+
+/**
+ * @deprecated New code should send `SheetsOrderUpdateRow` instead.
+ *
+ * Kept for backward compatibility with the single-tier Next.js fallback
+ * (`app/api/orders/[orderId]/upsell/route.ts`) which is stateless and
+ * cannot rebuild the full final order. Apps Script still handles this
+ * shape via `_handleUpsell` for any in-flight requests from older
+ * frontends or for orphan upsells whose base row was lost.
+ */
 export type SheetsUpsellRow = {
   kind: "upsell";
 
@@ -94,7 +148,7 @@ export type SheetsUpsellRow = {
   currency: "SAR";
 };
 
-type SheetsPayload = SheetsOrderRow | SheetsUpsellRow;
+type SheetsPayload = SheetsOrderRow | SheetsOrderUpdateRow | SheetsUpsellRow;
 
 /* ─────────────────────────── Dispatcher ─────────────────────────────────── */
 
@@ -281,90 +335,148 @@ export function composeFullAddress(city?: string, address?: string): string {
   return c || a;
 }
 
-/* ─────────────────────── Three-slot formatter ─────────────────────────── */
+/* ─────────────────────── Dynamic order-row formatter ─────────────────────── */
 
 /**
- * A single line as seen by the 3-slot formatter — just the fields the
- * slot grouping cares about. Both the Next.js fallback and the FastAPI
- * webhook pipeline build this shape from their respective ORM/route
- * data and call `buildThreeSlotRow` to get a deterministic `base /
- * upsell / cross_sell` projection.
+ * A single accepted product line as seen by the Sheets row builder.
+ *
+ * `url` is the canonical product page URL (relative `/sugarbear` or
+ * `/products/<slug>`, or an absolute origin-prefixed form when the
+ * caller has the site URL handy). Empty string is acceptable when no
+ * URL is meaningful for the line.
+ *
+ * `source` drives ONLY the deterministic ordering inside the joined
+ * cell — base items first, then upsells (in insertion order), then
+ * cross-sells (in insertion order). It does NOT collapse anything:
+ * every line gets its own segment, with no fixed-slot ceiling.
+ */
+export type OrderRowLine = {
+  sku: string;
+  /** Arabic title, exactly as it should appear in the sheet. */
+  name: string;
+  quantity: number;
+  /** Canonical per-product URL — relative or absolute. */
+  url: string;
+  source: "base" | "upsell" | "cross_sell";
+};
+
+export type OrderRowFields = {
+  /** `sku/sku/sku/…` — one segment per line. */
+  sku: string;
+  /** `name/name/name/…` — one segment per line. */
+  productName: string;
+  /** `q/q/q/…` — one segment per line. */
+  totalQuantity: string;
+  /** `url/url/url/…` — one segment per line. */
+  productUrl: string;
+};
+
+/**
+ * Build the dynamic, slash-joined `{sku, productName, totalQuantity,
+ * productUrl}` quadruplet from a list of accepted order lines.
+ *
+ * Output is FULLY DYNAMIC — one segment per input line. There is NO
+ * 3-slot ceiling, NO empty-slot padding, and NO collapsing of multiple
+ * lines into a single slot. A 6-line order produces a 6-segment row.
+ *
+ * Ordering rule (deterministic, regardless of insertion order):
+ *
+ *   1. `source === "base"`       (insertion order preserved within bucket)
+ *   2. `source === "upsell"`     (post-purchase offers, insertion order)
+ *   3. `source === "cross_sell"` (in-cart cross-sell card adds, insertion order)
+ *
+ * Lines tagged with an unknown source collapse into the `base` bucket so
+ * the row is never silently dropped.
+ *
+ * Examples (per the production brief — no fixed 3-slot assumption):
+ *
+ *   1 base                                  → `"1"`           (totalQuantity)
+ *   2 base + 1 upsell + 3 cross-sell        → `"2/1/3"`
+ *   1 base + 5 upsells                      → `"1/1/1/1/1/1"` (6 segments)
+ *   3 base + mixed upsells and cross-sells  → `"3/1/1/2/1"`
+ *
+ * Compatible with downstream Apps Script `_handleOrderUpdate`, which
+ * simply overwrites the row's joined cells with these strings.
+ */
+export function buildOrderRow(lines: OrderRowLine[]): OrderRowFields {
+  const SOURCE_RANK: Record<OrderRowLine["source"], number> = {
+    base: 0,
+    upsell: 1,
+    cross_sell: 2,
+  };
+  const ordered: OrderRowLine[] = lines
+    .map((line, idx) => ({
+      line: {
+        ...line,
+        source:
+          line.source === "base" ||
+          line.source === "upsell" ||
+          line.source === "cross_sell"
+            ? line.source
+            : ("base" as const),
+      },
+      idx,
+    }))
+    .sort((a, b) => {
+      const r = SOURCE_RANK[a.line.source] - SOURCE_RANK[b.line.source];
+      // Stable: preserve original insertion order within the same bucket.
+      return r !== 0 ? r : a.idx - b.idx;
+    })
+    .map(({ line }) => line);
+
+  return {
+    sku: ordered.map((l) => l.sku ?? "").join("/"),
+    productName: ordered.map((l) => l.name ?? "").join("/"),
+    totalQuantity: ordered.map((l) => String(l.quantity ?? 0)).join("/"),
+    productUrl: ordered.map((l) => l.url ?? "").join("/"),
+  };
+}
+
+/* ─────────────────── Legacy three-slot formatter (deprecated) ─────────────── */
+
+/**
+ * @deprecated Use `OrderRowLine` + `buildOrderRow` instead. The
+ * 3-slot model truncates orders with 2+ upsells (the live "2/1/3"
+ * vs expected "2/1/1/3" regression). Kept only so any in-flight
+ * caller of the old API keeps compiling; no production code paths
+ * still depend on it.
  */
 export type ThreeSlotLine = {
   sku: string;
-  /** Arabic title, exactly as it should appear in the sheet. */
   name: string;
   quantity: number;
   source: "base" | "upsell" | "cross_sell";
 };
 
+/** @deprecated See {@link ThreeSlotLine}. */
 export type ThreeSlotRow = {
-  /** `sku/sku/sku` — empty slots collapse to "" within the join. */
   sku: string;
-  /** `name/name/name`. */
   productName: string;
-  /** `q/q/q` — missing slots become `0` so the structure is preserved. */
   totalQuantity: string;
 };
 
-/** Inner separator inside a single slot when 2+ items share that slot. */
-const SLOT_INNER_SEP = " + ";
-
 /**
- * Build the deterministic 3-slot `{sku, productName, totalQuantity}`
- * triplet from a list of order lines.
+ * @deprecated Use {@link buildOrderRow} instead.
  *
- * Slot order is ALWAYS:
- *   index 0 → base items   (`source === "base"`, default)
- *   index 1 → upsell items (`source === "upsell"`)
- *   index 2 → cross-sell   (`source === "cross_sell"`)
- *
- * If a slot has no items, its SKU/name slot is `""` and its quantity
- * slot is `"0"` so the structure stays parseable downstream. If a slot
- * has multiple items (e.g. a multi-product base cart), their SKUs /
- * names are joined with " + " inside the slot and quantities are
- * summed (the slash separator is reserved for between-slot joins).
- *
- * This matches the production brief exactly:
- *   - `1/1/3`  → 1 base + 1 upsell + 3 cross-sell
- *   - `3/0/0`  → 3 base, no upsell, no cross-sell
- *   - `1//`    will NEVER happen — empty SKU slots are still present
- *               so the row is round-trippable.
- *
- * For the typical `/sugarbear` funnel (single base product), the base
- * slot resolves to the single item's qty/name/sku exactly as before
- * — the format only widens to 3 slots, never narrows to 1.
+ * Reimplemented as a thin shim on top of `buildOrderRow` so legacy
+ * callers stay correct, but with one critical difference: each input
+ * line keeps its own segment instead of being summed inside a bucket.
+ * That matches the new dynamic contract — every line round-trips —
+ * even when invoked through the deprecated API.
  */
 export function buildThreeSlotRow(lines: ThreeSlotLine[]): ThreeSlotRow {
-  const buckets: Record<"base" | "upsell" | "cross_sell", ThreeSlotLine[]> = {
-    base: [],
-    upsell: [],
-    cross_sell: [],
-  };
-  for (const line of lines) {
-    buckets[line.source].push(line);
-  }
-
-  const slot = (key: "base" | "upsell" | "cross_sell") => {
-    const items = buckets[key];
-    if (items.length === 0) {
-      return { sku: "", name: "", quantity: 0 };
-    }
-    const totalQty = items.reduce((acc, it) => acc + (it.quantity || 0), 0);
-    return {
-      sku: items.map((it) => it.sku).filter(Boolean).join(SLOT_INNER_SEP),
-      name: items.map((it) => it.name).filter(Boolean).join(SLOT_INNER_SEP),
-      quantity: totalQty,
-    };
-  };
-
-  const base = slot("base");
-  const upsell = slot("upsell");
-  const cross = slot("cross_sell");
-
+  const dyn = buildOrderRow(
+    lines.map((l) => ({
+      sku: l.sku,
+      name: l.name,
+      quantity: l.quantity,
+      url: "",
+      source: l.source,
+    })),
+  );
   return {
-    sku: [base.sku, upsell.sku, cross.sku].join("/"),
-    productName: [base.name, upsell.name, cross.name].join("/"),
-    totalQuantity: [base.quantity, upsell.quantity, cross.quantity].join("/"),
+    sku: dyn.sku,
+    productName: dyn.productName,
+    totalQuantity: dyn.totalQuantity,
   };
 }

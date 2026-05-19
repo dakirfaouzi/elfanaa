@@ -214,61 +214,111 @@ async def dispatch_to_google_sheets(
         return {"ok": False, "error": str(exc)}
 
 
-# ── Three-slot formatter (mirrors `buildThreeSlotRow` in lib/webhooks/google-sheets.ts) ──
+# ── Dynamic order-row formatter ─────────────────────────────────────────────
+#
+# Mirrors `buildOrderRow` in `lib/webhooks/google-sheets.ts`.
+#
+# Output is FULLY DYNAMIC — one slash-separated segment per accepted line.
+# There is NO fixed 3-slot ceiling, NO empty-slot padding, and NO
+# collapsing of multiple lines into a single slot. A 6-line order
+# produces a 6-segment row.
+#
+# Ordering rule (deterministic regardless of insertion order):
+#   1. base       (insertion order preserved within bucket)
+#   2. upsell     (insertion order preserved within bucket)
+#   3. cross_sell (insertion order preserved within bucket)
+#
+# Unknown source values collapse to "base" so a typo can never silently
+# drop a line.
+
+_SOURCE_RANK = {"base": 0, "upsell": 1, "cross_sell": 2}
 
 
-# Slot positions are fixed: base, upsell, cross_sell. Empty slots stay
-# present so the column structure round-trips consistently. The Apps
-# Script `_handleUpsell` reuses the slot layout to REPLACE the middle
-# (upsell) slot in place rather than appending to the cell.
+def build_order_row(items: list[Dict[str, Any]]) -> Dict[str, str]:
+    """Build the dynamic slash-joined row fields from a list of items.
+
+    Each `item` is a dict shaped::
+
+        {
+          "sku": str,           # FN-...
+          "name": str,          # Arabic title
+          "quantity": int,
+          "url": str,           # canonical per-product URL (relative or absolute)
+          "source": "base" | "upsell" | "cross_sell",
+        }
+
+    Returns::
+
+        {
+          "sku": "S1/S2/S3/...",
+          "productName": "n1/n2/n3/...",
+          "totalQuantity": "q1/q2/q3/...",
+          "productUrl": "u1/u2/u3/...",
+        }
+
+    Properties guaranteed:
+      • One segment per input item — never collapsed.
+      • Order is deterministic (base → upsell → cross_sell) with stable
+        insertion order inside each bucket.
+      • Empty `items` → all fields are `""` (so a downstream empty-cell
+        check still works without a special case).
+    """
+    normalised: list[tuple[int, int, Dict[str, Any]]] = []
+    for idx, it in enumerate(items):
+        raw_src = it.get("source") or "base"
+        src = raw_src if raw_src in _SOURCE_RANK else "base"
+        rank = _SOURCE_RANK[src]
+        normalised.append((rank, idx, {**it, "source": src}))
+
+    normalised.sort(key=lambda triple: (triple[0], triple[1]))
+    ordered = [triple[2] for triple in normalised]
+
+    return {
+        "sku": "/".join(str(it.get("sku") or "") for it in ordered),
+        "productName": "/".join(str(it.get("name") or "") for it in ordered),
+        "totalQuantity": "/".join(str(int(it.get("quantity") or 0)) for it in ordered),
+        "productUrl": "/".join(str(it.get("url") or "") for it in ordered),
+    }
+
+
+# ── Legacy three-slot formatter (deprecated) ────────────────────────────────
+#
+# Kept only so any caller still importing `build_three_slot_row` keeps
+# working during the transition. The new contract (one segment per line,
+# unbounded count) is what every production path now uses. This shim
+# routes through `build_order_row` so it inherits the same dynamic
+# behaviour — a 4-line order through this function produces a 4-segment
+# row, NOT a truncated 3-slot one.
+
 _SLOT_INNER_SEP = " + "
 
 
 def build_three_slot_row(items: list[Dict[str, Any]]) -> Dict[str, str]:
-    """Bucket items into base / upsell / cross_sell, return the
-    three slot-joined strings the Sheets row needs.
+    """DEPRECATED. Use `build_order_row` instead.
 
-    Each `item` is a dict shaped `{sku: str, name: str, quantity: int,
-    source: "base" | "upsell" | "cross_sell"}`. Unknown sources collapse
-    to `"base"` so callers can be permissive without risking a slot
-    bleed.
-
-    Empty slots: SKU/name → `""`, quantity → `0`. The 3-slot structure
-    is always preserved (`"3/0/0"`, never `"3"` — see the production
-    brief: "ensure ALL ordered items and quantities are included
-    consistently and in the correct order").
+    Backwards-compat wrapper. Preserves the old return shape (sku /
+    productName / totalQuantity — no productUrl) so callers can migrate
+    incrementally, but the underlying serialization is now the dynamic
+    `build_order_row`. As a result this function no longer drops lines
+    when the order has 2+ upsells (the live regression that motivated
+    the rewrite).
     """
-    buckets: Dict[str, list[Dict[str, Any]]] = {
-        "base": [],
-        "upsell": [],
-        "cross_sell": [],
-    }
-    for it in items:
-        src = it.get("source") or "base"
-        if src not in buckets:
-            src = "base"
-        buckets[src].append(it)
-
-    def _slot(key: str) -> Dict[str, Any]:
-        lst = buckets[key]
-        if not lst:
-            return {"sku": "", "name": "", "quantity": 0}
-        return {
-            "sku": _SLOT_INNER_SEP.join(str(it.get("sku") or "") for it in lst if it.get("sku")),
-            "name": _SLOT_INNER_SEP.join(str(it.get("name") or "") for it in lst if it.get("name")),
-            "quantity": sum(int(it.get("quantity") or 0) for it in lst),
-        }
-
-    base = _slot("base")
-    upsell = _slot("upsell")
-    cross = _slot("cross_sell")
-
+    dyn = build_order_row(
+        [
+            {
+                "sku": it.get("sku"),
+                "name": it.get("name"),
+                "quantity": it.get("quantity"),
+                "url": "",
+                "source": it.get("source"),
+            }
+            for it in items
+        ]
+    )
     return {
-        "sku": "/".join([base["sku"], upsell["sku"], cross["sku"]]),
-        "productName": "/".join([base["name"], upsell["name"], cross["name"]]),
-        "totalQuantity": "/".join(
-            [str(base["quantity"]), str(upsell["quantity"]), str(cross["quantity"])]
-        ),
+        "sku": dyn["sku"],
+        "productName": dyn["productName"],
+        "totalQuantity": dyn["totalQuantity"],
     }
 
 
@@ -279,10 +329,10 @@ def build_sheets_order_row(
     full_name: str,
     phone_digits: str,
     full_address: str,
-    product_url: str,
     items: list[Dict[str, Any]],
     total_minor: int,
     currency: str = "SAR",
+    fallback_product_url: str = "",
 ) -> Dict[str, Any]:
     """Flat payload for a single new-order row.
 
@@ -291,11 +341,17 @@ def build_sheets_order_row(
     side reads each field by name (NOT by index), so adding optional
     columns later is forward-compatible.
 
-    `items` is a list of `{sku, name, quantity, source}` dicts grouped
-    by source into the deterministic `base / upsell / cross_sell` slot
-    order. See `build_three_slot_row` for the slot semantics.
+    `items` is a list of `{sku, name, quantity, url, source}` dicts.
+    The per-product `url` is what populates the new "Product URL"
+    multi-segment cell; `fallback_product_url` (typically the request
+    referer) is used as a single-segment fallback ONLY when every item
+    omitted its own URL — preserving the legacy single-URL behaviour
+    for callers that haven't migrated yet.
     """
-    three = build_three_slot_row(items)
+    dyn = build_order_row(items)
+    product_url = dyn["productUrl"]
+    if not product_url.strip("/"):
+        product_url = fallback_product_url or ""
     return {
         "kind": "order",
         "orderId": order_id,
@@ -305,9 +361,40 @@ def build_sheets_order_row(
         "phone": phone_digits,
         "fullAddress": full_address,
         "productUrl": product_url,
-        "sku": three["sku"],
-        "productName": three["productName"],
-        "totalQuantity": three["totalQuantity"],
+        "sku": dyn["sku"],
+        "productName": dyn["productName"],
+        "totalQuantity": dyn["totalQuantity"],
+        "variantPrice": round(total_minor / 100),
+        "currency": currency or "SAR",
+    }
+
+
+def build_sheets_order_update_row(
+    *,
+    order_id: str,
+    items: list[Dict[str, Any]],
+    total_minor: int,
+    currency: str = "SAR",
+) -> Dict[str, Any]:
+    """Full-state rewrite payload for an existing row.
+
+    Sent whenever an order grows after its initial Sheets append:
+    post-purchase upsell accepted, additional offers accepted, etc.
+    Carries the COMPLETE final state of every line on the order so the
+    Apps Script can overwrite SKU / Product name / Total quantity /
+    Product URL / Variant price atomically — no slot-position
+    arithmetic, no fixed-shape assumptions.
+
+    Supports an unbounded number of segments per cell.
+    """
+    dyn = build_order_row(items)
+    return {
+        "kind": "order_update",
+        "orderId": order_id,
+        "sku": dyn["sku"],
+        "productName": dyn["productName"],
+        "totalQuantity": dyn["totalQuantity"],
+        "productUrl": dyn["productUrl"],
         "variantPrice": round(total_minor / 100),
         "currency": currency or "SAR",
     }
@@ -322,9 +409,13 @@ def build_sheets_upsell_row(
     upsell_total_minor: int,
     currency: str = "SAR",
 ) -> Dict[str, Any]:
-    """Flat payload for an upsell — Apps Script locates the original row
-    by `orderId` and updates SKU / Product name / Total quantity /
-    Variant price in place so the final row is the final real order.
+    """DEPRECATED. Use `build_sheets_order_update_row` instead.
+
+    Kept so any in-flight caller (e.g. the stateless Next.js fallback
+    that can't reconstruct the full order) still produces a payload the
+    Apps Script understands. New production code paths emit
+    `kind: "order_update"` with the FULL final state — the only way to
+    support unbounded multi-upsell + multi-cross-sell stacking.
     """
     return {
         "kind": "upsell",

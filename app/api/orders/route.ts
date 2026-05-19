@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { dispatchWebhook } from "@/lib/webhooks/dispatch";
 import {
-  buildThreeSlotRow,
+  buildOrderRow,
   composeFullAddress,
   dispatchToGoogleSheets,
   formatOrderDateKSA,
   phoneForSheets,
+  type OrderRowLine,
   type SheetsOrderRow,
-  type ThreeSlotLine,
 } from "@/lib/webhooks/google-sheets";
 import { getProductById } from "@/data/products";
 import { lineTotal } from "@/lib/pricing";
 import { sumMoney, pickLocalized } from "@/lib/format";
 import { validateSaudiPhone } from "@/lib/phone";
 import { getProductSku } from "@/lib/sku";
+import { productHref } from "@/lib/product-href";
+import { siteConfig } from "@/data/site";
 import type { CartLineSource, CodOrderInput, Money } from "@/lib/types";
 
 /**
@@ -189,17 +191,22 @@ export async function POST(req: Request) {
   // non-technical teammate can scan a row left-to-right and see the
   // entire order without joining tabs.
   //
-  // Three-slot model: `base / upsell / cross_sell`. The base row only
-  // contains base + cross-sell items (no upsell yet — that arrives via
-  // `/api/orders/[id]/upsell` and the Apps Script replaces the middle
-  // slot in place). Empty slots are preserved so the column structure
-  // stays consistent for every row.
+  // FULLY DYNAMIC row builder: one slash-separated segment per accepted
+  // line, no fixed-slot ceiling. Order inside each cell is deterministic
+  // (base → upsell → cross_sell, insertion order within each bucket) so
+  // SKU / Product name / Quantity / URL columns stay aligned.
   //
   // Examples for the /sugarbear funnel:
-  //   • Sugarbear x3, no cross-sell                 → "3/0/0"
-  //   • Sugarbear x1 + cross-sell x1                → "1/0/1"
-  //   • Sugarbear x1 + cross-sell x3 + upsell (later) → "1/1/3"
-  const threeSlotLines: ThreeSlotLine[] = lineDetails.map((l) => {
+  //   • Sugarbear x3, no cross-sell                 → totalQuantity "3"
+  //   • Sugarbear x1 + cross-sell x1                → totalQuantity "1/1"
+  //   • Sugarbear x1 + 2 upsells + 3 cross-sell    → totalQuantity "1/1/1/3"
+  //                                                 (later, after upsells
+  //                                                 accept the FastAPI side
+  //                                                 sends `kind:"order_update"`
+  //                                                 with the full state and
+  //                                                 the Apps Script overwrites
+  //                                                 the row atomically.)
+  const orderRowLines: OrderRowLine[] = lineDetails.map((l) => {
     const product = getProductById(l.productId);
     return {
       sku: product ? getProductSku(product) : `FN-UNKNOWN-${l.productId}`,
@@ -207,10 +214,20 @@ export async function POST(req: Request) {
         ? pickLocalized(product.title, "ar")
         : pickLocalized(l.title, "ar"),
       quantity: l.quantity,
+      url: product
+        ? `${siteConfig.url.replace(/\/$/, "")}${productHref(product)}`
+        : "",
       source: l.source,
     };
   });
-  const threeSlot = buildThreeSlotRow(threeSlotLines);
+  const dynamicRow = buildOrderRow(orderRowLines);
+  // Fallback to the referer (legacy single-URL behaviour) ONLY when
+  // every line omitted its per-product URL — otherwise the dynamic
+  // join wins.
+  const productUrlCell =
+    dynamicRow.productUrl.replace(/\//g, "").trim() === ""
+      ? req.headers.get("referer") ?? ""
+      : dynamicRow.productUrl;
 
   const sheetsRow: SheetsOrderRow = {
     kind: "order",
@@ -220,10 +237,10 @@ export async function POST(req: Request) {
     fullName: order.customer.fullName,
     phone: phoneForSheets(order.customer.phoneE164 ?? order.customer.phone),
     fullAddress: composeFullAddress(input.city, input.address),
-    productUrl: req.headers.get("referer") ?? "",
-    sku: threeSlot.sku,
-    productName: threeSlot.productName,
-    totalQuantity: threeSlot.totalQuantity,
+    productUrl: productUrlCell,
+    sku: dynamicRow.sku,
+    productName: dynamicRow.productName,
+    totalQuantity: dynamicRow.totalQuantity,
     variantPrice: Math.round(subtotal.amount / 100),
     currency: "SAR",
   };

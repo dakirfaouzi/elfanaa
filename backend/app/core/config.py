@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     # ── CORS — accepts comma-separated string from env ───────────────────────
     cors_origins: CsvList = ["http://localhost:3000", "https://elfanaa.com"]
 
+    # ── Public site URL — prefixed onto per-product canonical paths so the
+    # Sheets "Product URL" column is a clickable link instead of "/sugarbear".
+    # Optional: when empty (local dev) the per-product paths stay relative,
+    # which is still better than the previous single-URL referer fallback.
+    site_url: str = "https://elfanaa.com"
+
     # ── Outbound webhooks ────────────────────────────────────────────────────
     webhook_secret: str = ""
     orders_webhook_url: str | None = None

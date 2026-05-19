@@ -1,35 +1,58 @@
 import { NextResponse } from "next/server";
 import { dispatchWebhook } from "@/lib/webhooks/dispatch";
 import {
+  buildOrderRow,
   dispatchToGoogleSheets,
+  type OrderRowLine,
+  type SheetsOrderUpdateRow,
   type SheetsUpsellRow,
 } from "@/lib/webhooks/google-sheets";
 import { getProductById } from "@/data/products";
 import { POST_PURCHASE_OFFER_PRICE } from "@/lib/upsell/strategy";
 import { pickLocalized } from "@/lib/format";
 import { getProductSku } from "@/lib/sku";
-import type { Locale } from "@/lib/types";
+import { productHref } from "@/lib/product-href";
+import { siteConfig } from "@/data/site";
+import type { Locale, Money } from "@/lib/types";
 
 /**
  * POST /api/orders/:orderId/upsell
  *
- * Accepts the post-purchase one-click offer and appends it to the existing
+ * Accepts a post-purchase one-click offer and appends it to the existing
  * COD order. Same payment, same delivery — the customer commits with one
  * tap and we never touch their wallet again.
  *
  * Server-trusted pricing: the route ignores any price the client might send
- * and re-applies the canonical `POST_PURCHASE_OFFER_PRICE` constant. The
- * client cannot up- or down-price the offer via devtools.
+ * and re-applies the canonical `POST_PURCHASE_OFFER_PRICE` constant.
  *
- * Side-effects (all fire-and-forget, never block the ack):
- *   • Generic CRM/ERP webhook (`order.upsell_accepted`)
- *   • Google Sheets append (separate row tagged "upsell" so ops can see it
- *     alongside the original order — same orderId, distinct line)
+ * Multi-upsell support
+ * --------------------
+ * This route is the SINGLE-TIER fallback (no FastAPI). It is stateless
+ * by design — orders are not persisted in Next.js. To still support
+ * multi-upsell / multi-cross-sell stacking, the client passes its
+ * existing receipt snapshot in the request body as `priorLines`. We
+ * append the new upsell, then send `kind: "order_update"` to Sheets
+ * with the FULL final state. No fixed-slot truncation.
+ *
+ * Backward compat: if `priorLines` is missing (older bundle), we fall
+ * back to the legacy `kind: "upsell"` payload that the Apps Script's
+ * `_handleUpsell` still understands.
  */
+
+type PriorLine = {
+  productId: string;
+  quantity: number;
+  source?: "base" | "upsell" | "cross_sell";
+  unitPriceMinor?: number;
+};
 
 type AcceptUpsellInput = {
   productId: string;
   locale: Locale;
+  /** Optional snapshot of every line already on the order. Sent by the
+   * checkout client (it has the receipt from POST /api/orders) so the
+   * stateless fallback can rebuild the full final state. */
+  priorLines?: PriorLine[];
 };
 
 export async function POST(
@@ -62,10 +85,6 @@ export async function POST(
     unitPrice: POST_PURCHASE_OFFER_PRICE,
     quantity: 1,
     lineTotal: POST_PURCHASE_OFFER_PRICE,
-    /**
-     * Tag so downstream systems can distinguish upsell lines from base lines.
-     * Mirrors the `source` tag on base lines from POST /api/orders.
-     */
     source: "post_purchase_upsell" as const,
   };
 
@@ -77,18 +96,82 @@ export async function POST(
     locale: input.locale,
   };
 
-  // Sheets payload — Apps Script locates the existing row by orderId and
-  // updates SKU / Product name / Total quantity / Variant price in place.
-  // Per the brief: the final sheet row must reflect the FINAL real order
-  // (base + upsell merged), not a separate upsell entry.
-  const sheetsRow: SheetsUpsellRow = {
-    kind: "upsell",
-    orderId,
-    upsellSku: getProductSku(product),
-    upsellProductName: pickLocalized(product.title, "ar"),
-    upsellQuantity: 1,
-    upsellPrice: Math.round(POST_PURCHASE_OFFER_PRICE.amount / 100),
-    currency: "SAR",
+  // Build the FULL final state from the client-supplied prior snapshot
+  // + the just-accepted upsell. If the snapshot is missing (older
+  // bundle, direct API hit), fall back to the legacy single-upsell
+  // shape so the row still updates.
+  const dispatchSheets = async () => {
+    if (input.priorLines && input.priorLines.length > 0) {
+      const allLines: OrderRowLine[] = [];
+      let totalMinor = 0;
+      for (const pl of input.priorLines) {
+        const p = getProductById(pl.productId);
+        if (!p) continue;
+        const url = `${siteConfig.url.replace(/\/$/, "")}${productHref(p)}`;
+        const unitMinor = pl.unitPriceMinor ?? p.price.amount;
+        totalMinor += unitMinor * pl.quantity;
+        allLines.push({
+          sku: getProductSku(p),
+          name: pickLocalized(p.title, "ar"),
+          quantity: pl.quantity,
+          url,
+          source:
+            pl.source === "upsell" || pl.source === "cross_sell"
+              ? pl.source
+              : "base",
+        });
+      }
+      // Append the new upsell line.
+      const upsellMoney: Money = POST_PURCHASE_OFFER_PRICE;
+      totalMinor += upsellMoney.amount;
+      allLines.push({
+        sku: getProductSku(product),
+        name: pickLocalized(product.title, "ar"),
+        quantity: 1,
+        url: `${siteConfig.url.replace(/\/$/, "")}${productHref(product)}`,
+        source: "upsell",
+      });
+
+      const dyn = buildOrderRow(allLines);
+      const updateRow: SheetsOrderUpdateRow = {
+        kind: "order_update",
+        orderId,
+        sku: dyn.sku,
+        productName: dyn.productName,
+        totalQuantity: dyn.totalQuantity,
+        productUrl: dyn.productUrl,
+        variantPrice: Math.round(totalMinor / 100),
+        currency: "SAR",
+      };
+      return dispatchToGoogleSheets({
+        url: process.env.GOOGLE_SHEETS_WEBHOOK_URL,
+        apiKey: process.env.GOOGLE_SHEETS_API_KEY,
+        row: updateRow,
+      });
+    }
+
+    // Legacy fallback — no snapshot, Apps Script's _handleUpsell still
+    // understands this shape. Will only stack correctly for the FIRST
+    // upsell; we log loud so any stale bundle hitting this branch is
+    // surfaced to ops.
+    console.warn(
+      "[upsell] no priorLines snapshot — falling back to legacy upsell payload",
+      { orderId },
+    );
+    const legacyRow: SheetsUpsellRow = {
+      kind: "upsell",
+      orderId,
+      upsellSku: getProductSku(product),
+      upsellProductName: pickLocalized(product.title, "ar"),
+      upsellQuantity: 1,
+      upsellPrice: Math.round(POST_PURCHASE_OFFER_PRICE.amount / 100),
+      currency: "SAR",
+    };
+    return dispatchToGoogleSheets({
+      url: process.env.GOOGLE_SHEETS_WEBHOOK_URL,
+      apiKey: process.env.GOOGLE_SHEETS_API_KEY,
+      row: legacyRow,
+    });
   };
 
   await Promise.allSettled([
@@ -97,11 +180,7 @@ export async function POST(
       payload: event,
       secret: process.env.WEBHOOK_SECRET,
     }),
-    dispatchToGoogleSheets({
-      url: process.env.GOOGLE_SHEETS_WEBHOOK_URL,
-      apiKey: process.env.GOOGLE_SHEETS_API_KEY,
-      row: sheetsRow,
-    }),
+    dispatchSheets(),
   ]);
 
   return NextResponse.json({

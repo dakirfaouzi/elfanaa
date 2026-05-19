@@ -12,7 +12,11 @@ import { POST_PURCHASE_TIMER_SECONDS } from "@/lib/upsell/strategy";
 import { pickLocalized } from "@/lib/format";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
-import { attachUpsellLine, type UpsellStatus } from "@/lib/order-receipt";
+import {
+  attachUpsellLine,
+  loadReceipt,
+  type UpsellStatus,
+} from "@/lib/order-receipt";
 import { apiUrl } from "@/lib/api";
 
 type Props = {
@@ -140,10 +144,33 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       const path = process.env.NEXT_PUBLIC_API_BASE_URL
         ? `/orders/${encodeURIComponent(orderId)}/upsell/accept`
         : `/api/orders/${encodeURIComponent(orderId)}/upsell`;
+
+      // Snapshot of every line already on the order — sent so the
+      // stateless Next.js fallback can rebuild the FULL final order
+      // state when it sends `kind:"order_update"` to Apps Script.
+      // The two-tier (FastAPI) path ignores `priorLines` because it
+      // owns the database and reconstructs the state itself; sending
+      // the snapshot anyway is harmless (extra fields are ignored).
+      const receipt = loadReceipt(orderId);
+      const priorLines = (receipt?.lines ?? []).map((l) => ({
+        productId: l.productId,
+        quantity: l.quantity,
+        source:
+          l.source === "post_purchase_upsell"
+            ? ("upsell" as const)
+            : ("base" as const),
+        unitPriceMinor: l.unitPrice.amount,
+      }));
+
       const res = await fetch(apiUrl(path), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ productId: product.id, quantity: 1, locale }),
+        body: JSON.stringify({
+          productId: product.id,
+          quantity: 1,
+          locale,
+          priorLines,
+        }),
       });
       if (!res.ok) throw new Error(String(res.status));
       // Both backends return the upsell line. The Next.js route returns

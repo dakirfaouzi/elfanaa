@@ -21,8 +21,14 @@ What this script exists to prove (and never let regress):
 This script exercises both halves without needing Postgres or HTTP:
     • Builds CartLineIn-shaped objects in memory.
     • Drives `_reprice_cart` directly.
-    • Pipes the result through `build_three_slot_row` to verify the
-      slot layout matches the storefront's expectation.
+    • Pipes the result through the dynamic `build_order_row` builder
+      to verify the row layout matches the storefront's expectation.
+
+Note: as of the dynamic-stack rewrite (see `_validate_dynamic_stack.py`),
+the row builder no longer pads to 3 slots and no longer SUMS multiple
+lines into a single bucket. Each accepted line gets its own segment.
+The expected values below reflect that — `1/0/0` became `1`, `1/0/3`
+became `1/3`, etc.
 
 Run from repo root (Windows PowerShell):
     backend/.venv/Scripts/python backend/_validate_base_preserved.py
@@ -72,7 +78,7 @@ from app.services.catalog import (  # noqa: E402
     get_product,
     known_product_ids,
 )
-from app.services.webhooks import build_three_slot_row  # noqa: E402
+from app.services.webhooks import build_order_row  # noqa: E402
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -94,8 +100,8 @@ def _check(name: str, got, expected) -> None:
         PASSED += 1
 
 
-def _three_slot_for(repriced: List[dict]) -> dict:
-    """Reuse the production builder so this test catches divergence."""
+def _row_for(repriced: List[dict]) -> dict:
+    """Reuse the production dynamic builder so this test catches divergence."""
     items = []
     for it in repriced:
         product = get_product(it["product_id"])
@@ -104,10 +110,11 @@ def _three_slot_for(repriced: List[dict]) -> dict:
                 "sku": product.resolved_sku() if product else "FN-UNKNOWN",
                 "name": it["title"],
                 "quantity": it["quantity"],
+                "url": product.canonical_path() if product else "",
                 "source": it["source"],
             }
         )
-    return build_three_slot_row(items)
+    return build_order_row(items)
 
 
 # ── Test cases ────────────────────────────────────────────────────────
@@ -130,13 +137,10 @@ def case_catalog_has_sugarbear() -> None:
 def case_base_only_sugarbear() -> None:
     print("CASE base only — Sugarbear x1 (no upsell, no cross-sell)")
     repriced = _reprice_cart([_Line("p_004", 1, "base")])
-    row = _three_slot_for(repriced)
-    _check("totalQuantity == '1/0/0'", row["totalQuantity"], "1/0/0")
-    _check(
-        "sku starts with FN-SUG-004",
-        row["sku"].startswith("FN-SUG-004"),
-        True,
-    )
+    row = _row_for(repriced)
+    # Single line  →  single-segment row (dynamic builder, no padding).
+    _check("totalQuantity == '1'", row["totalQuantity"], "1")
+    _check("sku == 'FN-SUG-004'", row["sku"], "FN-SUG-004")
 
 
 def case_base_plus_cross_sell() -> None:
@@ -147,17 +151,17 @@ def case_base_plus_cross_sell() -> None:
             _Line("p_003", 3, "cross_sell"),
         ]
     )
-    row = _three_slot_for(repriced)
-    # base=1, upsell=0, cross_sell=3 → "1/0/3"
+    row = _row_for(repriced)
+    # Dynamic builder: 2 lines  →  2 segments (no empty middle slot).
     _check(
-        "totalQuantity == '1/0/3'  (base SURVIVES — was '0/0/3' before fix)",
+        "totalQuantity == '1/3'  (base SURVIVES — was missing before fix)",
         row["totalQuantity"],
-        "1/0/3",
+        "1/3",
     )
     _check(
-        "sku ordering = FN-SUG-004 / '' / FN-HAIRMASK-003",
+        "sku ordering = FN-SUG-004 / FN-HAIRMASK-003",
         row["sku"],
-        "FN-SUG-004//FN-HAIRMASK-003",
+        "FN-SUG-004/FN-HAIRMASK-003",
     )
 
 
@@ -169,9 +173,17 @@ def case_multi_base() -> None:
             _Line("p_004", 2, "base"),
         ]
     )
-    row = _three_slot_for(repriced)
-    # Both bucketed into base; quantities sum to 3 in slot 0.
-    _check("totalQuantity == '3/0/0'", row["totalQuantity"], "3/0/0")
+    row = _row_for(repriced)
+    # Dynamic builder: each line emits its own segment — they are no
+    # longer summed inside the base bucket. The customer ordered
+    # Glow Serum x1 + Sugarbear x2, the sheet now reflects both
+    # explicitly instead of collapsing to "3".
+    _check("totalQuantity == '1/2'", row["totalQuantity"], "1/2")
+    _check(
+        "sku ordering = FN-SERUM-001 / FN-SUG-004",
+        row["sku"],
+        "FN-SERUM-001/FN-SUG-004",
+    )
 
 
 def case_unknown_product_is_loud() -> None:
@@ -213,7 +225,7 @@ def case_unknown_alongside_base_still_fails() -> None:
 def case_orphan_cross_sell_promoted() -> None:
     """Replicates the slot-0 invariant in `_dispatch_sheets_for_order`.
 
-    The promotion happens just before the items hit `build_three_slot_row`;
+    The promotion happens just before the items hit `build_order_row`;
     we mirror that here so the test cases the public outcome (the row).
     """
     print("CASE cart has only cross-sells — base slot must NOT stay empty")
@@ -221,11 +233,13 @@ def case_orphan_cross_sell_promoted() -> None:
 
     items = []
     for it in repriced:
+        product = get_product(it["product_id"])
         items.append(
             {
-                "sku": get_product(it["product_id"]).resolved_sku(),
+                "sku": product.resolved_sku(),
                 "name": it["title"],
                 "quantity": it["quantity"],
+                "url": product.canonical_path(),
                 "source": it["source"],
             }
         )
@@ -235,10 +249,11 @@ def case_orphan_cross_sell_promoted() -> None:
             if x["source"] == "cross_sell":
                 x["source"] = "base"
                 break
-    row = build_three_slot_row(items)
-    _check("totalQuantity == '2/0/0' (promoted)", row["totalQuantity"], "2/0/0")
+    row = build_order_row(items)
+    # After promotion: single base-tagged line  →  single-segment row.
+    _check("totalQuantity == '2' (promoted)", row["totalQuantity"], "2")
     _check(
-        "sku in base slot",
+        "sku in first segment is the promoted product",
         row["sku"].split("/")[0],
         "FN-HAIRMASK-003",
     )

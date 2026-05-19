@@ -41,7 +41,7 @@ from app.services.pricing import line_total
 from app.services.pixels import PixelEvent, PixelUser, dispatch_purchase
 from app.services.webhooks import (
     build_sheets_order_row,
-    build_sheets_upsell_row,
+    build_sheets_order_update_row,
     compose_full_address,
     dispatch_signed,
     dispatch_to_google_sheets,
@@ -230,54 +230,57 @@ async def accept_upsell(
     await session.flush()
     await session.refresh(order)
 
-    # Update the Google Sheets row in place — the Apps Script finds the
-    # existing row by `orderId` and appends the upsell SKU / Arabic
-    # product name / quantity to the original row (separator "/"), and
-    # adds the upsell price to Variant price. The final row reads as
-    # the FINAL real order. Best-effort; failures are logged, never raised.
-    settings = get_settings()
-    if not settings.google_sheets_webhook_url:
-        log.info(
-            "sheets upsell webhook skipped — env not configured",
-            extra={"order_id": order.id},
-        )
-        return order
-
+    # Full-state rewrite — emit the COMPLETE current order to the
+    # Sheets row so every line (base, every upsell, every cross-sell)
+    # reflects exactly. This replaces the legacy single-slot upsell
+    # merge that capped the row at 3 segments and silently truncated
+    # 2nd+ upsells (the "2/1/3" vs expected "2/1/1/3" regression).
+    #
+    # Best-effort: the upsell is already persisted by the time we get
+    # here; a Sheets outage must not roll it back.
     try:
-        sheets_payload = build_sheets_upsell_row(
-            order_id=order.id,
-            upsell_sku=product.resolved_sku(),
-            upsell_product_name_ar=product.title("ar"),
-            upsell_quantity=payload.quantity,
-            upsell_total_minor=line_total_minor,
-            currency=order.currency,
-        )
-        log.info(
-            "sheets webhook → dispatching upsell update",
-            extra={
-                "order_id": order.id,
-                "upsell_sku": sheets_payload.get("upsellSku"),
-                "upsell_price": sheets_payload.get("upsellPrice"),
-                "upsell_quantity": sheets_payload.get("upsellQuantity"),
-            },
-        )
-        result = await dispatch_to_google_sheets(
-            settings.google_sheets_webhook_url,
-            settings.google_sheets_api_key,
-            sheets_payload,
-        )
-        if not result.get("ok"):
-            log.error(
-                "sheets webhook → upsell dispatch failed",
-                extra={"order_id": order.id, "result": result},
-            )
+        await _dispatch_sheets_for_order_update(order)
     except Exception:
         log.exception(
-            "sheets upsell webhook crashed — upsell accepted regardless",
+            "sheets order_update webhook crashed — upsell accepted regardless",
+            extra={"order_id": order.id},
+        )
+
+    # Re-fire the outbound order webhook so the admin DB mirror picks
+    # up the new line. The ingest route at
+    # `app/api/admin/ingest/orders/route.ts` is idempotent on order id
+    # and rebuilds the item list on update, so accepted upsells become
+    # visible in the admin dashboard without a separate event type.
+    try:
+        await _dispatch_admin_update_for_order(order)
+    except Exception:
+        log.exception(
+            "admin ingest re-dispatch crashed — upsell accepted regardless",
             extra={"order_id": order.id},
         )
 
     return order
+
+
+async def _dispatch_admin_update_for_order(order: Order) -> None:
+    """Re-fire the signed `ORDERS_WEBHOOK_URL` outbound after an order
+    grows so the admin mirror table includes the new line(s).
+
+    Reuses `_order_to_payload` and `dispatch_signed` — same envelope
+    the initial `order.created` event used. The receiver
+    (`/api/admin/ingest/orders`) keys on `order.id` via Prisma's
+    `upsert`, so this is safe to re-deliver.
+    """
+    settings = get_settings()
+    if not settings.orders_webhook_url:
+        return
+    payload = {
+        "event": "order.created",
+        "order": _order_to_payload(order),
+    }
+    await dispatch_signed(
+        settings.orders_webhook_url, payload, secret=settings.webhook_secret
+    )
 
 
 # ── Fetch ────────────────────────────────────────────────────────────────────
@@ -413,51 +416,27 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
         )
         return
 
-    # Build per-line item dicts tagged with their `source` so the Sheets
-    # row builder can bucket them into the deterministic 3-slot format
-    # `base / upsell / cross_sell`. The base order row deliberately
-    # excludes `upsell`-sourced items — those don't exist yet at this
-    # point (the upsell is accepted post-checkout and merged into the
-    # row in place by the Apps Script via `_handleUpsell`).
+    # Build the per-line items payload (every accepted line, in the
+    # storage order the ORM returns them — `build_order_row` will then
+    # do the deterministic base → upsell → cross_sell bucketing). The
+    # base-order dispatch excludes `upsell`-sourced lines because they
+    # don't exist yet at this point — upsells are accepted later via
+    # `accept_upsell` which re-dispatches the FULL state through
+    # `_dispatch_sheets_for_order_update`.
     pre_upsell_items = [it for it in order.items if it.source != "upsell"]
-    items_payload: list[Dict[str, Any]] = []
-    for it in pre_upsell_items:
-        product = get_product(it.product_id)
-        items_payload.append(
-            {
-                "sku": product.resolved_sku() if product else f"FN-UNKNOWN-{it.product_id}",
-                "name": it.title,
-                "quantity": it.quantity,
-                "source": it.source if it.source in ("base", "cross_sell") else "base",
-            }
-        )
+    items_payload = _items_payload_for_sheets(pre_upsell_items, settings.site_url)
 
-    # Slot-0 invariant: if the order has any line, the base slot must
-    # be populated. Otherwise the Sheets row reads "0/0/N" and ops sees
-    # an order with no base product (the literal failure mode the live
-    # "0/1/3" regression produced). This can legitimately happen when a
-    # customer adds a base product, then a cross-sell, then removes the
-    # base before checkout — leaving only cross-sells tagged. Promote
-    # the first cross-sell into the base slot so the row reflects the
-    # real order shape and the Thank-you receipt has a primary line.
-    if items_payload and not any(it["source"] == "base" for it in items_payload):
-        for it in items_payload:
-            if it["source"] == "cross_sell":
-                it["source"] = "base"
-                log.info(
-                    "promoting orphan cross-sell to base slot — order had no base item",
-                    extra={"order_id": order.id, "product": it.get("sku")},
-                )
-                break
+    # Slot-0 invariant: if the order has any line, at least one must
+    # land in the base bucket. Otherwise the Sheets row reads "/N"
+    # (empty leading segment) and ops sees an order with no base
+    # product (the failure mode the live "0/1/3" regression produced).
+    # This can legitimately happen when a customer adds a base
+    # product, then a cross-sell, then removes the base before
+    # checkout — leaving only cross-sells tagged. Promote the first
+    # cross-sell back to base so the Thank-you receipt always has a
+    # primary line.
+    _promote_orphan_cross_sells_to_base(items_payload, order_id=order.id)
 
-    # Compose the "City — Street" string from the (now-declared) payload
-    # fields. Prior to commit fixing this, the popup posted `city` but
-    # `OrderCreateIn` lacked the field, so Pydantic dropped it and we
-    # always wrote `""` here. The Next.js fallback at
-    # `app/api/orders/route.ts` already does the same via
-    # `composeFullAddress(input.city, input.address)`; keeping both in
-    # sync via the shared helper guarantees identical Sheets output
-    # regardless of which backend serves the order.
     full_address = compose_full_address(payload.city, payload.address)
 
     sheets_row = build_sheets_order_row(
@@ -466,10 +445,11 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
         full_name=order.full_name,
         phone_digits=phone_for_sheets(order.phone_e164 or order.phone_national or ""),
         full_address=full_address,
-        product_url=(payload.context.referrer if payload.context else None) or "",
         items=items_payload,
         total_minor=order.subtotal_minor,
         currency=order.currency,
+        fallback_product_url=(payload.context.referrer if payload.context else None)
+        or "",
     )
 
     log.info(
@@ -478,8 +458,8 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
             "order_id": order.id,
             "sku": sheets_row.get("sku"),
             "total_quantity": sheets_row.get("totalQuantity"),
-            "variant_price": sheets_row.get("variantPrice"),
             "product_url": sheets_row.get("productUrl"),
+            "segments": len(items_payload),
         },
     )
 
@@ -492,6 +472,110 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
     if not result.get("ok"):
         log.error(
             "sheets webhook → base order dispatch failed",
+            extra={"order_id": order.id, "result": result},
+        )
+
+
+def _items_payload_for_sheets(
+    items: list[OrderItem], site_url: str
+) -> list[Dict[str, Any]]:
+    """Map ORM `OrderItem` rows to the dict shape the Sheets row
+    builder expects. Each entry carries SKU / Arabic name / quantity /
+    per-product canonical URL / source. Unknown product ids still
+    emit a row (no silent drop here — `_reprice_cart` already gates
+    on unknown ids at order-creation time) using a deterministic
+    fallback SKU so the operator can recognise the line in the sheet.
+    """
+    out: list[Dict[str, Any]] = []
+    for it in items:
+        product = get_product(it.product_id)
+        if product is not None:
+            sku = product.resolved_sku()
+            url = product.canonical_url(site_url)
+        else:
+            sku = f"FN-UNKNOWN-{it.product_id}"
+            url = ""
+        source = it.source if it.source in ("base", "upsell", "cross_sell") else "base"
+        out.append(
+            {
+                "sku": sku,
+                "name": it.title,
+                "quantity": it.quantity,
+                "url": url,
+                "source": source,
+            }
+        )
+    return out
+
+
+def _promote_orphan_cross_sells_to_base(
+    items_payload: list[Dict[str, Any]], *, order_id: str
+) -> None:
+    """Slot-0 invariant — see `_dispatch_sheets_for_order` for context."""
+    if not items_payload:
+        return
+    if any(it.get("source") == "base" for it in items_payload):
+        return
+    for it in items_payload:
+        if it.get("source") == "cross_sell":
+            it["source"] = "base"
+            log.info(
+                "promoting orphan cross-sell to base slot — order had no base item",
+                extra={"order_id": order_id, "product": it.get("sku")},
+            )
+            break
+
+
+async def _dispatch_sheets_for_order_update(order: Order) -> None:
+    """Full-state rewrite of the Sheets row after an order grows
+    (post-purchase upsell accepted, additional offers accepted, …).
+
+    Sends `kind: "order_update"` with EVERY current line on the order,
+    in deterministic base → upsell → cross_sell order, so the Apps
+    Script can overwrite the row atomically — no slot arithmetic, no
+    fixed-shape assumptions, supports unbounded segment counts.
+
+    Best-effort: failures are logged, never raised. The upsell is
+    still added to the database regardless of Sheets state.
+    """
+    settings = get_settings()
+    if not settings.google_sheets_webhook_url:
+        log.info(
+            "sheets webhook (update) skipped — env not configured",
+            extra={"order_id": order.id},
+        )
+        return
+
+    items_payload = _items_payload_for_sheets(list(order.items), settings.site_url)
+    _promote_orphan_cross_sells_to_base(items_payload, order_id=order.id)
+
+    sheets_row = build_sheets_order_update_row(
+        order_id=order.id,
+        items=items_payload,
+        total_minor=order.total_minor,
+        currency=order.currency,
+    )
+
+    log.info(
+        "sheets webhook → dispatching order_update (full-state rewrite)",
+        extra={
+            "order_id": order.id,
+            "sku": sheets_row.get("sku"),
+            "total_quantity": sheets_row.get("totalQuantity"),
+            "variant_price": sheets_row.get("variantPrice"),
+            "segments": len(items_payload),
+        },
+    )
+
+    result = await dispatch_to_google_sheets(
+        settings.google_sheets_webhook_url,
+        settings.google_sheets_api_key,
+        sheets_row,
+    )
+
+    if not result.get("ok"):
+        log.error(
+            "sheets webhook → order_update dispatch failed",
             extra={"order_id": order.id, "result": result},
         )
 
@@ -585,7 +669,57 @@ def _order_to_payload(
     so downstream subscribers — notably the Next.js admin ingest at
     `app/api/admin/ingest/orders/route.ts`, which already reads them
     when present — can store the customer's full shipping address.
+
+    Shape contract (dual format — preserved for backwards compatibility):
+
+    The payload carries BOTH:
+        • `lines` (camelCase, money-as-object) — the shape the admin
+          ingest at `app/api/admin/ingest/orders/route.ts` expects
+          (matches the Next.js fallback at `app/api/orders/route.ts`).
+        • `items` (snake_case, minor-units fields) — the legacy shape
+          older subscribers may still read.
+
+    Both lists carry exactly the same lines in the same order, so a
+    consumer can pick either one without truncating the order. Before
+    this fix the FastAPI side only sent `items` in snake-case, which
+    the admin ingest mapper couldn't read — so admin DB rows had no
+    item rows at all. That made the admin dashboard's "items per
+    order" / "has upsell" / "has cross-sell" panes look empty even
+    when the live order was correct end-to-end.
     """
+    settings = get_settings()
+    lines_camel = [
+        {
+            "productId": it.product_id,
+            "title": it.title,
+            "quantity": it.quantity,
+            "unitPrice": {"amount": it.unit_price_minor, "currency": it.currency},
+            "lineTotal": {"amount": it.line_total_minor, "currency": it.currency},
+            "source": it.source,
+            # Per-product canonical URL — admin DB doesn't store this
+            # column yet, but it's already useful in the rawPayload
+            # archive and any future analytics that wants per-product
+            # URLs without re-joining against the catalog.
+            "url": (
+                p.canonical_url(settings.site_url)
+                if (p := get_product(it.product_id))
+                else ""
+            ),
+        }
+        for it in order.items
+    ]
+    items_snake = [
+        {
+            "product_id": it.product_id,
+            "title": it.title,
+            "quantity": it.quantity,
+            "unit_price_minor": it.unit_price_minor,
+            "line_total_minor": it.line_total_minor,
+            "currency": it.currency,
+            "source": it.source,
+        }
+        for it in order.items
+    ]
     return {
         "id": order.id,
         "created_at": order.created_at.isoformat(),
@@ -596,28 +730,31 @@ def _order_to_payload(
             "full_name": order.full_name,
             "phone_e164": order.phone_e164,
             "phone_national": order.phone_national,
+            # camelCase mirror so the admin ingest's `o.customer.phone`
+            # / `o.customer.phoneE164` reads (which expect camelCase)
+            # land on actual values for FastAPI-served orders too.
+            "fullName": order.full_name,
+            "phone": order.phone_national or order.phone_e164,
+            "phoneE164": order.phone_e164,
         },
         # Top-level shipping fields — the admin ingest looks for them
         # at `order.address` / `order.city` (camelCase already matches
         # the snake_case key thanks to the admin ingest reading both).
         "city": (city or "").strip() or None,
         "address": (address or "").strip() or None,
-        "items": [
-            {
-                "product_id": it.product_id,
-                "title": it.title,
-                "quantity": it.quantity,
-                "unit_price_minor": it.unit_price_minor,
-                "line_total_minor": it.line_total_minor,
-                "currency": it.currency,
-                "source": it.source,
-            }
-            for it in order.items
-        ],
+        "paymentMethod": order.payment_method,
+        "createdAt": order.created_at.isoformat(),
+        "lines": lines_camel,
+        "items": items_snake,
         "totals": {
             "subtotal_minor": order.subtotal_minor,
             "upsell_total_minor": order.upsell_total_minor,
             "total_minor": order.total_minor,
             "currency": order.currency,
+            # camelCase mirror so the admin ingest's
+            # `o.totals?.subtotal?.amount` / `o.totals?.total?.amount`
+            # reads pick up the right values.
+            "subtotal": {"amount": order.subtotal_minor, "currency": order.currency},
+            "total": {"amount": order.total_minor, "currency": order.currency},
         },
     }
