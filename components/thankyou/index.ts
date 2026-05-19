@@ -1,6 +1,11 @@
 export { ConfirmationHero } from "./ConfirmationHero";
+export { CallReassuranceBanner } from "./CallReassuranceBanner";
+export { CustomerInfoReview } from "./CustomerInfoReview";
 export { DeliveryTimeline } from "./DeliveryTimeline";
 export { OrderReceipt } from "./OrderReceipt";
+export { ResultsExpectations } from "./ResultsExpectations";
+export { SocialProof } from "./SocialProof";
+export { ThankYouFAQ } from "./ThankYouFAQ";
 export { UpsellAcceptedBanner } from "./UpsellAcceptedBanner";
 export { TrustReinforcement } from "./TrustReinforcement";
 export { ThankYouCrossSells } from "./ThankYouCrossSells";

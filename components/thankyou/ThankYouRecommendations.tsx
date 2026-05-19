@@ -14,12 +14,24 @@ type Props = {
 };
 
 /**
- * "Most-loved this season" — broader recommendations.
+ * ThankYouRecommendations — subtle "you may also like" strip.
  *
- * Different from cross-sells: this is *seasonal merchandising*, not strict
- * relevance. Shows the curated best-sellers minus anything the customer
- * already bought OR was just shown above. Acts as a soft on-ramp to the
- * next purchase without competing with the cross-sells immediately above.
+ * Difference from the cross-sells section directly above it:
+ *   • Cross-sells = price-bracketed, hand-picked complements.
+ *   • Recommendations = seasonal best-sellers minus what the buyer
+ *     already has or was just shown.  Acts as a soft on-ramp to the
+ *     next purchase without competing with the cross-sells.
+ *
+ * Visual brief in this redesign:
+ *   • Subtler header — eyebrow + clean h2, no marketing copy that
+ *     reads as "salesy" on a confirmation page.
+ *   • Grid → 2 columns on mobile, 4 on desktop.  The cards themselves
+ *     stay unchanged (we deliberately don't re-skin `ProductCard`
+ *     here — that's a storefront-wide component that other surfaces
+ *     depend on).
+ *   • If there are no recommendations (extremely rare — would require
+ *     ordering every best-seller in one go), the section returns
+ *     `null` and the page lands directly on the contact panel.
  */
 export function ThankYouRecommendations({ receipt, excludeIds = [] }: Props) {
   const { t } = useLocale();
@@ -33,21 +45,24 @@ export function ThankYouRecommendations({ receipt, excludeIds = [] }: Props) {
   if (products.length === 0) return null;
 
   return (
-    <section className="border-t border-line bg-surface py-14 md:py-20">
+    <section
+      aria-labelledby="ty-recs-title"
+      className="bg-surface py-12 md:py-16"
+    >
       <Container>
-        <header className="mb-10 max-w-2xl space-y-2 md:mb-12">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-            {t.home.bestSellersEyebrow}
+        <header className="mb-7 md:mb-9">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.22em] text-[rgb(var(--color-accent-deep))]">
+            {t.thankyou.recommendationsEyebrow}
           </p>
-          <h2 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">
+          <h2
+            id="ty-recs-title"
+            className="mt-1.5 font-display text-[22px] font-semibold tracking-tight text-ink md:text-3xl"
+          >
             {t.thankyou.recommendationsTitle}
           </h2>
-          <p className="text-sm text-muted md:text-base">
-            {t.thankyou.recommendationsSubtitle}
-          </p>
         </header>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-4 md:gap-x-6 md:gap-y-10">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

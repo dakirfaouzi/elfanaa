@@ -6,11 +6,16 @@ import { use } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import {
+  CallReassuranceBanner,
   ConfirmationHero,
   ContactPanel,
+  CustomerInfoReview,
   DeliveryTimeline,
   OrderReceipt as OrderReceiptPanel,
+  ResultsExpectations,
+  SocialProof,
   ThankYouCrossSells,
+  ThankYouFAQ,
   ThankYouRecommendations,
   TrustReinforcement,
   UpsellAcceptedBanner,
@@ -26,21 +31,38 @@ type Params = { orderId: string };
 /**
  * Thank-you page composition.
  *
- * Order of sections (top → bottom) is intentional and CRO-driven:
- *   1. ConfirmationHero        → reassure first, sell never (yet)
- *   2. UpsellAcceptedBanner    → reinforce the buyer's most recent decision
- *   3. DeliveryTimeline        → collapse uncertainty about "what now?"
- *   4. OrderReceipt            → authoritative line-item summary
- *   5. TrustReinforcement      → social proof + warranty + returns
- *   6. ThankYouCrossSells      → on-brand same-price suggestions (3 max)
- *   7. ThankYouRecommendations → broader best-sellers (4 max)
- *   8. ContactPanel            → WhatsApp + phone + onward link
+ * Section order (top → bottom) is a CRO-tuned psychological sequence,
+ * not arbitrary.  Each block answers the next question the buyer's
+ * mind asks in the seconds and minutes after placing the order:
  *
- * The cart is cleared on first mount — the order is now safely server-side
- * (see `/api/orders` route) and the storefront should not re-prompt for it.
+ *   1. ConfirmationHero        → "Did it work?"  (yes — your order is reserved)
+ *   2. UpsellAcceptedBanner    → "Did my upsell go through?"  (conditional)
+ *   3. CallReassuranceBanner   → "Will someone call me?  Why a Saudi number?"
+ *   4. CustomerInfoReview      → "Is my number right?  Will they reach me?"
+ *   5. OrderReceipt            → "What exactly did I buy?"
+ *   6. DeliveryTimeline        → "What happens next?"
+ *   7. ResultsExpectations     → "When will I see the benefit?"
+ *   8. SocialProof             → "Are real people happy with this?"
+ *   9. ThankYouFAQ             → "What if [edge case]?"  (COD objections)
+ *  10. TrustReinforcement      → "Final reassurance — guarantees."
+ *  11. ThankYouCrossSells      → "Anything to complete the routine?"
+ *  12. ThankYouRecommendations → "What else is loved this season?"
+ *  13. ContactPanel            → "How do I reach you if I need to?"
  *
- * Receipts come from `sessionStorage`; if missing (refresh after 24h, link
- * shared, etc.) we degrade to a minimal "your order is confirmed" state.
+ * Strict no-touch guardrails honoured by this redesign:
+ *   • No change to `OrderReceipt` data contract — every section reads
+ *     the existing `lines[] / customer / totals / upsellStatus` fields.
+ *   • No change to checkout, webhook, or tracking code.  Purchase pixel
+ *     still fires upstream in `CodCheckoutModal`.
+ *   • No new fetches, no SWR, no server data shape changes.  The page
+ *     remains client-only with sessionStorage as its single source.
+ *   • `clearCart()` / `closeAllUI()` mount-time side effects preserved.
+ *   • `excludeIds` filter for the recommendations strip preserved so
+ *     we never duplicate a cross-sell into the recommendations grid.
+ *
+ * Section spacing is owned by each component (every section already
+ * carries its own vertical padding).  The page is just a list — no
+ * wrapper paddings, no margins, no global rhythm overrides.
  */
 export default function ThankYouPage({ params }: { params: Promise<Params> }) {
   const { orderId } = use(params);
@@ -92,8 +114,13 @@ export default function ThankYouPage({ params }: { params: Promise<Params> }) {
       {receipt.upsellStatus === "accepted" && receipt.upsellLine ? (
         <UpsellAcceptedBanner upsellLine={receipt.upsellLine} />
       ) : null}
-      <DeliveryTimeline />
+      <CallReassuranceBanner />
+      <CustomerInfoReview receipt={receipt} />
       <OrderReceiptPanel receipt={receipt} />
+      <DeliveryTimeline />
+      <ResultsExpectations />
+      <SocialProof />
+      <ThankYouFAQ />
       <TrustReinforcement />
       <ThankYouCrossSells receipt={receipt} />
       <ThankYouRecommendations receipt={receipt} excludeIds={excludeIds} />
@@ -120,6 +147,15 @@ function ThankYouSkeleton() {
   );
 }
 
+/**
+ * Degraded state — sessionStorage missing or expired.
+ *
+ * Still gives the buyer the most important reassurance blocks (trust
+ * badges, FAQ, recommendations, contact) so a re-opened thank-you link
+ * never lands on an empty page.  We deliberately omit the call-
+ * reassurance and customer-info sections because we have no receipt
+ * data to fill them with — better silent than fabricated.
+ */
 function FallbackReceipt({ orderId }: { orderId: string }) {
   const { t } = useLocale();
   return (
@@ -166,6 +202,7 @@ function FallbackReceipt({ orderId }: { orderId: string }) {
           </div>
         </Container>
       </div>
+      <ThankYouFAQ />
       <TrustReinforcement />
       <ThankYouRecommendations receipt={null} />
       <ContactPanel orderId={orderId} />
