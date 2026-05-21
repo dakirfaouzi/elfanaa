@@ -156,7 +156,7 @@ Visit:
 | `NEXT_PUBLIC_SITE_URL`            | yes      | Canonical site URL (`https://elfanaa.com`).                              |
 | `NEXT_PUBLIC_DEFAULT_LOCALE`      | no       | `ar` (default) or `en`.                                                  |
 | `NEXT_PUBLIC_CURRENCY`            | no       | `SAR` (default).                                                         |
-| `NEXT_PUBLIC_API_BASE_URL`        | no       | If set, the storefront posts orders directly to FastAPI.                 |
+| `NEXT_PUBLIC_API_BASE_URL`        | no       | If set, the storefront posts orders directly to FastAPI. **MUST be a build arg** — see "EasyPanel build vs. runtime env" below. |
 | `NEXT_PUBLIC_META_PIXEL_ID`       | no       | Browser-side Meta pixel id. Tokens stay in `backend/.env`.               |
 | `NEXT_PUBLIC_TIKTOK_PIXEL_ID`     | no       | Browser-side TikTok pixel id.                                            |
 | `NEXT_PUBLIC_SNAPCHAT_PIXEL_ID`   | no       | Browser-side Snap pixel id.                                              |
@@ -242,6 +242,29 @@ Three services, in this order:
    - Domain: `elfanaa.com`.
    - Env: every `NEXT_PUBLIC_*` from `.env.example`. Set
      `NEXT_PUBLIC_API_BASE_URL=https://api.elfanaa.com`.
+   - **Build vs. runtime — read this if Google Sheets stays empty.**
+     Next.js inlines every `process.env.NEXT_PUBLIC_*` lookup into the
+     browser bundle at `npm run build` time. EasyPanel's regular
+     **"Environment Variables"** tab applies *only at container runtime*,
+     which is too late — the JS has already been baked. Each
+     `NEXT_PUBLIC_*` value MUST be added to the **"Build Arguments"**
+     tab (or equivalent) so it reaches `npm run build` inside the
+     Docker builder stage. The frontend Dockerfile (`./Dockerfile`)
+     declares the matching `ARG`s; `docker-compose.yml` forwards them
+     via `services.elfanaa_web.build.args`.
+     - **Symptom of forgetting this:** the browser POSTs to
+       `https://elfanaa.com/api/orders` (the embedded Next.js
+       fallback) instead of `https://api.elfanaa.com/orders`. The
+       FastAPI service never sees the order, the Sheets dispatcher
+       on the API service never runs, and the spreadsheet stays
+       empty. The fallback route logs a structured warning in this
+       case; hitting `/api/diagnostics/sheets` reports
+       `routing.mode = "standalone"` to confirm.
+     - **Fix:** set `NEXT_PUBLIC_API_BASE_URL` as a Build Argument
+       (not just an env var), trigger a full rebuild (not a restart),
+       and verify with `/api/diagnostics/sheets` that
+       `routing.resolvedOrderPostUrl` becomes
+       `https://api.elfanaa.com/orders`.
 
 > ⚠ **Required before going live:** every default value below uses
 > `elfanaa:elfanaa` for local dev convenience. Replace
@@ -418,6 +441,28 @@ to a **single Apps Script web app** that appends to a Google Sheet.
 
 The script writes orders to an **Orders** tab and post-purchase upsell
 acceptances to an **Upsells** tab.
+
+### Verify in one click (no test order required)
+
+After every deploy, hit:
+
+```
+https://<your-site>/api/diagnostics/sheets        # Next.js / single-tier
+https://<your-api>/diagnostics/sheets             # FastAPI / two-tier
+```
+
+The endpoint reports whether `GOOGLE_SHEETS_WEBHOOK_URL` and
+`GOOGLE_SHEETS_API_KEY` are set in the running container, then sends a
+`kind: "ping"` POST to the Apps Script that returns without appending
+a row. Typical failure modes and what the response tells you:
+
+| `ok` | `stage`                       | What to do                                                                                                              |
+|------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `false` | `env`                      | Add `GOOGLE_SHEETS_WEBHOOK_URL` / `GOOGLE_SHEETS_API_KEY` in EasyPanel → redeploy.                                       |
+| `false` | `auth-or-app`              | The env-var key and the `API_KEY` in `webhook-script.js` don't match. Fix one, redeploy the Apps Script (New version). |
+| `false` | `transport`                | The `/exec` URL doesn't respond — usually "Who has access" isn't set to **Anyone** or the deployment was deleted.       |
+| `true`  | `appended-instead-of-pinged` | Integration works, but the deployed Apps Script is the old version. Redeploy it to pick up the `kind:"ping"` handler.   |
+| `true`  | `ping-acknowledged`        | Healthy — the next COD order will append a row.                                                                         |
 
 ### Example payload
 

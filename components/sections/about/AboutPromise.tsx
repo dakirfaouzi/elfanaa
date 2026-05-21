@@ -19,7 +19,7 @@ export function AboutPromise() {
         <div className="grid items-center gap-10 md:grid-cols-12 md:gap-16">
           <figure className="relative order-2 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft shadow-card md:order-1 md:col-span-5">
             <Image
-              src="https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?w=1800&q=88&auto=format&fit=crop&crop=center"
+              src="https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1800&q=88&auto=format&fit=crop&crop=center"
               alt={t.about.promiseEyebrow}
               fill
               sizes="(min-width: 768px) 40vw, 100vw"

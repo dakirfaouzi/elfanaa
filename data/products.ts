@@ -250,7 +250,7 @@ export const products: Product[] = [
       },
     ],
     lifestyleImage: {
-      src: "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=2000&q=88&auto=format&fit=crop&crop=center",
+      src: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=2000&q=88&auto=format&fit=crop&crop=center",
       alt: { ar: "بشرة مرطبة وصحية", en: "Hydrated healthy skin" },
     },
     price: TIER_OFFER.unit,

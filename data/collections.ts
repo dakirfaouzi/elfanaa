@@ -149,7 +149,7 @@ export const genderCollections: Collection[] = [
       en: "Simple, effective care routine for Saudi men — products that protect skin and keep it looking healthy without complexity.",
     },
     heroImage:
-      "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=1800&q=88&auto=format&fit=crop&crop=center",
+      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=1800&q=88&auto=format&fit=crop&crop=center",
     presetTarget: "men",
     productIds: products
       .filter((p) => p.target === "men" || p.target === "unisex")

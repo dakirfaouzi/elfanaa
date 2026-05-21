@@ -148,7 +148,7 @@ const SLIDES: readonly Slide[] = [
       en: "Free 14-day returns · Cash on delivery",
     },
     image: {
-      src: "https://images.unsplash.com/photo-1554057009-cb4c82c22119?w=2400&q=88&auto=format&fit=crop&crop=center",
+      src: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=2400&q=88&auto=format&fit=crop&crop=center",
       alt: {
         ar: "بشرة مرطبة على ضوء غروب الشمس — حملة روتين فناء الكامل",
         en: "Hydrated skin in sunset light — Fanaa complete ritual campaign",

@@ -15,6 +15,10 @@ tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 
+# Operational data exports (not source code — kept out of git)
+*.xlsx
+*.csv
+
 # Temp asset files used by one-off helper scripts
 scripts/_*.png
 
