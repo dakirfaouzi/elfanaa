@@ -1,5 +1,9 @@
+# Per-workspace install trees (every apps/* and packages/* has its own
+# node_modules under pnpm; the glob covers them all).
 node_modules
+**/node_modules
 .next
+**/.next
 out
 .env
 .env.local
@@ -8,8 +12,11 @@ out
 *.log
 .vscode
 .idea
+# Turborepo cache (per-package and root).
 .turbo
+**/.turbo
 tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
 
 # Python artifacts (used by scripts/remove-bg.py)
 __pycache__/

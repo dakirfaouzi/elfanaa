@@ -1,3 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -6,6 +11,20 @@ const nextConfig = {
   // copies that bundle into a slim node image — final image weighs in
   // around 180 MB, suitable for EasyPanel's per-app limits.
   output: "standalone",
+  // ── Monorepo standalone-tracing root ───────────────────────────────────────
+  // Without this, Next.js heuristically picks the nearest lockfile as the
+  // tracing root. In a pnpm workspace where `pnpm-lock.yaml` lives at the
+  // monorepo root (two levels up), the tracer would otherwise fail to
+  // resolve symlinked workspace deps (`@platform/db`, transitive Prisma
+  // engine), producing a broken standalone bundle that ENOENTs at first DB
+  // hit. Pin the tracing root explicitly to the monorepo root so the
+  // bundle picks up apps/fanaa/* + packages/db/* + all hoisted deps
+  // correctly. Output layout inside .next/standalone/ becomes:
+  //   ./apps/fanaa/server.js            ← actual entrypoint
+  //   ./apps/fanaa/node_modules/...
+  //   ./node_modules/...                ← hoisted shared deps
+  // The runtime Dockerfile CMD reflects this: `node apps/fanaa/server.js`.
+  outputFileTracingRoot: path.join(__dirname, "..", ".."),
   // Force the Vercel NFT tracer (used by `output: "standalone"`) to bundle
   // the Prisma generated client alongside any admin / tracking route that
   // imports it. NFT statically traces `require()` graphs but cannot follow

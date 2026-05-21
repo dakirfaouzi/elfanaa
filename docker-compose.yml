@@ -40,7 +40,7 @@ services:
 
   elfanaa_api:
     build:
-      context: ./backend
+      context: ./services/api
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -82,7 +82,7 @@ services:
   elfanaa_web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/fanaa/Dockerfile
       # CRITICAL — NEXT_PUBLIC_* are inlined by Webpack at build time, so
       # they MUST be passed as build args, not just runtime environment
       # variables. EasyPanel users: set these in the service's "Build

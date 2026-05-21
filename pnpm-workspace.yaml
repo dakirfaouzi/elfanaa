@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Fanaa Platform — pnpm workspace map
+# ─────────────────────────────────────────────────────────────────────────────
+# Declares which directories pnpm treats as workspace packages. Glob order is
+# significant only for cosmetic listings (`pnpm list`); resolution itself is
+# name-based via each package's `package.json#name`.
+#
+# Layout matches docs/architecture/PLATFORM.md §7:
+#   apps/      → user-facing applications (Next.js storefronts, future Studio)
+#   services/  → long-running backend services (FastAPI, future workers)
+#   packages/  → shared libraries consumed by apps/services (db schema,
+#                catalog types, AI engine, publishers, prompts, …)
+#
+# M1 ships:    apps/fanaa, services/api, packages/db
+# M2+ adds:    apps/studio, packages/{catalog-schema,ai-engine,publishers,…}
+# ─────────────────────────────────────────────────────────────────────────────
+packages:
+  - "apps/*"
+  - "services/*"
+  - "packages/*"

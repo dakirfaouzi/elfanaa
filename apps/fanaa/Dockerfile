@@ -1,42 +1,52 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# ELFANAA frontend — Next.js (App Router) Dockerfile
-# Three-stage build: deps → builder → runtime. Runtime image stays small
-# (~180 MB) because we only ship the standalone `.next/standalone` bundle,
-# `public/`, and the static `.next/static` chunks.
+# Fanaa Platform — `fanaa` storefront Dockerfile (monorepo-aware)
+#
+# Build context: REPO ROOT (not apps/fanaa/). This matters because we need
+# pnpm-workspace.yaml, packages/db/, and the root lockfile available to
+# resolve workspace dependencies (`@platform/db` is a workspace package).
+#
+# Three-stage build:
+#   1. deps    — installs full pnpm workspace, generates Prisma client
+#   2. builder — runs `pnpm --filter fanaa build` with NEXT_PUBLIC_* inlined
+#   3. runner  — slim node:22-alpine image carrying only the standalone
+#                output + traced node_modules + public/ + Prisma engine
+#
+# Final image: ~180 MB, identical runtime characteristics to pre-M1.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── 1. Dependencies ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
-WORKDIR /app
+# Pin pnpm version explicitly — must match `packageManager` in root package.json.
+RUN npm install -g pnpm@9.15.9
+WORKDIR /repo
 
-# Use the lockfile that's actually present. `--frozen-lockfile` flags ensure
-# CI deploys never silently drift from local.
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+# Copy ONLY the manifests needed to resolve the dependency graph. This keeps
+# the deps layer cacheable: changing a source file in apps/fanaa/app/ won't
+# bust the install cache, only a manifest change will.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY apps/fanaa/package.json ./apps/fanaa/
+COPY packages/db/package.json ./packages/db/
 
-# The Prisma schema MUST be present before `npm ci`, because our `postinstall`
-# hook runs `prisma generate`. Without the schema, generate fails with
-# "Could not find Prisma Schema", the `|| echo` fallback in postinstall masks
-# the error, and `npm ci` finishes with an EMPTY @prisma/client — which then
-# explodes during `next build` with "OrderMirrorWhereInput has no exported
-# member". Copying `prisma/` here lets postinstall produce the real client
-# inside `node_modules/.prisma/client/` and that directory is carried into
-# the builder stage via `COPY --from=deps`.
-COPY prisma ./prisma
+# Prisma schema must be present BEFORE `pnpm install` so the fanaa
+# postinstall hook (`prisma generate --schema=../../packages/db/prisma/schema.prisma`)
+# can succeed. Without the schema, generate fails, the `|| echo` fallback in
+# postinstall swallows the error, and the build ships an empty @prisma/client
+# — which then explodes at `next build` with "OrderMirrorWhereInput has no
+# exported member".
+COPY packages/db/prisma ./packages/db/prisma
 
-RUN \
-  if [ -f pnpm-lock.yaml ]; then \
-    corepack enable pnpm && pnpm install --frozen-lockfile; \
-  elif [ -f yarn.lock ]; then \
-    yarn --frozen-lockfile; \
-  else \
-    npm ci; \
-  fi
+# Install the workspace subset rooted at fanaa. `--filter fanaa...` (note the
+# trailing dots) includes workspace deps in the closure — i.e. @platform/db.
+# `--frozen-lockfile` ensures CI cannot drift from the committed lockfile.
+RUN pnpm install --frozen-lockfile --filter fanaa...
 
 
 # ── 2. Builder ───────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
-WORKDIR /app
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@9.15.9
+WORKDIR /repo
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -55,9 +65,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 #
 # Forgetting to set NEXT_PUBLIC_API_BASE_URL here is the canonical
 # cause of "the storefront posts to /api/orders instead of FastAPI"
-# bugs: the browser falls back to the Next.js route, the Sheets
-# dispatch silently no-ops because GOOGLE_SHEETS_WEBHOOK_URL only
-# lives on the API service, and orders never reach the sheet.
+# bugs.
 ARG NEXT_PUBLIC_API_BASE_URL=""
 ARG NEXT_PUBLIC_SITE_URL=""
 ARG NEXT_PUBLIC_DEFAULT_LOCALE="ar"
@@ -74,34 +82,40 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
     NEXT_PUBLIC_TIKTOK_PIXEL_ID=$NEXT_PUBLIC_TIKTOK_PIXEL_ID \
     NEXT_PUBLIC_SNAPCHAT_PIXEL_ID=$NEXT_PUBLIC_SNAPCHAT_PIXEL_ID
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Pull the entire resolved install tree from the deps stage. Includes:
+#   /repo/node_modules                    (hoisted shared deps)
+#   /repo/apps/fanaa/node_modules         (per-workspace symlinks)
+#   /repo/packages/db/node_modules        (per-workspace symlinks)
+#   /repo/apps/fanaa/node_modules/.prisma (generated client, from postinstall)
+COPY --from=deps /repo/node_modules ./node_modules
+COPY --from=deps /repo/apps/fanaa/node_modules ./apps/fanaa/node_modules
+COPY --from=deps /repo/packages/db/node_modules ./packages/db/node_modules
+COPY --from=deps /repo/packages/db/prisma ./packages/db/prisma
+
+# Now copy the rest of the source tree. `.dockerignore` at the repo root
+# excludes services/, node_modules, .next, etc.
+COPY apps/fanaa ./apps/fanaa
+COPY packages/db ./packages/db
+COPY tsconfig.base.json turbo.json pnpm-workspace.yaml package.json ./
 
 # Echo what got inlined so build logs make misconfiguration obvious.
-# Values are non-secret by definition (NEXT_PUBLIC_* ships to browsers).
 RUN echo "[build] NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL" \
  && echo "[build] NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL"
 
-# Defense-in-depth: regenerate the Prisma client now that the FULL source
-# tree (including `prisma/schema.prisma`) is present. The deps stage already
-# generated it, but running again here means:
+# Defense-in-depth: regenerate the Prisma client now that the full source
+# tree is present. The deps stage already generated it, but running again
+# here means:
 #   • If a future change reorders or removes the deps-stage copy, we never
 #     ship a stale client.
-#   • Buildkit layer caching can't silently serve an outdated `.prisma/client/`.
+#   • Buildkit layer caching can't silently serve an outdated client.
 #   • Local devs who skip postinstall don't poison the image.
-# `prisma generate` does NOT touch the DB — it only reads the schema and
-# emits TS types + the platform-specific query engine binary into
-# `node_modules/.prisma/client/`. Idempotent, ~3s.
-RUN npx --no-install prisma generate
+# Idempotent, ~3s.
+RUN cd apps/fanaa && pnpm exec prisma generate --schema=../../packages/db/prisma/schema.prisma
 
-RUN \
-  if [ -f pnpm-lock.yaml ]; then \
-    corepack enable pnpm && pnpm build; \
-  elif [ -f yarn.lock ]; then \
-    yarn build; \
-  else \
-    npm run build; \
-  fi
+# Build the fanaa workspace. Turborepo would also work here; calling pnpm
+# directly avoids the extra layer of orchestration in the critical path
+# of the Docker build.
+RUN pnpm --filter fanaa build
 
 
 # ── 3. Runtime ───────────────────────────────────────────────────────────────
@@ -117,12 +131,19 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
-# `output: "standalone"` produces a fully runnable bundle in `.next/standalone`,
-# but `public/` and `.next/static` are not copied automatically — we add them
-# alongside the standalone output to match Next.js's runtime expectations.
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# `output: "standalone"` + `outputFileTracingRoot = monorepo-root` produces
+# a fully runnable bundle in `apps/fanaa/.next/standalone/` that preserves
+# the apps/fanaa/ prefix. The server entrypoint lands at:
+#   .next/standalone/apps/fanaa/server.js
+# and all traced node_modules sit alongside (both hoisted at root and
+# per-workspace under apps/fanaa/node_modules/).
+#
+# `public/` and `.next/static/` are NOT copied automatically by the
+# standalone tracer — we add them alongside the standalone output to
+# match Next.js's runtime expectations.
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/public ./apps/fanaa/public
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/.next/static ./apps/fanaa/.next/static
 
 # Prisma engine binary + generated client.
 #
@@ -136,8 +157,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # accurate the tracer is on any given Next.js / Prisma release.
 # This is additive: ~16 MB. Only the admin/track routes import it; the
 # storefront bundle is untouched.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/node_modules/.prisma ./apps/fanaa/node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/node_modules/@prisma ./apps/fanaa/node_modules/@prisma
 
 USER nextjs
 EXPOSE 3000
@@ -149,4 +170,4 @@ EXPOSE 3000
 # overrides PORT (e.g. EasyPanel injects PORT=80) and the orchestrator would
 # then refuse to route traffic to a perfectly healthy container.
 
-CMD ["node", "server.js"]
+CMD ["node", "apps/fanaa/server.js"]

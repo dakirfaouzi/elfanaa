@@ -1,24 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker build context excludes — repo-root context (monorepo).
+# Applied to both apps/fanaa/Dockerfile and services/api/Dockerfile builds.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Per-workspace install trees — pnpm regenerates these inside the image.
 node_modules
+**/node_modules
+
+# Build outputs — Next.js regenerates these inside the image.
 .next
+**/.next
 out
 .vercel
+.turbo
+**/.turbo
+
+# Local env files — only .env.example variants are allowed in.
 .env
 .env.*
 !.env.example
+!**/.env.example
+!**/.env.admin.example
+
+# VCS + IDE noise.
 .git
 .gitignore
 .idea
 .vscode
+.cursor
+
+# Logs + caches.
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
-*.md
-!README.md
-backend
-.cursor
 .cache
 coverage
 playwright-report
 test-results
+
+# Documentation — keep PLATFORM.md out of the image but allow README.md.
+*.md
+!README.md
+
+# Cross-workspace exclusions —
+# The fanaa Docker build doesn't need services/ (the FastAPI tree),
+# and the services/api build doesn't see apps/ because its build context
+# is scoped to ./services/api by docker-compose.
+services
