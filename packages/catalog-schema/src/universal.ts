@@ -1,0 +1,131 @@
+import type { LocalizedString, Money } from "./locales";
+import type { NicheId, StoreId } from "./ids";
+import type {
+  ProductBenefit,
+  ProductFeature,
+  ProductIngredient,
+  ProductSpec,
+  ProductCert,
+  ProductImage,
+  ProductReview,
+  ProductFaq,
+  AdHook,
+} from "./primitives";
+
+/**
+ * UniversalProduct — the canonical, store-agnostic output of the AI
+ * generation pipeline (PLATFORM.md §9).
+ *
+ * # Why universal?
+ *
+ *   • If the AI engine outputs a Fanaa-shaped object, adding a second store
+ *     requires rewriting the engine.
+ *   • If the AI engine outputs a universal shape, adding a second store
+ *     requires writing a new publisher.
+ *
+ * Publishers are small and replaceable. Engines are large and not.
+ *
+ * # What lives where?
+ *
+ *   • Every customer-facing string is `LocalizedString` (bilingual).
+ *   • Niche-specific fields are typed-but-optional (`ingredients?` for
+ *     beauty/wellness, `specifications?` for electronics, …). The
+ *     `niche` discriminator says which optionals are expected to be
+ *     populated; runtime validators are looser by design so a half-
+ *     generated draft can still round-trip through the schema.
+ *   • Publisher-specific fields (e.g. Fanaa's `landingPath`, `offerTiers`,
+ *     SKU format, scarcity hints) live in `./extensions/<publisher>.ts`
+ *     and are NEVER part of the universal shape. The publisher decides
+ *     how to compute them at materialise-time.
+ *
+ * # Stability promise
+ *
+ * Once a milestone past M3 ships referencing UniversalProduct (M5
+ * pipeline assemble stage, M7 FanaaPublisher), this interface is
+ * additive-only. Breaking changes go through a new major version
+ * package (`@platform/catalog-schema-v2`) so the publisher matrix
+ * can migrate one store at a time.
+ */
+export interface UniversalProduct {
+  // ── Identity ───────────────────────────────────────────────────────────
+  /** Stable, generated. Format: `up_<cuid>` (the M6 worker assigns this). */
+  id: string;
+  /** SEO slug derived from `title.en`; publishers may override. */
+  slug: string;
+  /** Niche this product was generated for — drives extension expectations. */
+  niche: NicheId;
+  /** Generating store context — provenance, NOT a store-coupling. The same
+   *  UniversalProduct may be republished to multiple stores later. */
+  storeContext: StoreId;
+  /** Inngest run ID that produced this draft (PLATFORM.md §11). */
+  generationRunId: string;
+  /** ISO-8601 with timezone. */
+  generatedAt: string;
+
+  // ── Customer-facing core ───────────────────────────────────────────────
+  title: LocalizedString;
+  description: LocalizedString;
+  /** Optional emotional H1 — overrides `title` on the PDP when present. */
+  headline?: LocalizedString;
+  /** Optional supporting line under the headline. */
+  subheadline?: LocalizedString;
+
+  // ── Value content ──────────────────────────────────────────────────────
+  /** 4–6 typical; the benefits stage enforces this via prompt. */
+  benefits: ProductBenefit[];
+  /** Optional generic features — usually empty for beauty/wellness which
+   *  prefer `benefits` + `ingredients`. */
+  features?: ProductFeature[];
+  /** Beauty/wellness niche. Populated by the niche-specific stage. */
+  ingredients?: ProductIngredient[];
+  /** Electronics/home/fashion niche. */
+  specifications?: ProductSpec[];
+  /** Regulatory marks where the niche/market demands them (SFDA in KSA). */
+  certifications?: ProductCert[];
+
+  // ── Visual ─────────────────────────────────────────────────────────────
+  /** Hero first, then gallery. Publishers may reorder. */
+  images: ProductImage[];
+  /** Editorial lifestyle photography — distinct from cut-out gallery. */
+  lifestyleImages?: ProductImage[];
+
+  // ── Social proof ──────────────────────────────────────────────────────
+  /** 3–6 generated reviews, realistic distribution. */
+  reviews: ProductReview[];
+  /** Aggregated rating. Publishers may surface alongside individual reviews. */
+  rating?: { value: number; count: number };
+
+  // ── Conversion ────────────────────────────────────────────────────────
+  /** 5–7 COD-objection-tuned FAQ entries. */
+  faq: ProductFaq[];
+
+  // ── Pricing hint (publisher decides actual offers) ───────────────────
+  /**
+   * Suggested unit price. The publisher computes actual offer structure:
+   *   • FanaaPublisher → expands into `offerTiers` (volume-pricing bundle)
+   *   • ShopifyPublisher → maps directly to variant price
+   *   • TikTokShopPublisher → applies platform commission, then publishes
+   */
+  priceHint: Money;
+  /** Internal-only margin notes (e.g. "supplier $4.20 + ship $1.80"). */
+  marginNotes?: string;
+
+  // ── Ad / paid marketing ──────────────────────────────────────────────
+  /** Typically 5 hooks per draft, across angles (PLATFORM.md §11 stage 09). */
+  hooks: AdHook[];
+
+  // ── Cross-sell / upsell suggestions ──────────────────────────────────
+  /** UniversalProduct IDs of suggested companions. The publisher may or
+   *  may not honour these — Fanaa cross-sell rules can override. */
+  upsellSuggestions?: string[];
+
+  // ── Provenance ───────────────────────────────────────────────────────
+  sources: {
+    /** Supplier URL that seeded the draft (Alibaba/AliExpress/etc.). */
+    supplierUrl: string;
+    /** ISO timestamp when scrape happened. Null if scrape skipped. */
+    scrapedAt: string;
+    /** R2 keys of the supplier images the operator uploaded at intake. */
+    uploadedImages: string[];
+  };
+}
