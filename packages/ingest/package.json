@@ -1,0 +1,31 @@
+{
+  "name": "@platform/ingest",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ingest contracts for the Fanaa Platform AI Studio (PLATFORM.md §15). Defines IngestJob shape, queue abstraction (Queue<T>), run/step persistence contracts (RunStore), and retry policy. Ships in-memory + file-backed implementations for local dev. Future Inngest/BullMQ adapters slot in behind the same Queue interface — no runtime coupling to either.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts",
+    "./queue": "./src/queue/index.ts",
+    "./store": "./src/store/index.ts",
+    "./retry": "./src/retry/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@platform/catalog-schema": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

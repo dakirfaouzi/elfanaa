@@ -194,6 +194,25 @@ importers:
         specifier: ^6.19.3
         version: 6.19.3(typescript@5.9.3)
 
+  packages/ingest:
+    dependencies:
+      '@platform/catalog-schema':
+        specifier: workspace:*
+        version: link:../catalog-schema
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.19)
+
   packages/stores:
     dependencies:
       '@platform/catalog-schema':
@@ -206,6 +225,37 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+
+  packages/worker:
+    dependencies:
+      '@platform/ai-engine':
+        specifier: workspace:*
+        version: link:../ai-engine
+      '@platform/catalog-schema':
+        specifier: workspace:*
+        version: link:../catalog-schema
+      '@platform/ingest':
+        specifier: workspace:*
+        version: link:../ingest
+      '@platform/stores':
+        specifier: workspace:*
+        version: link:../stores
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.19)
 
 packages:
 

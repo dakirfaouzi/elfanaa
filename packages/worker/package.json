@@ -1,0 +1,37 @@
+{
+  "name": "@platform/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Worker runtime for the Fanaa Platform AI Studio (PLATFORM.md §14–§15). Drains the @platform/ingest queue, runs the @platform/ai-engine M5 pipeline against jobs, resolves providers via the M4 registry, records cost rows, persists run/step records to a RunStore, and supports deterministic replay. Future Inngest adapter slots in behind the same Queue<IngestJob> interface — no Inngest dependency in M6.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./provider-wiring": "./src/provider-wiring/index.ts",
+    "./replay": "./src/replay.ts"
+  },
+  "files": ["src", "scripts"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "health": "tsx scripts/health.ts",
+    "run-worker": "tsx scripts/run-worker.ts",
+    "dispatch:mock": "tsx scripts/dispatch-mock.ts"
+  },
+  "dependencies": {
+    "@platform/ai-engine": "workspace:*",
+    "@platform/catalog-schema": "workspace:*",
+    "@platform/ingest": "workspace:*",
+    "@platform/stores": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

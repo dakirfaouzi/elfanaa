@@ -35,3 +35,7 @@ node_modules/.prisma
 .env.admin
 .env.admin.local
 .env.admin.*.local
+
+# Platform AI Studio local-dev artifacts (queue + run records — see
+# docs/architecture/PLATFORM.md §13. Created by @platform/worker.)
+.platform-data/
