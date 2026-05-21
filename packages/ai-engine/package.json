@@ -2,7 +2,7 @@
   "name": "@platform/ai-engine",
   "version": "0.0.0",
   "private": true,
-  "description": "Provider-agnostic AI engine for the Fanaa Platform. M4 surface: provider contracts + env-driven registry + adapters (Anthropic, OpenAI, fal.ai, Firecrawl). Pipeline stages (M5) and Inngest functions (M6) land later. See docs/architecture/PLATFORM.md §11–§12.",
+  "description": "Provider-agnostic AI engine for the Fanaa Platform. M4 surface: provider contracts + env-driven registry + adapters (Anthropic, OpenAI, fal.ai, Firecrawl). M5 surface: pure-TypeScript pipeline stages (research → assemble), per-stage Zod schemas, reusable prompt builders parameterised by StoreConfig + BrandProfile + NicheProfile. M6 wires Inngest. See docs/architecture/PLATFORM.md §11–§12.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -12,12 +12,18 @@
     "./providers/contracts": "./src/providers/contracts.ts",
     "./providers/schemas": "./src/providers/schemas.ts",
     "./providers/registry": "./src/providers/registry.ts",
-    "./providers/healthcheck": "./src/providers/healthcheck.ts"
+    "./providers/healthcheck": "./src/providers/healthcheck.ts",
+    "./pipeline": "./src/pipeline/index.ts",
+    "./pipeline/types": "./src/pipeline/types.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./prompts": "./src/prompts/index.ts"
   },
   "files": ["src", "scripts"],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "ping": "tsx scripts/check-providers.ts"
+    "ping": "tsx scripts/check-providers.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
@@ -31,6 +37,7 @@
   "devDependencies": {
     "@types/node": "^22.9.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
   }
 }
