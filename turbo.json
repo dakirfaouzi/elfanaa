@@ -33,6 +33,13 @@
     "typecheck": {
       "outputs": []
     },
+    "test": {
+      "outputs": [],
+      "env": [
+        "PLATFORM_DATA_ROOT",
+        "STUDIO_ASSETS_CDN_BASE"
+      ]
+    },
     "clean": {
       "cache": false,
       "outputs": []

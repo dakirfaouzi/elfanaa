@@ -2,20 +2,28 @@
   "name": "studio",
   "version": "0.0.0",
   "private": true,
-  "description": "Fanaa Platform AI Studio — internal multi-store AI ecommerce production app. M2 skeleton: JWT-gated login + empty dashboard. See docs/architecture/PLATFORM.md.",
+  "description": "Fanaa Platform AI Studio — internal multi-store AI ecommerce production app. M8 surface: JWT-gated dashboard with a products browser, run timeline, isolated preview renderer, replay controls, and dry-run publish preview against M5→M7 outputs. See docs/architecture/PLATFORM.md.",
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@platform/catalog-schema": "workspace:*",
+    "@platform/ingest": "workspace:*",
+    "@platform/publishers": "workspace:*",
+    "@platform/stores": "workspace:*",
+    "@platform/worker": "workspace:*",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "next": "^15.0.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -24,6 +32,8 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.14.0",
     "eslint-config-next": "^15.0.3",
-    "typescript": "^5.6.3"
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
   }
 }
