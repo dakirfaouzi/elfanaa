@@ -131,6 +131,32 @@ services:
     ports:
       - "3000:3000"
 
+  # ── Studio (M2) ───────────────────────────────────────────────────────────
+  # Internal AI ecommerce production app. Deliberately stateless in M2:
+  # no DB, no FastAPI dependency, no shared cookie with elfanaa_web.
+  #
+  # Auth is decoupled from Fanaa admin — separate STUDIO_EMAIL,
+  # STUDIO_PASSWORD_HASH, STUDIO_JWT_SECRET (see apps/studio/.env.example).
+  # The container starts even when those are unset; the /login endpoint
+  # will respond 503 with an actionable error until they are configured.
+  #
+  # Host port 3001 to avoid clashing with elfanaa_web on 3000. EasyPanel
+  # deploys this as a separate service behind its own subdomain.
+  elfanaa_studio:
+    build:
+      context: .
+      dockerfile: apps/studio/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      STUDIO_EMAIL: ${STUDIO_EMAIL:-}
+      STUDIO_PASSWORD: ${STUDIO_PASSWORD:-}
+      STUDIO_PASSWORD_HASH: ${STUDIO_PASSWORD_HASH:-}
+      STUDIO_JWT_SECRET: ${STUDIO_JWT_SECRET:-}
+      STUDIO_AUTH_COOKIE: ${STUDIO_AUTH_COOKIE:-}
+    ports:
+      - "3001:3000"
+
 volumes:
   elfanaa_pgdata:
     driver: local

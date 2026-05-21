@@ -1,0 +1,29 @@
+{
+  "name": "studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fanaa Platform AI Studio — internal multi-store AI ecommerce production app. M2 skeleton: JWT-gated login + empty dashboard. See docs/architecture/PLATFORM.md.",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.3",
+    "next": "^15.0.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.14.0",
+    "eslint-config-next": "^15.0.3",
+    "typescript": "^5.6.3"
+  }
+}
