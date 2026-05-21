@@ -1,0 +1,35 @@
+{
+  "name": "@platform/publishers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Publisher adapters for the Fanaa Platform (PLATFORM.md §10). Materialises a `UniversalProduct` (M5/M6 pipeline output) into a store-native shape. M7 ships the reference FanaaPublisher: file-backed materialisation to `.platform-data/products/<storeId>/<id>.json`, deterministic SKU + slug, offer-tier expansion, beauty/wellness taxonomy inference, full Zod validation. Octokit PR writer / preview / unpublish are deferred to M8/M9 — the contract leaves room.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts",
+    "./registry": "./src/registry.ts",
+    "./fanaa": "./src/fanaa/index.ts",
+    "./persistence": "./src/persistence/index.ts"
+  },
+  "files": ["src", "scripts"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publish:local": "tsx scripts/publish-local.ts"
+  },
+  "dependencies": {
+    "@platform/catalog-schema": "workspace:*",
+    "@platform/ingest": "workspace:*",
+    "@platform/stores": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}
