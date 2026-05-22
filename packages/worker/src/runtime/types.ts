@@ -41,6 +41,66 @@ export interface OrchestratorOptions {
    *  When set, the orchestrator reuses any successful step outputs and only re-runs
    *  failed / not-yet-attempted stages. */
   resume?: ResumePolicy;
+  /** Middleware hook — invoked AFTER each step (success or failure) is
+   *  persisted to the store. Used by the M9 cost-ceiling middleware to
+   *  short-circuit the run when cumulative spend crosses the cap.
+   *
+   *  Throw a `CostCeilingExceededError` (or any Error containing the
+   *  marker prefix `cost_exceeded:`) to abort the pipeline; the
+   *  orchestrator marks the run as `failed` with the marker as
+   *  `errorMessage` and breaks the dispatch loop without invoking
+   *  further providers.
+   *
+   *  See `packages/worker/src/middleware/with-cost-ceiling.ts`. */
+  onStepRecorded?: (ctx: StepRecordedContext) => Promise<void> | void;
+}
+
+/** Context passed to `OrchestratorOptions.onStepRecorded`. */
+export interface StepRecordedContext {
+  /** ID of the running pipeline. */
+  runId: string;
+  /** Name of the stage that just produced this step. */
+  stage: PipelineStageName;
+  /** Whether the step succeeded, failed, or was skipped. */
+  status: "success" | "failed" | "skipped";
+  /** Cost (USD) attributed to this single stage. */
+  stageCostUsd: number;
+  /** Cumulative cost across every step persisted so far in this run. */
+  totalCostUsd: number;
+  /** Configured ceiling for the run's store (USD). */
+  costCeilingUsd: number;
+}
+
+/**
+ * Aborts the orchestrator mid-run when the cumulative spend crosses
+ * `StoreConfig.costCeilingPerDraftUsd`. The orchestrator catches this
+ * specific class (instead of recognising every random Error) and
+ * marks the run as `failed` with a stable `cost_exceeded:` message
+ * so the Studio UI / Inngest webhook can branch on it explicitly.
+ */
+export class CostCeilingExceededError extends Error {
+  override readonly name = "CostCeilingExceededError";
+  /** Stable machine marker — embedded in `errorMessage` for callers
+   *  that don't have access to the Error class (file readers, queue
+   *  consumers, etc.). */
+  static readonly MARKER = "cost_exceeded:" as const;
+  readonly runId: string;
+  readonly stage: PipelineStageName;
+  readonly totalCostUsd: number;
+  readonly ceilingUsd: number;
+  constructor(args: {
+    runId: string;
+    stage: PipelineStageName;
+    totalCostUsd: number;
+    ceilingUsd: number;
+  }) {
+    const detail = `${args.totalCostUsd.toFixed(4)}>${args.ceilingUsd.toFixed(4)}_usd_at_${args.stage}`;
+    super(`${CostCeilingExceededError.MARKER}${detail}`);
+    this.runId = args.runId;
+    this.stage = args.stage;
+    this.totalCostUsd = args.totalCostUsd;
+    this.ceilingUsd = args.ceilingUsd;
+  }
 }
 
 export interface ResumePolicy {

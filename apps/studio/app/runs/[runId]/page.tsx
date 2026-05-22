@@ -7,9 +7,16 @@ import {
   RunStatusBadge,
   StepStatusBadge,
 } from "@/app/_components/StatusBadge";
+import { LiveStepTimeline } from "@/app/_components/LiveStepTimeline";
 import { readRun } from "@/lib/studio/run-loader";
 import { runReplayAction } from "@/lib/studio/replay-action";
-import type { StepRecord, RunRecord } from "@platform/ingest";
+import type { StepRecord, RunRecord, RunStatus } from "@platform/ingest";
+
+const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set([
+  "completed",
+  "failed",
+  "cancelled",
+]);
 
 /* ─── Server action: replay the run + revalidate the page ──────────── */
 
@@ -96,7 +103,11 @@ export default async function RunDetailPage(props: {
       <main className="shell-main">
         <RunHeader run={run} />
         <CostSummary run={run} />
-        <StepTimeline steps={run.steps} />
+        {TERMINAL_STATUSES.has(run.status) ? (
+          <StepTimeline steps={run.steps} />
+        ) : (
+          <LiveStepTimeline runId={run.runId} initialRun={run} terminal={false} />
+        )}
         <CostsTable run={run} />
         <JobPanel run={run} />
         <ReplayPanel run={run} />

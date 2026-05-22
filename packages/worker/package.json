@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime": "./src/runtime/index.ts",
+    "./middleware": "./src/middleware/index.ts",
     "./provider-wiring": "./src/provider-wiring/index.ts",
     "./replay": "./src/replay.ts"
   },

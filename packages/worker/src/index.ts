@@ -34,6 +34,16 @@ export {
 } from "./runtime";
 
 export {
+  CostCeilingExceededError,
+  type StepRecordedContext,
+} from "./runtime/types";
+
+export {
+  withCostCeiling,
+  type WithCostCeilingOptions,
+} from "./middleware";
+
+export {
   resolveProvidersForStore,
   wrapTextWithCost,
   wrapVisionWithCost,

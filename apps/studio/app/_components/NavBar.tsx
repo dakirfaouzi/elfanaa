@@ -16,7 +16,7 @@ import { LogoutButton } from "./LogoutButton";
  *     dark UI), so reusing apps/fanaa primitives would force colour
  *     inversions everywhere — better to ship a tiny dedicated NavBar.
  */
-export function NavBar(props: { active: "products" | "runs" | "home" }) {
+export function NavBar(props: { active: "products" | "runs" | "intake" | "home" }) {
   return (
     <header
       style={{
@@ -61,6 +61,7 @@ export function NavBar(props: { active: "products" | "runs" | "home" }) {
             flex: 1,
           }}
         >
+          <NavLink href="/intake" label="Intake" active={props.active === "intake"} />
           <NavLink href="/products" label="Products" active={props.active === "products"} />
           <NavLink href="/runs" label="Runs" active={props.active === "runs"} />
         </nav>

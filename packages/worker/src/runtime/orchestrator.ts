@@ -32,7 +32,7 @@ import type {
   PipelineStageName,
   StageOutputs,
 } from "./types";
-import { PIPELINE_STAGES } from "./types";
+import { CostCeilingExceededError, PIPELINE_STAGES } from "./types";
 import {
   wrapEmbeddingWithCost,
   wrapImageWithCost,
@@ -175,6 +175,53 @@ export async function runPipeline(
 
     if (result.output !== undefined) {
       (outputs as Record<string, unknown>)[stageName] = result.output;
+    }
+
+    // Invoke the after-step middleware hook (M9). The orchestrator
+    // re-reads the store so the hook sees the canonical
+    // `totalCostUsd` the store maintains, not a local tally that
+    // could drift if the store deduplicates or rejects appends.
+    if (opts.onStepRecorded) {
+      const fresh = (await opts.store.getRun(opts.job.runId)) ?? run;
+      try {
+        await opts.onStepRecorded({
+          runId: opts.job.runId,
+          stage: stageName,
+          status: stepWithCost.status,
+          stageCostUsd,
+          totalCostUsd: fresh.totalCostUsd,
+          // The ceiling is meaningful only to ceiling middleware;
+          // generic hooks receive the store-config value. Middlewares
+          // unrelated to cost simply ignore it.
+          costCeilingUsd: opts.storeConfig.costCeilingPerDraftUsd,
+        });
+      } catch (err) {
+        if (
+          err instanceof CostCeilingExceededError ||
+          (err instanceof Error &&
+            err.message.startsWith(CostCeilingExceededError.MARKER))
+        ) {
+          const message = err instanceof Error ? err.message : String(err);
+          await opts.store.markRunFailed(opts.job.runId, message);
+          const finalRun = await opts.store.getRun(opts.job.runId);
+          stageLogger.error("run_aborted_cost_ceiling", {
+            stage: stageName,
+            totalCostUsd: fresh.totalCostUsd,
+            ceilingUsd: opts.storeConfig.costCeilingPerDraftUsd,
+          });
+          return { run: finalRun ?? run, product: undefined };
+        }
+        // Any non-ceiling error in the hook is unexpected; fail the
+        // run so the operator sees it rather than silently swallowing.
+        const message = err instanceof Error ? err.message : "hook_error";
+        await opts.store.markRunFailed(
+          opts.job.runId,
+          `onStepRecorded_threw:${message}`,
+        );
+        const finalRun = await opts.store.getRun(opts.job.runId);
+        stageLogger.error("run_failed_hook", { stage: stageName, errorMessage: message });
+        return { run: finalRun ?? run, product: undefined };
+      }
     }
   }
 
