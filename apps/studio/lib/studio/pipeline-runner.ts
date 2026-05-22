@@ -1,4 +1,5 @@
 import { FileStore } from "@platform/ingest";
+import type { RunStore } from "@platform/ingest/store";
 import { fanaaStore, getStore } from "@platform/stores";
 import type { StoreConfig } from "@platform/stores";
 import type { IngestJob } from "@platform/ingest";
@@ -68,6 +69,11 @@ export interface RunIntakePipelineOptions {
   providers?: ResolvedProviders;
   /** Override the data root — tests point at a temp dir. */
   dataRoot?: string;
+  /** Override the RunStore — when set, the runner uses this instead
+   *  of constructing a fresh FileStore. The composite store from
+   *  the persistence factory passes through here so dual-write to
+   *  Postgres works automatically. */
+  runStore?: RunStore;
 }
 
 /**
@@ -96,7 +102,12 @@ export async function runIntakePipeline(
   }
 
   const dataRoot = opts.dataRoot ?? platformDataRoot();
-  const store = new FileStore(path.join(dataRoot, "runs"));
+  // The runStore is supplied by the persistence factory at the
+  // call-site so M10 dual-write to Postgres composes transparently.
+  // When omitted we fall back to a fresh file-backed store — the
+  // M6/M9 behaviour.
+  const store: RunStore =
+    opts.runStore ?? new FileStore(path.join(dataRoot, "runs"));
 
   // Resolve providers OR surface a structured failed run. We can't
   // rely on `runPipeline` to do this because it would throw before

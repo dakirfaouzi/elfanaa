@@ -44,5 +44,8 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ runId: result.runId }, { status: 202 });
+  return NextResponse.json(
+    { runId: result.runId, draftId: result.draftId },
+    { status: 202 },
+  );
 }

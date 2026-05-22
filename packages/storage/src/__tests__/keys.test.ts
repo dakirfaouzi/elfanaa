@@ -1,0 +1,148 @@
+import { describe, expect, it } from "vitest";
+import {
+  ALLOWED_CONTENT_TYPES,
+  extForContentType,
+  keyForUpload,
+  parseKey,
+  ulid,
+} from "../keys";
+
+/**
+ * Key + ULID tests.
+ *
+ * Coverage:
+ *   1. ULID format: 26 ASCII chars, Crockford base-32, monotonic time
+ *      prefix.
+ *   2. Content-type → extension mapping is conservative.
+ *   3. `keyForUpload` produces the exact PLATFORM.md §14 pattern.
+ *   4. Bad draftId / unknown content type → throws.
+ *   5. parseKey is the inverse of keyForUpload for any valid input.
+ */
+
+describe("ulid", () => {
+  it("emits a 26-char Crockford base-32 string", () => {
+    const id = ulid();
+    expect(id).toHaveLength(26);
+    expect(id).toMatch(/^[0-9A-Z]{26}$/);
+    // No I, L, O, U in Crockford alphabet.
+    expect(id.includes("I")).toBe(false);
+    expect(id.includes("L")).toBe(false);
+    expect(id.includes("O")).toBe(false);
+    expect(id.includes("U")).toBe(false);
+  });
+
+  it("is deterministic when nowMs + randomFn are pinned", () => {
+    const fakeRand = () => new Uint8Array(16).fill(0);
+    const a = ulid({ nowMs: 1_716_375_000_000, randomFn: fakeRand });
+    const b = ulid({ nowMs: 1_716_375_000_000, randomFn: fakeRand });
+    expect(a).toBe(b);
+  });
+
+  it("the time prefix sorts monotonically", () => {
+    const fakeRand = () => new Uint8Array(16).fill(0);
+    const a = ulid({ nowMs: 1_716_375_000_000, randomFn: fakeRand });
+    const b = ulid({ nowMs: 1_716_375_001_000, randomFn: fakeRand });
+    expect(a < b).toBe(true);
+  });
+
+  it("rejects negative or non-finite times", () => {
+    expect(() => ulid({ nowMs: -1 })).toThrow(/ulid_invalid_time/);
+    expect(() => ulid({ nowMs: Number.NaN })).toThrow(/ulid_invalid_time/);
+  });
+});
+
+describe("extForContentType", () => {
+  it("returns the canonical extension for every allowed content type", () => {
+    for (const [ct, ext] of Object.entries(ALLOWED_CONTENT_TYPES)) {
+      expect(extForContentType(ct)).toBe(ext);
+    }
+  });
+
+  it("normalises whitespace + casing", () => {
+    expect(extForContentType("  IMAGE/PNG  ")).toBe("png");
+  });
+
+  it("rejects unknown content types", () => {
+    expect(() => extForContentType("application/exe")).toThrow(
+      /unsupported_content_type/,
+    );
+    expect(() => extForContentType("text/html")).toThrow(
+      /unsupported_content_type/,
+    );
+  });
+});
+
+describe("keyForUpload", () => {
+  it("produces the PLATFORM.md §14 pattern: studio/<draftId>/<source>/<ulid>.<ext>", () => {
+    const key = keyForUpload({
+      draftId: "draft_abc123",
+      source: "upload",
+      contentType: "image/png",
+      ulidOverride: "01HXYZTESTULIDFAKEABCDEFGH",
+    });
+    expect(key).toBe("studio/draft_abc123/upload/01HXYZTESTULIDFAKEABCDEFGH.png");
+  });
+
+  it("mints a fresh ULID per call by default", () => {
+    const k1 = keyForUpload({
+      draftId: "d",
+      source: "generated",
+      contentType: "image/webp",
+    });
+    const k2 = keyForUpload({
+      draftId: "d",
+      source: "generated",
+      contentType: "image/webp",
+    });
+    expect(k1).not.toBe(k2);
+    expect(k1.startsWith("studio/d/generated/")).toBe(true);
+    expect(k1.endsWith(".webp")).toBe(true);
+  });
+
+  it("rejects malformed draft ids", () => {
+    expect(() =>
+      keyForUpload({
+        draftId: "draft with spaces",
+        source: "upload",
+        contentType: "image/png",
+      }),
+    ).toThrow(/invalid_draft_id/);
+    expect(() =>
+      keyForUpload({
+        draftId: "",
+        source: "upload",
+        contentType: "image/png",
+      }),
+    ).toThrow(/invalid_draft_id/);
+  });
+
+  it("rejects unknown content types", () => {
+    expect(() =>
+      keyForUpload({
+        draftId: "d",
+        source: "upload",
+        contentType: "image/bmp",
+      }),
+    ).toThrow(/unsupported_content_type/);
+  });
+});
+
+describe("parseKey", () => {
+  it("round-trips an upload key back to its components", () => {
+    const id = "01HXYZTESTULIDFAKEABCDEFGH";
+    const key = `studio/draft_abc/scraped/${id}.jpg`;
+    const parsed = parseKey(key);
+    expect(parsed).toEqual({
+      draftId: "draft_abc",
+      source: "scraped",
+      id,
+      ext: "jpg",
+    });
+  });
+
+  it("returns null for anything that doesn't match the pattern", () => {
+    expect(parseKey("some/other/path.png")).toBeNull();
+    expect(parseKey("studio/draft_abc/badSource/01HX...EFGH.png")).toBeNull();
+    expect(parseKey("studio/has spaces/upload/01HXYZTESTULIDFAKEABCDEFGH.png")).toBeNull();
+  });
+});
