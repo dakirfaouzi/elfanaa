@@ -13,11 +13,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@platform/builder-schema": "workspace:*",
+    "@platform/builder-state": "workspace:*",
     "@platform/catalog-schema": "workspace:*",
     "@platform/env": "workspace:*",
     "@platform/ingest": "workspace:*",
     "@platform/persistence": "workspace:*",
     "@platform/publishers": "workspace:*",
+    "@platform/runtime-renderer": "workspace:*",
     "@platform/storage": "workspace:*",
     "@platform/stores": "workspace:*",
     "@platform/worker": "workspace:*",

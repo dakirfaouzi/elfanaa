@@ -2,9 +2,11 @@ import { vi } from "vitest";
 import type {
   PrismaLike,
   PrismaModelDelegate,
+  StudioArtifactRow,
   StudioAssetRow,
   StudioDraftRow,
   StudioEventRow,
+  StudioPublishedProductRow,
   StudioRunRow,
   StudioStepRow,
   StudioStoreRow,
@@ -36,6 +38,8 @@ export function makeMockPrisma(): {
     studioStep: Record<keyof PrismaModelDelegate<StudioStepRow>, ReturnType<typeof vi.fn>>;
     studioAsset: Record<keyof PrismaModelDelegate<StudioAssetRow>, ReturnType<typeof vi.fn>>;
     studioEvent: Record<keyof PrismaModelDelegate<StudioEventRow>, ReturnType<typeof vi.fn>>;
+    studioPublishedProduct: Record<keyof PrismaModelDelegate<StudioPublishedProductRow>, ReturnType<typeof vi.fn>>;
+    studioArtifact: Record<keyof PrismaModelDelegate<StudioArtifactRow>, ReturnType<typeof vi.fn>>;
   };
 } {
   function makeDelegate<TRow>(): Record<
@@ -62,6 +66,8 @@ export function makeMockPrisma(): {
     studioStep: makeDelegate<StudioStepRow>(),
     studioAsset: makeDelegate<StudioAssetRow>(),
     studioEvent: makeDelegate<StudioEventRow>(),
+    studioPublishedProduct: makeDelegate<StudioPublishedProductRow>(),
+    studioArtifact: makeDelegate<StudioArtifactRow>(),
   };
 
   const prisma: PrismaLike = {
@@ -71,6 +77,8 @@ export function makeMockPrisma(): {
     studioStep: spies.studioStep as unknown as PrismaModelDelegate<StudioStepRow>,
     studioAsset: spies.studioAsset as unknown as PrismaModelDelegate<StudioAssetRow>,
     studioEvent: spies.studioEvent as unknown as PrismaModelDelegate<StudioEventRow>,
+    studioPublishedProduct: spies.studioPublishedProduct as unknown as PrismaModelDelegate<StudioPublishedProductRow>,
+    studioArtifact: spies.studioArtifact as unknown as PrismaModelDelegate<StudioArtifactRow>,
     $transaction: async <T,>(fn: (tx: PrismaLike) => Promise<T>): Promise<T> => fn(prisma),
   };
 

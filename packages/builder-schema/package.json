@@ -1,0 +1,29 @@
+{
+  "name": "@platform/builder-schema",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Normalised draft schema for the Fanaa Platform AI Studio (M11). Defines the 10 composable section types (Hero, Benefits, Before/After, Testimonials, CTA, FAQ, Sticky CTA, Video, Image Gallery, Rich Text) and the surrounding DraftDocument shape. Pure Zod schemas + type inference; no runtime, no React. Consumed by builder-state (reducer), runtime-renderer (storefront), persistence (DB JSONB payloads), and Studio API routes (HTTP validation).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sections": "./src/sections.ts",
+    "./media": "./src/media.ts",
+    "./draft": "./src/draft.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

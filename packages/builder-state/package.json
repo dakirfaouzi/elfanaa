@@ -1,0 +1,27 @@
+{
+  "name": "@platform/builder-state",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure state engine for the Studio draft builder. Provides the reducer, the action set, the undo/redo history stack, the autosave scheduler, and the dirty-state tracker. No React, no DOM, no network — consumed by the Studio React UI which wraps it in useReducer + useEffect.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@platform/builder-schema": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

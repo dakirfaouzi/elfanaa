@@ -95,6 +95,36 @@ export class StudioAssetRepository {
     }
   }
 
+  /**
+   * M11 — cross-draft listing for the global asset browser.
+   *
+   * Supports pagination via `cursor` (last seen `createdAt`) so the
+   * browser can fetch the next page without offset scans.
+   */
+  async listAll(args: {
+    storeId?: string;
+    contentTypePrefix?: string;
+    take?: number;
+    cursorCreatedAt?: Date;
+  } = {}): Promise<StudioAssetRow[]> {
+    try {
+      return await this.prisma.studioAsset.findMany({
+        where: {
+          ...(args.cursorCreatedAt
+            ? { createdAt: { lt: args.cursorCreatedAt } }
+            : {}),
+          ...(args.contentTypePrefix
+            ? { contentType: { startsWith: args.contentTypePrefix } }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: Math.min(args.take ?? 60, 200),
+      });
+    } catch (err) {
+      throw wrapDbError(err, "list_all_assets");
+    }
+  }
+
   async delete(id: string): Promise<void> {
     try {
       await this.prisma.studioAsset.delete({ where: { id } });

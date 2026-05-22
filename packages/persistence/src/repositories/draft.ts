@@ -136,6 +136,67 @@ export class StudioDraftRepository {
       throw wrapDbError(err, "increment_draft_cost");
     }
   }
+
+  /**
+   * M11 — persist the builder's DraftDocument payload.
+   *
+   * Caller supplies the `expectedPayloadVersion` they last saw to
+   * guard against lost updates: when the value in the DB is greater,
+   * `conflict` is thrown so the UI can reload before saving again.
+   *
+   * `expectedPayloadVersion = -1` skips the optimistic check (used
+   * by the seed write that runs immediately after `create`).
+   */
+  async savePayload(args: {
+    id: string;
+    payload: unknown;
+    expectedPayloadVersion?: number;
+    title?: string;
+  }): Promise<StudioDraftRow> {
+    try {
+      const row = await this.prisma.studioDraft.findUnique({
+        where: { id: args.id },
+      });
+      if (!row) {
+        throw new PersistenceError({
+          kind: "not_found",
+          message: `studio_draft_not_found:${args.id}`,
+        });
+      }
+      if (
+        args.expectedPayloadVersion !== undefined &&
+        args.expectedPayloadVersion !== -1 &&
+        row.payloadVersion > args.expectedPayloadVersion
+      ) {
+        throw new PersistenceError({
+          kind: "conflict",
+          message: `draft_payload_stale:${args.id}:${row.payloadVersion}>${args.expectedPayloadVersion}`,
+        });
+      }
+      return await this.prisma.studioDraft.update({
+        where: { id: args.id },
+        data: {
+          payload: args.payload,
+          payloadVersion: row.payloadVersion + 1,
+          ...(args.title ? { title: args.title } : {}),
+        },
+      });
+    } catch (err) {
+      throw wrapDbError(err, "save_draft_payload");
+    }
+  }
+
+  /** Rename a draft (title only). Slug is immutable post-creation. */
+  async rename(args: { id: string; title: string }): Promise<StudioDraftRow> {
+    try {
+      return await this.prisma.studioDraft.update({
+        where: { id: args.id },
+        data: { title: args.title },
+      });
+    } catch (err) {
+      throw wrapDbError(err, "rename_draft");
+    }
+  }
 }
 
 function wrapDbError(err: unknown, op: string): PersistenceError {

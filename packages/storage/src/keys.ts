@@ -106,6 +106,7 @@ export const ALLOWED_CONTENT_TYPES: Record<string, string> = {
   "image/gif": "gif",
   "image/avif": "avif",
   "video/mp4": "mp4",
+  "video/webm": "webm",
 };
 
 export function extForContentType(contentType: string): string {

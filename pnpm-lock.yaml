@@ -99,6 +99,12 @@ importers:
 
   apps/studio:
     dependencies:
+      '@platform/builder-schema':
+        specifier: workspace:*
+        version: link:../../packages/builder-schema
+      '@platform/builder-state':
+        specifier: workspace:*
+        version: link:../../packages/builder-state
       '@platform/catalog-schema':
         specifier: workspace:*
         version: link:../../packages/catalog-schema
@@ -114,6 +120,9 @@ importers:
       '@platform/publishers':
         specifier: workspace:*
         version: link:../../packages/publishers
+      '@platform/runtime-renderer':
+        specifier: workspace:*
+        version: link:../../packages/runtime-renderer
       '@platform/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -203,6 +212,41 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.22.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.19)
+
+  packages/builder-schema:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.19)
+
+  packages/builder-state:
+    dependencies:
+      '@platform/builder-schema':
+        specifier: workspace:*
+        version: link:../builder-schema
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -314,6 +358,34 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.22.3
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.19)
+
+  packages/runtime-renderer:
+    dependencies:
+      '@platform/builder-schema':
+        specifier: workspace:*
+        version: link:../builder-schema
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.15
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.15)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

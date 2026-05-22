@@ -43,13 +43,28 @@ describe("AssetUploadIntentSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects oversized uploads (>25 MiB)", () => {
+  it("rejects oversized uploads (>50 MiB)", () => {
     const parsed = AssetUploadIntentSchema.safeParse({
       source: "upload",
       contentType: "image/png",
-      bytes: 26 * 1024 * 1024,
+      bytes: 51 * 1024 * 1024,
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it("accepts the new content types (gif, webm)", () => {
+    const gif = AssetUploadIntentSchema.safeParse({
+      source: "upload",
+      contentType: "image/gif",
+      bytes: 12345,
+    });
+    expect(gif.success).toBe(true);
+    const webm = AssetUploadIntentSchema.safeParse({
+      source: "upload",
+      contentType: "video/webm",
+      bytes: 12345,
+    });
+    expect(webm.success).toBe(true);
   });
 
   it("rejects zero-byte uploads", () => {

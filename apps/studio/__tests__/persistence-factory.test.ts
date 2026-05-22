@@ -88,6 +88,7 @@ describe("getStudioPersistence", () => {
     expect(p.repositories?.run).toBeDefined();
     expect(p.repositories?.asset).toBeDefined();
     expect(p.repositories?.event).toBeDefined();
+    expect(p.repositories?.published).toBeDefined();
   });
 
   it("invalid env throws with `env_invalid:` prefix", () => {
@@ -153,6 +154,8 @@ function makeFakePrisma() {
     studioStep: modelDelegate(),
     studioAsset: modelDelegate(),
     studioEvent: modelDelegate(),
+    studioPublishedProduct: modelDelegate(),
+    studioArtifact: modelDelegate(),
     $transaction: async <T,>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
       fn({}),
   } as unknown as NonNullable<

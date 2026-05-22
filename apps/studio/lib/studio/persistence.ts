@@ -16,6 +16,7 @@ import {
   StudioAssetRepository,
   StudioDraftRepository,
   StudioEventRepository,
+  StudioPublishedProductRepository,
   StudioRunRepository,
   StudioStoreRepository,
   type PrismaLike,
@@ -69,6 +70,7 @@ export interface StudioPersistence {
     run: StudioRunRepository;
     asset: StudioAssetRepository;
     event: StudioEventRepository;
+    published: StudioPublishedProductRepository;
   };
   /** MediaStore used by asset endpoints. Always set (memory fallback). */
   mediaStore: MediaStore;
@@ -148,6 +150,7 @@ export function getStudioPersistence(
         run: new StudioRunRepository({ prisma }),
         asset: new StudioAssetRepository({ prisma }),
         event: new StudioEventRepository({ prisma }),
+        published: new StudioPublishedProductRepository({ prisma }),
       };
     } else {
       warnings.push("dual_write_requested_but_prisma_client_unavailable");
@@ -164,6 +167,11 @@ export function getStudioPersistence(
       secretAccessKey: r2.secretAccessKey,
     });
   } else {
+    // M11 — in memory mode the URL emitted by MemoryMediaStore is
+    // `memory://media/<bucket>/<key>?...`. The Studio uploader
+    // detects that scheme on the client and PUTs to the local
+    // catch-all route at `/api/studio/uploads/local/<bucket>/<key>`
+    // instead. See `app/_components/builder/asset-upload-client.tsx`.
     mediaStore = new MemoryMediaStore();
   }
 
@@ -174,11 +182,11 @@ export function getStudioPersistence(
     config: { persistence, r2 },
     warnings,
   };
-  // Cache only when env resolution came from `process.env` and the
-  // caller didn't inject any overrides — tests get fresh snapshots.
-  if (!opts.env && !opts.prismaClient && !opts.dataRoot) {
-    cached = snapshot;
-  }
+  // Cache the snapshot. Tests pass overrides via the first call,
+  // then expect subsequent zero-arg calls (from service code paths)
+  // to see the same fake. Tests reset the cache between specs via
+  // `__resetStudioPersistenceCache`.
+  cached = snapshot;
   return snapshot;
 }
 

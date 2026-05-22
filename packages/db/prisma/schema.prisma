@@ -261,6 +261,10 @@ enum StudioStoreStatus {
 /// One product-in-progress. A draft aggregates the runs that generated
 /// it, every artifact version produced during regeneration, and every
 /// asset uploaded or generated for it.
+///
+/// M11: the `payload` column stores the normalised DraftDocument
+/// (see `@platform/builder-schema`). Nullable so M10 rows continue to
+/// validate; the Studio builder fills it in on first edit.
 model StudioDraft {
   id              String              @id @default(cuid()) @db.VarChar(64)
   storeId         String              @map("store_id") @db.VarChar(64)
@@ -275,12 +279,15 @@ model StudioDraft {
   costCents       Int                 @default(0) @map("cost_cents")
   publishedAt     DateTime?           @map("published_at")
   publishedRef    String?             @map("published_ref") @db.VarChar(120)
+  payload         Json?
+  payloadVersion  Int                 @default(0) @map("payload_version")
   createdBy       String              @default("system") @map("created_by") @db.VarChar(160)
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
   runs            StudioRun[]
   assets          StudioAsset[]
   artifacts       StudioArtifact[]
+  publications    StudioPublishedProduct[]
 
   @@unique([storeId, slug])
   @@index([storeId, status])
@@ -427,6 +434,33 @@ enum StudioAssetSource {
   generated
 
   @@map("studio_asset_source")
+}
+
+/// Immutable publish snapshot. One row per `Publish` action against a
+/// draft. The `document` column carries the entire DraftDocument as it
+/// was at publish time — older publications are NEVER mutated, so the
+/// runtime renderer always serves a deterministic, replay-safe page.
+///
+/// `slug` is unique PER STORE (the operator can re-publish under the
+/// same slug to roll forward; the new row supersedes the previous).
+/// The `currentForSlug` pointer is the unique key the runtime queries
+/// to resolve `/p/[slug]`.
+model StudioPublishedProduct {
+  id            String        @id @default(cuid()) @db.VarChar(64)
+  draftId       String        @map("draft_id") @db.VarChar(64)
+  draft         StudioDraft   @relation(fields: [draftId], references: [id])
+  storeId       String        @map("store_id") @db.VarChar(64)
+  slug          String        @db.VarChar(120)
+  version       Int           @default(1)
+  isCurrent     Boolean       @default(true) @map("is_current")
+  document      Json
+  publishedBy   String        @default("system") @map("published_by") @db.VarChar(160)
+  publishedAt   DateTime      @default(now()) @map("published_at")
+
+  @@unique([storeId, slug, version])
+  @@index([storeId, slug, isCurrent])
+  @@index([draftId, version])
+  @@map("studio_published_product")
 }
 
 /// Append-only event log for the Studio surface. Mirrors PLATFORM.md

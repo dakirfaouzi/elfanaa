@@ -117,9 +117,25 @@ export interface StudioDraftRow {
   costCents: number;
   publishedAt: Date | null;
   publishedRef: string | null;
+  /** M11: normalised DraftDocument JSON. Null until first builder save. */
+  payload: unknown | null;
+  /** M11: bumps on every persisted payload write. */
+  payloadVersion: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface StudioPublishedProductRow {
+  id: string;
+  draftId: string;
+  storeId: string;
+  slug: string;
+  version: number;
+  isCurrent: boolean;
+  document: unknown;
+  publishedBy: string;
+  publishedAt: Date;
 }
 
 export interface StudioAssetRow {
@@ -167,7 +183,23 @@ export interface PrismaLike {
   studioStep: PrismaModelDelegate<StudioStepRow>;
   studioAsset: PrismaModelDelegate<StudioAssetRow>;
   studioEvent: PrismaModelDelegate<StudioEventRow>;
+  /** M11 — immutable publish snapshots. */
+  studioPublishedProduct: PrismaModelDelegate<StudioPublishedProductRow>;
+  /** M11 — versioned generation artifacts (used by publish flow + future regenerate). */
+  studioArtifact: PrismaModelDelegate<StudioArtifactRow>;
   $transaction<T>(fn: (tx: PrismaLike) => Promise<T>): Promise<T>;
+}
+
+export interface StudioArtifactRow {
+  id: string;
+  draftId: string;
+  kind: string;
+  locale: string | null;
+  version: number;
+  isCurrent: boolean;
+  payload: unknown;
+  generatedByStepId: string | null;
+  createdAt: Date;
 }
 
 /**

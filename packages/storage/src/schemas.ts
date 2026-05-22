@@ -22,11 +22,16 @@ import { ALLOWED_CONTENT_TYPES } from "./keys";
 
 const ALLOWED_CT = Object.keys(ALLOWED_CONTENT_TYPES) as [string, ...string[]];
 
-/** Request shape for `POST /api/studio/drafts/[draftId]/assets/presign`. */
+/** Request shape for `POST /api/studio/drafts/[draftId]/assets/presign`.
+ *
+ *  M11 bumps the per-asset cap from 25 MiB → 50 MiB so video assets
+ *  (mp4/webm) are practical. Images still typically land well under
+ *  5 MiB; the cap exists to bound R2 storage growth and to fail
+ *  pathological uploads at the signer step. */
 export const AssetUploadIntentSchema = z.object({
   source: z.enum(["upload", "scraped", "generated"]),
   contentType: z.enum(ALLOWED_CT),
-  bytes: z.number().int().positive().max(25 * 1024 * 1024),
+  bytes: z.number().int().positive().max(50 * 1024 * 1024),
   altAr: z.string().max(512).optional(),
   altEn: z.string().max(512).optional(),
 });

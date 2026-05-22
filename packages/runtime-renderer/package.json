@@ -1,0 +1,34 @@
+{
+  "name": "@platform/runtime-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Server-safe renderer for Studio draft sections. Pure React (no client-only hooks) that turns a DraftDocument or PublishedProduct snapshot into JSX. Consumed by apps/studio (preview + /p/[slug]) in M11 and by apps/fanaa in M12+ when the operator opts in. Mobile-first; lazy media; CLS-safe; no external CSS dependency (uses inline styles + scoped class names).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./src/styles.css"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@platform/builder-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

@@ -60,6 +60,8 @@ export function makeStudioDraftRow(overrides: Partial<StudioDraftRow> = {}): Stu
     costCents: 0,
     publishedAt: null,
     publishedRef: null,
+    payload: null,
+    payloadVersion: 0,
     createdBy: "system",
     createdAt: new Date("2026-05-22T10:00:00.000Z"),
     updatedAt: new Date("2026-05-22T10:00:00.000Z"),

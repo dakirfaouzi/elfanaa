@@ -13,3 +13,4 @@ export { StudioDraftRepository } from "./draft";
 export { StudioRunRepository } from "./run";
 export { StudioAssetRepository } from "./asset";
 export { StudioEventRepository } from "./event";
+export { StudioPublishedProductRepository } from "./published";
