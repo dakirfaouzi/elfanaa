@@ -1,44 +1,71 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Fanaa Platform — `studio` Dockerfile (monorepo-aware)
 #
-# Build context: REPO ROOT (not apps/studio/). Same pattern as fanaa so the
-# pnpm workspace manifests are reachable for `pnpm install --filter studio`.
+# Build context: REPO ROOT (not apps/studio/). Required so pnpm-workspace.yaml
+# + all packages/* manifests are reachable for `pnpm install --filter studio...`.
 #
 # Three-stage build:
-#   1. deps    — installs the studio workspace subset
-#   2. builder — runs `pnpm --filter studio build`
-#   3. runner  — slim node:22-alpine image with the standalone output
+#   1. deps    — installs the full studio workspace closure (studio + 11
+#                transitive @platform/* workspace packages) and generates
+#                the Prisma client used by @platform/persistence.
+#   2. builder — extends `deps` so the full node_modules graph (including
+#                per-workspace cross-package symlinks) is already in place,
+#                overlays the latest source, runs `pnpm --filter studio build`.
+#   3. runner  — slim node:22-alpine image carrying only the standalone
+#                output + traced node_modules + the Prisma engine binary.
 #
-# Differences vs apps/fanaa/Dockerfile:
-#   • No NEXT_PUBLIC_* build args     (Studio is internal-only, no public env)
-#   • No Prisma engine COPY hardening (M2 Studio doesn't touch the DB)
-#   • No public/ COPY                 (no static assets in the M2 skeleton)
-#
-# Final image: ~150 MB (no recharts, no swr, no zustand, no prisma).
+# History note: M2 Studio had zero workspace deps, so the original Dockerfile
+# only copied apps/studio/. M3–M11 added 11 @platform/* workspace deps
+# (builder-schema, builder-state, catalog-schema, env, ingest, persistence,
+# publishers, runtime-renderer, storage, stores, worker) but the Dockerfile
+# was never updated until M12 deployment. This file is the post-M12 version
+# that correctly installs the entire workspace closure.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── 1. Dependencies ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
+# Pin pnpm version explicitly — must match `packageManager` in root package.json.
 RUN npm install -g pnpm@9.15.9
 WORKDIR /repo
 
-# Manifests only — keeps the deps layer cacheable across source-only changes.
+# Workspace root manifests.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+
+# Studio app manifest.
 COPY apps/studio/package.json ./apps/studio/
 
-# Install only the studio workspace subset. The trailing `...` includes
-# transitive workspace deps; today there are none for studio (it consumes
-# only npm packages), but the syntax is forward-compatible for M3+ when
-# @platform/{catalog-schema,stores,...} become studio dependencies.
+# Full packages/ tree — both manifests AND source. We need every
+# packages/*/package.json BEFORE `pnpm install` so pnpm can compute the
+# workspace dependency graph and create the per-package node_modules
+# symlinks that workspace-to-workspace imports (e.g. `packages/ingest`
+# importing `@platform/catalog-schema`) rely on. Copying the entire tree
+# (not just the manifests) is acceptable because (a) the compressed
+# transfer is < 1 MB after .dockerignore, and (b) the builder stage needs
+# the source anyway. Doing it in one COPY here also means the deps layer
+# caches across source-only changes inside apps/studio/.
+COPY packages ./packages
+
+# Prisma schema must exist before `pnpm install` so the postinstall hook
+# (`prisma generate --schema=...`) can succeed. Without it the deps stage
+# would ship an empty @prisma/client and the build would later die with
+# "OrderMirrorWhereInput has no exported member" or similar.
+# `COPY packages ./packages` above already includes packages/db/prisma/,
+# so this is implicit — kept as a comment for the next maintainer.
+
+# Install the studio workspace subset including the full workspace closure.
+# `--filter studio...` (note the trailing `...`) pulls every workspace
+# package that studio depends on transitively. `--frozen-lockfile` ensures
+# CI cannot drift from the committed lockfile.
 RUN pnpm install --frozen-lockfile --filter studio...
 
 
 # ── 2. Builder ───────────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
-RUN apk add --no-cache libc6-compat
-RUN npm install -g pnpm@9.15.9
-WORKDIR /repo
+# Extending `deps` instead of starting from `node:22-alpine` means we
+# inherit the entire resolved node_modules graph (/repo/node_modules,
+# /repo/apps/studio/node_modules, AND /repo/packages/*/node_modules)
+# without having to enumerate per-package COPY --from=deps lines.
+FROM deps AS builder
 
 # ── basePath (M12) ──────────────────────────────────────────────────────────
 # Studio mounts at `/studio` when deployed behind the storefront. The
@@ -53,14 +80,23 @@ ENV NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/apps/studio/node_modules ./apps/studio/node_modules
-
-# Source tree. `.dockerignore` at the repo root excludes services/, .next,
-# node_modules, etc. We explicitly copy what studio needs.
+# Overlay the latest source on top of the deps install. We copy `packages`
+# again here (even though deps already has it) so source-only edits inside
+# any @platform/* package invalidate ONLY this builder layer, not the
+# (expensive) install layer above.
 COPY apps/studio ./apps/studio
 COPY packages ./packages
 COPY tsconfig.base.json turbo.json pnpm-workspace.yaml package.json ./
+
+# Defense-in-depth: regenerate the Prisma client now that the full source
+# tree is present. The deps stage already ran the postinstall hook, but
+# explicitly re-running here means:
+#   • Layer cache misses during development never ship a stale client.
+#   • Future maintainers who reorder the deps-stage copy don't silently
+#     break the runtime image.
+# Idempotent, ~3s.
+RUN cd apps/studio \
+ && pnpm exec prisma generate --schema=../../packages/db/prisma/schema.prisma
 
 RUN pnpm --filter studio build
 
@@ -90,6 +126,20 @@ RUN addgroup --system --gid 1001 nodejs \
 # prefix and the entrypoint is apps/studio/server.js.
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/static ./apps/studio/.next/static
+
+# Prisma engine binary + generated client.
+#
+# Next.js's @vercel/nft tracer for `output: "standalone"` frequently MISSES
+# the Prisma query-engine binary that lives at
+# `node_modules/.prisma/client/libquery_engine-*.so.node`. Without it the
+# Studio admin DB calls explode at first hit with:
+#   "could not load query engine for the current platform".
+# We copy the generated client + the @prisma/client wrapper explicitly so
+# the runtime container always has a working engine — independent of how
+# accurate the tracer is on any given Next.js / Prisma release.
+# This mirrors the hardening already in apps/fanaa/Dockerfile.
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/node_modules/.prisma ./apps/studio/node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/node_modules/@prisma ./apps/studio/node_modules/@prisma
 
 USER nextjs
 EXPOSE 3000
