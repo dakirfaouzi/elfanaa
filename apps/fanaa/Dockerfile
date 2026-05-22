@@ -147,18 +147,33 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/.next/static ./apps/f
 
 # Prisma engine binary + generated client.
 #
-# Next.js's @vercel/nft tracer for `output: "standalone"` frequently MISSES
-# the Prisma query-engine binary that lives at
-# `node_modules/.prisma/client/libquery_engine-*.so.node`. Without it the
-# admin DB calls explode at first hit with:
-#   "could not load query engine for the current platform".
-# We copy the generated client + the @prisma/client wrapper explicitly so
-# the runtime container always has a working engine — independent of how
-# accurate the tracer is on any given Next.js / Prisma release.
-# This is additive: ~16 MB. Only the admin/track routes import it; the
-# storefront bundle is untouched.
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/node_modules/.prisma ./apps/fanaa/node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/node_modules/@prisma ./apps/fanaa/node_modules/@prisma
+# HISTORICAL NOTE (M1): originally this stage hardened the runtime image
+# with two explicit COPYs of the @prisma/client wrapper and the .prisma/
+# engine directory, because the Next.js @vercel/nft tracer was known to
+# miss the Prisma query-engine binary at:
+#   node_modules/.prisma/client/libquery_engine-*.so.node
+# leading to "could not load query engine for the current platform" on
+# the first admin DB call.
+#
+# Those COPYs assumed an npm/yarn-classic hoisted node_modules layout
+# where `apps/fanaa/node_modules/.prisma` exists. With the pnpm
+# workspace (M10+), the generated client lives at:
+#   /repo/node_modules/.pnpm/@prisma+client@<hash>/node_modules/@prisma/client
+# and `apps/fanaa/node_modules/.prisma` never exists — which made the
+# COPY fail at `docker build --no-cache`. The runtime image kept working
+# only because the broken layer was being served from a long-cached
+# BuildKit layer pre-dating the pnpm migration.
+#
+# Fix: drop the hardening, lean on NFT. Next.js 15's standalone tracer
+# follows the @prisma/client import graph through the admin / track
+# routes and bundles the linux-musl query-engine binary into
+# .next/standalone/ automatically. The next.config.mjs
+# `outputFileTracingIncludes` block points at npm-style paths that no
+# longer resolve under pnpm — left in place as a documented no-op,
+# safe to remove on a future cleanup pass.
+#
+# If a future Prisma/NFT regression breaks runtime, add a targeted COPY
+# of the actual pnpm store path (above) — not the legacy hoisted path.
 
 USER nextjs
 EXPOSE 3000
