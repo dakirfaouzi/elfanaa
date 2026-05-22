@@ -124,22 +124,20 @@ RUN addgroup --system --gid 1001 nodejs \
 # Standalone output. `outputFileTracingRoot = monorepo-root` in
 # apps/studio/next.config.mjs means the bundle preserves the apps/studio/
 # prefix and the entrypoint is apps/studio/server.js.
+#
+# Note: unlike apps/fanaa/Dockerfile, we DO NOT explicitly copy
+# `.prisma/` or `@prisma/` here. With pnpm's symlink layout the canonical
+# Prisma client lives at
+#   /repo/node_modules/.pnpm/@prisma+client@<hash>/node_modules/@prisma/client
+# and `apps/studio/node_modules/.prisma` never exists, which would make
+# the COPY fail at build time. Next.js 15's standalone tracer (NFT)
+# already follows the @prisma/client import graph and bundles the
+# linux-musl query-engine binary into .next/standalone — so the runtime
+# image is self-contained without manual hardening. If a future Prisma
+# release breaks NFT tracing, add a targeted COPY of the actual pnpm
+# store path (above) — not the npm-style hoisted path.
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/static ./apps/studio/.next/static
-
-# Prisma engine binary + generated client.
-#
-# Next.js's @vercel/nft tracer for `output: "standalone"` frequently MISSES
-# the Prisma query-engine binary that lives at
-# `node_modules/.prisma/client/libquery_engine-*.so.node`. Without it the
-# Studio admin DB calls explode at first hit with:
-#   "could not load query engine for the current platform".
-# We copy the generated client + the @prisma/client wrapper explicitly so
-# the runtime container always has a working engine — independent of how
-# accurate the tracer is on any given Next.js / Prisma release.
-# This mirrors the hardening already in apps/fanaa/Dockerfile.
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/node_modules/.prisma ./apps/studio/node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/node_modules/@prisma ./apps/studio/node_modules/@prisma
 
 USER nextjs
 EXPOSE 3000
