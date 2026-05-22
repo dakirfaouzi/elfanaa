@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * NewDraftForm — small client component that POSTs to the create
@@ -41,7 +42,7 @@ export function NewDraftForm() {
     }
     setSubmitting(true);
     try {
-      const resp = await fetch("/api/studio/drafts", {
+      const resp = await fetch(studioPath("/api/studio/drafts"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ title: title.trim(), slug: effectiveSlug }),

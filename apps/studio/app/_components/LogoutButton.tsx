@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * Logout button — POSTs to /api/auth/logout, then hard-replaces /login.
@@ -19,7 +20,7 @@ export function LogoutButton() {
   async function onClick() {
     setBusy(true);
     try {
-      await fetch("/api/auth/logout", {
+      await fetch(studioPath("/api/auth/logout"), {
         method: "POST",
         credentials: "same-origin",
       });

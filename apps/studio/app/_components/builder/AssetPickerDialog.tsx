@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MediaKind, MediaRef } from "@platform/builder-schema";
 import { uploadFile, type UploadProgress } from "./uploader";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * AssetPickerDialog — shared modal for picking a media asset.
@@ -154,7 +155,9 @@ function LibraryTab(props: {
       setError(null);
       try {
         const draftResp = await fetch(
-          `/api/studio/drafts/${encodeURIComponent(props.draftId)}/assets`,
+          studioPath(
+            `/api/studio/drafts/${encodeURIComponent(props.draftId)}/assets`,
+          ),
         );
         let assets: AssetRow[] = [];
         if (draftResp.ok) {
@@ -163,7 +166,7 @@ function LibraryTab(props: {
         }
         if (assets.length === 0) {
           // Fall back to the global library.
-          const allResp = await fetch(`/api/studio/assets?take=60`);
+          const allResp = await fetch(studioPath(`/api/studio/assets?take=60`));
           if (allResp.ok) {
             const json = await allResp.json();
             assets = json.value?.assets ?? [];

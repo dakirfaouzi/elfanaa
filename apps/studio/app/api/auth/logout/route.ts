@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { studioCookieName } from "@/lib/auth/tokens";
+import { studioCookiePath } from "@/lib/base-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,10 @@ export async function POST() {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/",
+    // Must match the path used at login for the browser to actually
+    // clear the cookie — otherwise the new empty cookie sits next to
+    // the old one and the session looks "stuck".
+    path: studioCookiePath(),
     maxAge: 0,
   });
   return res;

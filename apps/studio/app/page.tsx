@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { studioPath } from "@/lib/base-path";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,15 @@ export const dynamic = "force-dynamic";
  *
  * Unauthenticated visitors are redirected to /login by the middleware
  * before this handler runs, so this route is guaranteed to be post-auth.
+ *
+ * # basePath note
+ *
+ * `redirect()` does not auto-prefix the configured Next.js basePath
+ * (unlike `<Link>` or `router.push`). When Studio is mounted at
+ * `/studio`, we must include the prefix manually or the browser will
+ * navigate to `elfanaa.com/drafts` (storefront 404) instead of
+ * `elfanaa.com/studio/drafts`.
  */
 export default function StudioHome() {
-  redirect("/drafts");
+  redirect(studioPath("/drafts"));
 }

@@ -3,6 +3,23 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// ── basePath (M12) ───────────────────────────────────────────────────────────
+// When Studio is mounted under a sub-path of the main domain (e.g.
+// `elfanaa.com/studio`) the `NEXT_PUBLIC_STUDIO_BASE_PATH` env var is set
+// to `/studio` at build time. Next.js then auto-prefixes <Link>, router
+// navigation, static asset URLs and the build manifest.
+//
+// Empty (default) = legacy "mounted at root" deployment (a dedicated
+// subdomain or local dev on :3001). Both layouts share one image.
+const rawBasePath = (process.env.NEXT_PUBLIC_STUDIO_BASE_PATH ?? "").trim();
+const basePath = rawBasePath.replace(/\/+$/, ""); // strip trailing slash
+
+if (basePath && !basePath.startsWith("/")) {
+  throw new Error(
+    `NEXT_PUBLIC_STUDIO_BASE_PATH must start with '/' (got "${basePath}")`,
+  );
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -17,6 +34,14 @@ const nextConfig = {
   // Without this, Next.js would heuristically pick the nearest lockfile
   // and the trace would be incomplete for monorepo packages.
   outputFileTracingRoot: path.join(__dirname, "..", ".."),
+  // ── Mounted sub-path ─────────────────────────────────────────────────────
+  // `basePath` is set to `undefined` when empty so Next.js falls back to
+  // the default "no prefix" behaviour (passing "" trips an assertion).
+  basePath: basePath || undefined,
+  // Static assets (JS/CSS/images) are loaded relative to `assetPrefix`.
+  // Setting it equal to basePath keeps them inside the same sub-path so
+  // the storefront's reverse-proxy rule only needs one rewrite entry.
+  assetPrefix: basePath || undefined,
 };
 
 export default nextConfig;

@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/tokens";
 import { verifyStudioPassword } from "@/lib/auth/password";
 import { studioEnv, isStudioAuthConfigured } from "@/lib/auth/env";
+import { studioCookiePath } from "@/lib/base-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,11 @@ export async function POST(req: Request) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/",
+    // Scope the cookie to the Studio sub-path so it never leaves the
+    // mounted area (no leakage to the storefront when both share a
+    // domain like `elfanaa.com`). Defaults to `/` for the root-mounted
+    // standalone deployment.
+    path: studioCookiePath(),
     maxAge: studioTokenTtlSeconds,
   });
   return res;

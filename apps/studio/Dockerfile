@@ -40,6 +40,17 @@ RUN apk add --no-cache libc6-compat
 RUN npm install -g pnpm@9.15.9
 WORKDIR /repo
 
+# ── basePath (M12) ──────────────────────────────────────────────────────────
+# Studio mounts at `/studio` when deployed behind the storefront. The
+# Next.js basePath / assetPrefix are baked at build time, so this value
+# MUST arrive as a build arg (not just a runtime env var). When unset
+# the build produces a root-mounted bundle — back-compat with M2-M11.
+#
+# EasyPanel users: set this in the Studio service's "Build Arguments"
+# tab, NOT "Environment Variables".
+ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
+ENV NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
+
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /repo/node_modules ./node_modules
@@ -57,10 +68,18 @@ RUN pnpm --filter studio build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+# Re-declare the basePath build arg in the runtime stage so we can mirror
+# it as a runtime ENV. Required because the running server reads
+# `process.env.NEXT_PUBLIC_STUDIO_BASE_PATH` inside `next.config.mjs`
+# evaluation at boot — without this, hot-restarted containers could lose
+# the configured prefix.
+ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
+
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs

@@ -68,7 +68,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const loginUrl = new URL("/login", req.url);
+  // Clone `req.nextUrl` (rather than `new URL(..., req.url)`) so the
+  // basePath stays intact in the Location header — when Studio is mounted
+  // at `/studio`, the redirect must land on `/studio/login`, not `/login`.
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.search = "";
   loginUrl.searchParams.set("next", pathname + req.nextUrl.search);
   return NextResponse.redirect(loginUrl);
 }

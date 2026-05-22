@@ -113,6 +113,12 @@ services:
       NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
       NEXT_PUBLIC_TIKTOK_PIXEL_ID: ${NEXT_PUBLIC_TIKTOK_PIXEL_ID:-}
       NEXT_PUBLIC_SNAPCHAT_PIXEL_ID: ${NEXT_PUBLIC_SNAPCHAT_PIXEL_ID:-}
+      # ── Studio reverse-proxy mount (M12) ──────────────────────────
+      # When set, the storefront's Next.js `rewrites()` proxies every
+      # `/studio` + `/studio/*` request to the Studio service over the
+      # private docker network. Leave UNSET to disable the proxy and
+      # rely on an external Traefik/EasyPanel domain rule instead.
+      STUDIO_INTERNAL_URL: ${STUDIO_INTERNAL_URL:-http://elfanaa_studio:3000}
       # ── Admin dashboard ───────────────────────────────────────────
       # Reuses the same Postgres instance as the FastAPI service. Tables
       # are auto-created by FastAPI's lifespan migration on startup —
@@ -146,14 +152,34 @@ services:
     build:
       context: .
       dockerfile: apps/studio/Dockerfile
+      # CRITICAL — NEXT_PUBLIC_STUDIO_BASE_PATH is baked into the bundle
+      # at build time (basePath / assetPrefix), so it MUST be passed as
+      # a build arg, NOT just a runtime env var. EasyPanel users: set
+      # this in the service's "Build Arguments" tab.
+      args:
+        NEXT_PUBLIC_STUDIO_BASE_PATH: ${NEXT_PUBLIC_STUDIO_BASE_PATH:-/studio}
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      # Mirror the build arg as a runtime env so `next start` reads the
+      # same value through `next.config.mjs` on container boot.
+      NEXT_PUBLIC_STUDIO_BASE_PATH: ${NEXT_PUBLIC_STUDIO_BASE_PATH:-/studio}
       STUDIO_EMAIL: ${STUDIO_EMAIL:-}
       STUDIO_PASSWORD: ${STUDIO_PASSWORD:-}
       STUDIO_PASSWORD_HASH: ${STUDIO_PASSWORD_HASH:-}
       STUDIO_JWT_SECRET: ${STUDIO_JWT_SECRET:-}
       STUDIO_AUTH_COOKIE: ${STUDIO_AUTH_COOKIE:-}
+      # Studio persistence + R2 (passed through from the host env so the
+      # same .env drives both the standalone deployment and the proxied
+      # `elfanaa.com/studio` deployment).
+      STUDIO_PERSISTENCE_MODE: ${STUDIO_PERSISTENCE_MODE:-}
+      ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
     ports:
       - "3001:3000"
 

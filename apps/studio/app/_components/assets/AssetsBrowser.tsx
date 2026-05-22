@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * AssetsBrowser — grid view over `/api/studio/assets`.
@@ -56,7 +57,7 @@ export function AssetsBrowser() {
       setError(null);
       try {
         const url = new URL(
-          "/api/studio/assets",
+          studioPath("/api/studio/assets"),
           window.location.origin,
         );
         if (filter === "image") url.searchParams.set("contentTypePrefix", "image/");
@@ -108,9 +109,10 @@ export function AssetsBrowser() {
     if (!window.confirm(`Delete ${shortKey(asset.key)}? This cannot be undone.`)) {
       return;
     }
-    const resp = await fetch(`/api/studio/assets/${encodeURIComponent(asset.id)}`, {
-      method: "DELETE",
-    });
+    const resp = await fetch(
+      studioPath(`/api/studio/assets/${encodeURIComponent(asset.id)}`),
+      { method: "DELETE" },
+    );
     if (!resp.ok) {
       setError(`Delete failed (${resp.status}).`);
       return;

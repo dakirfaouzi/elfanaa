@@ -21,6 +21,7 @@ import {
 } from "@platform/builder-state";
 import { DraftRenderer } from "@platform/runtime-renderer";
 import { SectionEditor, sectionKindLabel } from "./editors";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * BuilderClient — the top-level client component the
@@ -108,7 +109,7 @@ export function BuilderClient(props: BuilderClientProps) {
       debounceMs: 1000,
       save: async (doc, version) => {
         const resp = await fetch(
-          `/api/studio/drafts/${encodeURIComponent(props.draftId)}`,
+          studioPath(`/api/studio/drafts/${encodeURIComponent(props.draftId)}`),
           {
             method: "PATCH",
             headers: { "content-type": "application/json" },
@@ -208,7 +209,9 @@ export function BuilderClient(props: BuilderClientProps) {
       // Flush any pending save so the publish reads the latest payload.
       await scheduler?.flush();
       const resp = await fetch(
-        `/api/studio/drafts/${encodeURIComponent(props.draftId)}/publish`,
+        studioPath(
+          `/api/studio/drafts/${encodeURIComponent(props.draftId)}/publish`,
+        ),
         { method: "POST" },
       );
       if (!resp.ok) {

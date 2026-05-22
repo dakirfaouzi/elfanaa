@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { studioPath } from "@/lib/base-path";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -58,7 +59,7 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     };
 
     try {
-      const res = await fetch("/api/studio/intake", {
+      const res = await fetch(studioPath("/api/studio/intake"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",

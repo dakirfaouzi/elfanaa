@@ -84,6 +84,31 @@ const nextConfig = {
       },
     ];
   },
+  /*
+   * Studio reverse-proxy mount (M12).
+   *
+   * When `STUDIO_INTERNAL_URL` is set (e.g. `http://elfanaa_studio:3000` on
+   * the docker network, or `http://studio.internal:3000` on EasyPanel),
+   * Next.js rewrites every request to `/studio` and `/studio/*` over to
+   * the Studio service. The Studio app is built with
+   * `NEXT_PUBLIC_STUDIO_BASE_PATH=/studio`, so its routes already serve
+   * under that prefix and no path-stripping is required.
+   *
+   * When the env var is unset (e.g. operators who route `/studio` directly
+   * via Traefik / EasyPanel domain rules), this returns an empty array
+   * and the storefront serves its normal 404 for `/studio` — same as
+   * pre-M12 behaviour. Storefront business logic is untouched.
+   */
+  async rewrites() {
+    const studioUrl = (process.env.STUDIO_INTERNAL_URL ?? "")
+      .trim()
+      .replace(/\/+$/, "");
+    if (!studioUrl) return [];
+    return [
+      { source: "/studio", destination: `${studioUrl}/studio` },
+      { source: "/studio/:path*", destination: `${studioUrl}/studio/:path*` },
+    ];
+  },
 };
 
 export default nextConfig;

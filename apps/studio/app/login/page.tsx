@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { studioPath } from "@/lib/base-path";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(studioPath("/api/auth/login"), {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },

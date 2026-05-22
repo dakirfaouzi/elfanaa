@@ -56,6 +56,8 @@ export interface UploadFileOptions {
   registerAbort?: (abort: () => void) => void;
 }
 
+import { studioPath } from "@/lib/base-path";
+
 export async function uploadFile(opts: UploadFileOptions): Promise<UploadResult> {
   const { file, draftId } = opts;
   const controller = new AbortController();
@@ -63,7 +65,7 @@ export async function uploadFile(opts: UploadFileOptions): Promise<UploadResult>
 
   // 1. Presign.
   const presignResp = await fetch(
-    `/api/studio/drafts/${encodeURIComponent(draftId)}/assets/presign`,
+    studioPath(`/api/studio/drafts/${encodeURIComponent(draftId)}/assets/presign`),
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -107,7 +109,7 @@ export async function uploadFile(opts: UploadFileOptions): Promise<UploadResult>
 
   // 3. Confirm.
   const confirmResp = await fetch(
-    `/api/studio/drafts/${encodeURIComponent(draftId)}/assets/confirm`,
+    studioPath(`/api/studio/drafts/${encodeURIComponent(draftId)}/assets/confirm`),
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -137,7 +139,7 @@ function rewriteMemoryUrl(url: string): string {
   // memory://media/<bucket>/<key>?signed=put&exp=...
   // → /api/studio/uploads/local/<bucket>/<key>?signed=...
   const stripped = url.replace(/^memory:\/\/[^/]+\//, "");
-  return `/api/studio/uploads/local/${stripped}`;
+  return studioPath(`/api/studio/uploads/local/${stripped}`);
 }
 
 interface PutOpts {
