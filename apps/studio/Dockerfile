@@ -59,6 +59,7 @@ COPY --from=deps /repo/apps/studio/node_modules ./apps/studio/node_modules
 # Source tree. `.dockerignore` at the repo root excludes services/, .next,
 # node_modules, etc. We explicitly copy what studio needs.
 COPY apps/studio ./apps/studio
+COPY packages ./packages
 COPY tsconfig.base.json turbo.json pnpm-workspace.yaml package.json ./
 
 RUN pnpm --filter studio build
