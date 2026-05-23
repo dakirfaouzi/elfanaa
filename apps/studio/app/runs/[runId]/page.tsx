@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { NavBar } from "@/app/_components/NavBar";
 import {
@@ -8,8 +7,8 @@ import {
   StepStatusBadge,
 } from "@/app/_components/StatusBadge";
 import { LiveStepTimeline } from "@/app/_components/LiveStepTimeline";
+import { ReplayRunButton } from "@/app/_components/ReplayRunButton";
 import { readRun } from "@/lib/studio/run-loader";
-import { runReplayAction } from "@/lib/studio/replay-action";
 import type { StepRecord, RunRecord, RunStatus } from "@platform/ingest";
 
 const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set([
@@ -17,16 +16,6 @@ const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set([
   "failed",
   "cancelled",
 ]);
-
-/* ─── Server action: replay the run + revalidate the page ──────────── */
-
-async function replayServerAction(formData: FormData) {
-  "use server";
-  const runId = formData.get("runId");
-  if (typeof runId !== "string") return;
-  await runReplayAction({ runId });
-  revalidatePath(`/runs/${runId}`);
-}
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +25,15 @@ export const dynamic = "force-dynamic";
  *
  * # Replay control
  *
- * The page ships a tiny inline client form that POSTs to
- * `/api/studio/runs/[runId]/replay`. The button is rendered as part
- * of the page (no client wrapper component) because Next.js form
- * actions handle the server-roundtrip declaratively and don't pull
- * in a client bundle for this single-form page.
+ * The page renders the `<ReplayRunButton>` client component, which
+ * POSTs to `/api/studio/runs/[runId]/replay` and surfaces live UX
+ * states (running / ok / providers_unavailable / replay_failed).
+ * History note: M11 shipped this as an inline server-action form,
+ * but Next.js server actions silently fail behind the storefront's
+ * reverse proxy at `elfanaa.com/studio` (Origin/Host mismatch with
+ * `serverActions.allowedOrigins`, no console error, no network
+ * activity). The client-fetch approach in `ReplayRunButton.tsx`
+ * avoids that whole class of problem.
  *
  * # Failure rendering
  *
@@ -335,18 +328,7 @@ function ReplayPanel({ run }: { run: RunRecord }) {
         {description} Provider env vars (<code className="code">ANTHROPIC_API_KEY</code>,{" "}
         <code className="code">FAL_KEY</code>, etc.) must be set on the Studio container.
       </p>
-      <form
-        action={replayServerAction}
-        style={{ display: "flex", gap: 8, alignItems: "center" }}
-      >
-        <input type="hidden" name="runId" value={run.runId} />
-        <button type="submit" className="btn btn-accent">
-          Replay run
-        </button>
-        <span className="text-faint" style={{ fontSize: 12 }}>
-          POST /api/studio/runs/{run.runId}/replay (programmatic API also available)
-        </span>
-      </form>
+      <ReplayRunButton runId={run.runId} />
     </section>
   );
 }
