@@ -57,6 +57,29 @@ export class StudioRunRepository {
   }
 
   /**
+   * List every persisted run across all drafts, newest first.
+   *
+   * Powers the Studio `/runs` browser after M13 flipped reads from
+   * the filesystem to Postgres. Capped at 1000 rows; the existing UI
+   * paginates client-side which is fine for the operator-scale runs
+   * volume (≤ a few hundred per month per store).
+   *
+   * Steps are joined eagerly so the caller can hand the row straight
+   * to `runRowToRecord` without N+1 queries.
+   */
+  async listAll(args: { take?: number } = {}): Promise<StudioRunRow[]> {
+    try {
+      return await this.prisma.studioRun.findMany({
+        orderBy: { startedAt: "desc" },
+        include: { steps: true },
+        take: Math.min(args.take ?? 200, 1000),
+      });
+    } catch (err) {
+      throw wrapDbError(err, "list_runs_all");
+    }
+  }
+
+  /**
    * Materialise a RunRecord from Postgres so the worker can replay
    * a run that exists only in the DB (e.g. the operator's laptop
    * is no longer holding the original `.platform-data/runs/` files).

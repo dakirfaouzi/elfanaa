@@ -196,10 +196,15 @@ discards the entire run history**:
 * drafts orphan from their producer run record (the draft survives in
   Postgres, but the run that produced it is gone)
 
-> Drafts are stored in Postgres via `@platform/persistence` and survive
-> rebuilds regardless of this mount. Runs are filesystem-only until the
-> M10-to-M13 dual-read migration completes — for now, the volume is
-> mandatory.
+> **M13 update:** Runs are now Postgres-first as well. As long as
+> `STUDIO_PERSISTENCE_MODE=dual` (the new default) and
+> `ADMIN_DATABASE_URL` points at a reachable database, the runs page
+> reads from `studio_run` / `studio_step` and survives rebuilds
+> regardless of the volume state. The mount remains recommended as
+> defence-in-depth for the SSE live-tail watcher and for dev
+> environments without Postgres, but it is no longer load-bearing.
+> See `docs/M13-RUN-PERSISTENCE.md` for the read-path migration
+> details and the cwd trap that motivated it.
 
 ### EasyPanel setup (one-time)
 

@@ -180,8 +180,19 @@ services:
       # Studio persistence + R2 (passed through from the host env so the
       # same .env drives both the standalone deployment and the proxied
       # `elfanaa.com/studio` deployment).
-      STUDIO_PERSISTENCE_MODE: ${STUDIO_PERSISTENCE_MODE:-}
+      #
+      # STUDIO_PERSISTENCE_MODE defaults to `dual` (file + Postgres). The
+      # Studio runs UI reads from Postgres first (M13) so runs survive
+      # container rebuilds even when the .platform-data volume is reset
+      # by the host platform. Operators can opt out by setting `file`
+      # explicitly, but the file-only mode no longer survives a deploy.
+      STUDIO_PERSISTENCE_MODE: ${STUDIO_PERSISTENCE_MODE:-dual}
       ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-}
+      # Override the Studio's data root if the operator mounts the
+      # persistence volume at a non-default path. Defaults to the
+      # Dockerfile-baked /app/.platform-data which matches the named
+      # volume below.
+      PLATFORM_DATA_ROOT: ${PLATFORM_DATA_ROOT:-/app/.platform-data}
       # Auto-apply Prisma migrations on container start. Idempotent
       # (Prisma's `_prisma_migrations` tracking table skips already-applied
       # migrations). Set to "true" the first time you deploy against a

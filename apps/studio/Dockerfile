@@ -225,6 +225,27 @@ COPY --chown=nextjs:nodejs apps/studio/docker-entrypoint.sh /usr/local/bin/docke
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
  && chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Pin PLATFORM_DATA_ROOT to the volume mount point.
+#
+# The standalone Next.js server is launched as `node apps/studio/server.js`
+# from WORKDIR=/app, but Next.js's standalone bootstrap chdirs into
+# `/app/apps/studio` before exec'ing the user code. So `process.cwd()`
+# inside the running server is `/app/apps/studio`, NOT `/app/`.
+#
+# `lib/studio/paths.ts` resolves the data root via
+#   path.resolve(process.cwd(), ".platform-data")
+# which would otherwise become `/app/apps/studio/.platform-data` — a
+# directory NOT on the mounted volume. Every run written there ended
+# up on the container's ephemeral overlayfs and was discarded on the
+# next rebuild (verified in production with two consecutive data
+# losses before this bake-in).
+#
+# Setting PLATFORM_DATA_ROOT here makes the path absolute and
+# correct regardless of cwd. Operators can still override per-deploy
+# via EasyPanel → Environment Variables if they mount the volume at
+# a different path (e.g. /data).
+ENV PLATFORM_DATA_ROOT=/app/.platform-data
+
 USER nextjs
 EXPOSE 3000
 
