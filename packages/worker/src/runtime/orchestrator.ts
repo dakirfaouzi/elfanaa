@@ -358,6 +358,12 @@ async function runOneStage(
         attempt,
         nextDelayMs: delay,
         errorMessage: err instanceof Error ? err.message : String(err),
+        // Walk the .cause chain so the underlying SDK error (e.g.
+        // Anthropic.APIError 401/404/429) is visible in logs. Without
+        // this, every text-stage failure surfaces as the wrapper
+        // message `<stage>_failed_after_2_attempts` with no clue
+        // about which provider rejected the call and why.
+        errorCauseChain: formatErrorCauseChain(err),
       });
       if (delay > 0) await sleep(delay);
     }
@@ -368,10 +374,12 @@ async function runOneStage(
   const message = lastError instanceof Error ? lastError.message : "unknown_error";
   const errorKind =
     lastError instanceof PipelineError ? lastError.kind : undefined;
+  const causeChain = formatErrorCauseChain(lastError);
   opts.logger.error("stage_failed", {
     durationMs,
     errorKind,
     errorMessage: message,
+    errorCauseChain: causeChain,
   });
   return {
     step: {
@@ -382,10 +390,43 @@ async function runOneStage(
       durationMs,
       attempts: policy.maxAttempts,
       costUsd: 0,
-      errorMessage: message,
+      // Inline the cause into `errorMessage` so the run detail UI
+      // (which only renders `errorMessage`) shows the real reason
+      // without needing a UI/schema change. Format:
+      //   <wrapper> | cause: <real provider error>
+      errorMessage: causeChain
+        ? `${message} | cause: ${causeChain}`
+        : message,
       errorKind,
     },
   };
+}
+
+/**
+ * Walk `err.cause` recursively and produce a compact one-line summary
+ * of every link in the chain. Stops at depth 5 to avoid blowing up
+ * logs on circular causes (some SDKs set `cause` to the request
+ * object, which has its own `error` property, ad infinitum).
+ *
+ * Returns `undefined` when there's no useful cause data — keeps the
+ * happy path log payload uncluttered.
+ *
+ * Example output for an Anthropic 401:
+ *   "APIError: 401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"
+ */
+function formatErrorCauseChain(err: unknown, depth = 0): string | undefined {
+  if (depth > 5 || err === null || err === undefined) return undefined;
+  if (!(err instanceof Error)) return String(err);
+  const inner = formatErrorCauseChain(
+    (err as Error & { cause?: unknown }).cause,
+    depth + 1,
+  );
+  // Don't repeat ourselves: PipelineError's own message is already
+  // logged separately as `errorMessage`. At depth 0 we only contribute
+  // the chain starting from `.cause` to avoid duplication.
+  if (depth === 0) return inner;
+  const here = `${err.name}: ${err.message}`;
+  return inner ? `${here} → ${inner}` : here;
 }
 
 /**
