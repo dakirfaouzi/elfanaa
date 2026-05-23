@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { FileStore } from "@platform/ingest";
 import type { RunRecord, RunStore } from "@platform/ingest/store";
 import { fanaaStore } from "@platform/stores";
@@ -86,6 +88,24 @@ export async function runReplayAction(
   if (!prior) {
     return { status: "not_found", runId: opts.runId };
   }
+
+  // Rehydrate the filesystem mirror from the DB record before handing
+  // off to the worker.
+  //
+  // Why: `replayRun` (packages/worker/src/replay.ts) does its OWN
+  // `opts.store.getRun(runId)` at the top, and FileStore's
+  // `appendStep` / `markRunComplete` / etc. all go through
+  // `requireRun()` which reads the JSON file. If the file is absent
+  // (DB-only record, e.g. one that survived a volume wipe), the
+  // worker throws `run_not_found` even though we just resolved the
+  // record above. Seeding the file once here avoids passing a
+  // db-aware getRun through the worker's RunStore interface — which
+  // would force every worker consumer to learn about Postgres.
+  //
+  // Idempotent: skips if the file already exists. Atomic via
+  // tmp+rename so a partial write never leaves a corrupted record on
+  // disk for the run-loader to choke on.
+  await rehydrateRunFile(opts.runId, prior);
 
   let providers: ResolvedProviders;
   try {
@@ -200,4 +220,43 @@ async function loadPriorRun(
     // caller will get a not_found response.
   }
   return null;
+}
+
+/**
+ * Seed the file mirror for a DB-only run record.
+ *
+ * Idempotent: no-op when the file already exists. Atomic: writes to
+ * `<file>.tmp` first then renames, so a crash mid-write never leaves
+ * a half-serialised JSON for `run-loader.ts` to flag as corrupted.
+ *
+ * Bypasses `FileStore` deliberately — that class exposes per-event
+ * mutators (`createRun`, `appendStep`, …) tailored for the worker's
+ * incremental write pattern. There's no public "snapshot this whole
+ * record" verb because, until M13's recovery path, nothing needed
+ * one. Adding it would require an interface change across the
+ * RunStore contract; doing the raw fs.writeFile here keeps the
+ * recovery code path scoped to the app layer where it belongs.
+ *
+ * The serialised JSON shape must exactly match what `FileStore`
+ * writes; we use `JSON.stringify(record, null, 2)` to match its
+ * 2-space-indent formatting so a future operator diffing the two
+ * sees zero whitespace noise.
+ */
+async function rehydrateRunFile(
+  runId: string,
+  record: RunRecord,
+): Promise<void> {
+  const filePath = path.join(runsRoot(), `${runId}.json`);
+
+  try {
+    await fs.access(filePath);
+    return; // already on disk — nothing to do
+  } catch {
+    // ENOENT — fall through and write.
+  }
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(record, null, 2), "utf8");
+  await fs.rename(tmp, filePath);
 }

@@ -90,6 +90,31 @@ just aren't backed by Postgres. To migrate them into Postgres,
 trigger a single replay per run: the replay's dual-write CompositeRunStore
 will create the DB rows as a side effect.
 
+### Replaying a DB-only run (post volume-wipe recovery)
+
+When a run exists in Postgres but its file is gone (the dominant
+case after a host platform wipes the `.platform-data` volume), the
+replay action rehydrates the file from the DB record before handing
+off to the worker. Implementation lives in
+`apps/studio/lib/studio/replay-action.ts::rehydrateRunFile`.
+
+The flow:
+
+1. `runReplayAction(runId)` calls `loadPriorRun()` which tries the
+   file store first, then `StudioRunRepository.loadForReplay()`.
+2. If the record came from the DB, `rehydrateRunFile()` atomically
+   writes the JSON to `<runsRoot>/<runId>.json` (idempotent; skips
+   if the file is already there).
+3. The worker's `replayRun()` then does its own `store.getRun()`
+   against the now-seeded file and proceeds normally.
+4. New step writes from the orchestrator land in BOTH the freshly
+   rehydrated file AND Postgres via `CompositeRunStore` dual-write.
+
+This means **after one successful replay, the run is fully
+persisted in both stores** — even if the volume gets wiped again,
+the next loader pass will rehydrate from DB on demand. The
+recovery is self-healing.
+
 ## What's NOT changed
 
 - The worker still writes to the filesystem first via `FileStore` —
