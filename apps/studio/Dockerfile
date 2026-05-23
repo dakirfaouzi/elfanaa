@@ -100,6 +100,28 @@ RUN cd apps/studio \
 
 RUN pnpm --filter studio build
 
+# ── Stage Prisma runtime artifacts for the runner ────────────────────────────
+# NFT bundles `@prisma/client/default.js` into .next/standalone, but the
+# wrapper does a runtime `require('.prisma/client/default')` which NFT
+# cannot statically trace. Without the `.prisma/` directory at a sibling
+# `node_modules/` lookup path, the first DB hit (e.g. loading the drafts
+# list after Studio login) explodes with:
+#   Cannot find module '.prisma/client/default'
+#
+# Same fix as apps/fanaa/Dockerfile. See that file for the full
+# rationale. pnpm stores the client under a graph-hashed directory, so
+# we resolve the wildcard at build time and stage at a stable path the
+# runner stage plucks.
+RUN PRISMA_PNPM_NODE_MODULES=$(ls -d /repo/node_modules/.pnpm/@prisma+client@*/node_modules 2>/dev/null | head -n 1) \
+ && if [ -z "$PRISMA_PNPM_NODE_MODULES" ]; then \
+      echo "[stage-prisma] FATAL: pnpm @prisma+client store not found under /repo/node_modules/.pnpm/"; \
+      ls /repo/node_modules/.pnpm/ | head -30 || true; \
+      exit 1; \
+    fi \
+ && echo "[stage-prisma] sourcing .prisma from $PRISMA_PNPM_NODE_MODULES/.prisma" \
+ && mkdir -p /tmp/prisma-runtime \
+ && cp -r "$PRISMA_PNPM_NODE_MODULES/.prisma" /tmp/prisma-runtime/.prisma
+
 
 # ── 3. Runtime ───────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -124,20 +146,15 @@ RUN addgroup --system --gid 1001 nodejs \
 # Standalone output. `outputFileTracingRoot = monorepo-root` in
 # apps/studio/next.config.mjs means the bundle preserves the apps/studio/
 # prefix and the entrypoint is apps/studio/server.js.
-#
-# Note: unlike apps/fanaa/Dockerfile, we DO NOT explicitly copy
-# `.prisma/` or `@prisma/` here. With pnpm's symlink layout the canonical
-# Prisma client lives at
-#   /repo/node_modules/.pnpm/@prisma+client@<hash>/node_modules/@prisma/client
-# and `apps/studio/node_modules/.prisma` never exists, which would make
-# the COPY fail at build time. Next.js 15's standalone tracer (NFT)
-# already follows the @prisma/client import graph and bundles the
-# linux-musl query-engine binary into .next/standalone — so the runtime
-# image is self-contained without manual hardening. If a future Prisma
-# release breaks NFT tracing, add a targeted COPY of the actual pnpm
-# store path (above) — not the npm-style hoisted path.
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/static ./apps/studio/.next/static
+
+# Prisma runtime — `.prisma/client/` directory.
+# See the matching block in apps/fanaa/Dockerfile for the full rationale.
+# Required so `lib/studio/persistence.ts` -> `require("@prisma/client")`
+# -> `@prisma/client/default.js` -> `require('.prisma/client/default')`
+# resolves at runtime.
+COPY --from=builder --chown=nextjs:nodejs /tmp/prisma-runtime/.prisma ./apps/studio/node_modules/.prisma
 
 USER nextjs
 EXPOSE 3000

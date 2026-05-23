@@ -117,6 +117,29 @@ RUN cd apps/fanaa && pnpm exec prisma generate --schema=../../packages/db/prisma
 # of the Docker build.
 RUN pnpm --filter fanaa build
 
+# ── Stage Prisma runtime artifacts for the runner ────────────────────────────
+# NFT bundles `@prisma/client/default.js` into .next/standalone, but the
+# wrapper does a runtime `require('.prisma/client/default')` which NFT can
+# NOT statically trace. Without the `.prisma/` directory at a sibling
+# `node_modules/` lookup path, the first DB hit at runtime explodes with
+# `Cannot find module '.prisma/client/default'`.
+#
+# pnpm stores the generated client at:
+#   /repo/node_modules/.pnpm/@prisma+client@<hash>/node_modules/.prisma
+# The <hash> is computed from the full dep graph and changes whenever any
+# Prisma-related dep does, so a literal Docker COPY would be brittle. We
+# resolve the wildcard at build time with a shell glob and stage the
+# directory at a stable path the runner stage can pluck.
+RUN PRISMA_PNPM_NODE_MODULES=$(ls -d /repo/node_modules/.pnpm/@prisma+client@*/node_modules 2>/dev/null | head -n 1) \
+ && if [ -z "$PRISMA_PNPM_NODE_MODULES" ]; then \
+      echo "[stage-prisma] FATAL: pnpm @prisma+client store not found under /repo/node_modules/.pnpm/"; \
+      ls /repo/node_modules/.pnpm/ | head -30 || true; \
+      exit 1; \
+    fi \
+ && echo "[stage-prisma] sourcing .prisma from $PRISMA_PNPM_NODE_MODULES/.prisma" \
+ && mkdir -p /tmp/prisma-runtime \
+ && cp -r "$PRISMA_PNPM_NODE_MODULES/.prisma" /tmp/prisma-runtime/.prisma
+
 
 # ── 3. Runtime ───────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -145,35 +168,29 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/public ./apps/fanaa/p
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /repo/apps/fanaa/.next/static ./apps/fanaa/.next/static
 
-# Prisma engine binary + generated client.
+# Prisma runtime — `.prisma/client/` directory.
 #
-# HISTORICAL NOTE (M1): originally this stage hardened the runtime image
-# with two explicit COPYs of the @prisma/client wrapper and the .prisma/
-# engine directory, because the Next.js @vercel/nft tracer was known to
-# miss the Prisma query-engine binary at:
-#   node_modules/.prisma/client/libquery_engine-*.so.node
-# leading to "could not load query engine for the current platform" on
-# the first admin DB call.
+# NFT bundles `@prisma/client/default.js` into .next/standalone correctly,
+# but that wrapper does a runtime `require('.prisma/client/default')`
+# which NFT cannot statically trace. Without `.prisma/client/` reachable
+# via Node's module lookup, the first admin/track DB call dies with:
+#   Cannot find module '.prisma/client/default'
 #
-# Those COPYs assumed an npm/yarn-classic hoisted node_modules layout
-# where `apps/fanaa/node_modules/.prisma` exists. With the pnpm
-# workspace (M10+), the generated client lives at:
-#   /repo/node_modules/.pnpm/@prisma+client@<hash>/node_modules/@prisma/client
-# and `apps/fanaa/node_modules/.prisma` never exists — which made the
-# COPY fail at `docker build --no-cache`. The runtime image kept working
-# only because the broken layer was being served from a long-cached
-# BuildKit layer pre-dating the pnpm migration.
+# We can't COPY directly from the pnpm store because the path contains a
+# graph-hash that changes whenever Prisma deps move. The builder stage
+# (above) resolves the wildcard with a shell glob and stages the
+# directory at /tmp/prisma-runtime/.prisma — we copy from there. Place
+# it next to the @prisma/client wrapper that NFT already shipped:
+#   /app/apps/fanaa/node_modules/.prisma/client/...
+# which is where Node's runtime resolution will find it from
+# /app/apps/fanaa/node_modules/@prisma/client/default.js.
 #
-# Fix: drop the hardening, lean on NFT. Next.js 15's standalone tracer
-# follows the @prisma/client import graph through the admin / track
-# routes and bundles the linux-musl query-engine binary into
-# .next/standalone/ automatically. The next.config.mjs
-# `outputFileTracingIncludes` block points at npm-style paths that no
-# longer resolve under pnpm — left in place as a documented no-op,
-# safe to remove on a future cleanup pass.
-#
-# If a future Prisma/NFT regression breaks runtime, add a targeted COPY
-# of the actual pnpm store path (above) — not the legacy hoisted path.
+# Note: apps/fanaa/next.config.mjs has an `outputFileTracingIncludes`
+# block listing `./node_modules/.prisma/client/**/*` paths. Those globs
+# still target the npm-classic layout and silently no-op under pnpm;
+# left in place as a documented dead config, safe to remove on a future
+# cleanup pass once we've migrated all paths to pnpm-aware globs.
+COPY --from=builder --chown=nextjs:nodejs /tmp/prisma-runtime/.prisma ./apps/fanaa/node_modules/.prisma
 
 USER nextjs
 EXPOSE 3000
