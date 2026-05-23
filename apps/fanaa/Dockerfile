@@ -50,22 +50,36 @@ WORKDIR /repo
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# ─── NEXT_PUBLIC_* build-time inlining ──────────────────────────────────────
-# Webpack hard-codes every `process.env.NEXT_PUBLIC_*` lookup into the
-# client bundle at build time. Anything set as a runtime env var (e.g.
-# EasyPanel "Environment Variables") is INVISIBLE to the browser bundle
-# — by the time the container starts, the JS has already been baked.
+# ─── Build-time-inlined env (NEXT_PUBLIC_* + baked Next config) ─────────────
+# Two distinct categories share the same foot-gun, hence this block:
 #
-# Each NEXT_PUBLIC_* must therefore be declared as a build ARG here AND
+# 1. NEXT_PUBLIC_*
+#    Webpack hard-codes every `process.env.NEXT_PUBLIC_*` lookup into the
+#    client bundle at build time. Anything set as a runtime env var (e.g.
+#    EasyPanel "Environment Variables") is INVISIBLE to the browser bundle
+#    — by the time the container starts, the JS has already been baked.
+#
+# 2. STUDIO_INTERNAL_URL  (consumed by next.config.mjs `rewrites()`)
+#    `next build` evaluates `async rewrites()` and bakes the resolved
+#    routes into `.next/routes-manifest.json`. The standalone server
+#    reads that manifest at boot and never re-evaluates rewrites(). So
+#    if STUDIO_INTERNAL_URL is unset at BUILD time, the /studio →
+#    elfanaa_studio rewrite array is `[]` in the manifest and adding the
+#    env var to runtime "Environment Variables" later does nothing —
+#    fanaa just renders its own not-found.tsx for /studio. This is what
+#    surfaced as the "elfanaa.com/studio shows storefront 404" bug.
+#
+# Each variable below must therefore be declared as a build ARG here AND
 # forwarded by the orchestrator at build time:
 #   • docker-compose:  services.elfanaa_web.build.args
-#   • EasyPanel:       Service → Build → "Build Arguments" tab (NOT
-#                       "Environment Variables", which only apply at
-#                       runtime — too late for NEXT_PUBLIC_* inlining).
+#   • EasyPanel:       passed automatically as --build-arg for every
+#                       value in "Environment Variables", but ONLY if
+#                       there's a matching ARG declaration in this
+#                       Dockerfile — otherwise Docker silently drops it.
 #
 # Forgetting to set NEXT_PUBLIC_API_BASE_URL here is the canonical
 # cause of "the storefront posts to /api/orders instead of FastAPI"
-# bugs.
+# bugs. Forgetting STUDIO_INTERNAL_URL kills the /studio mount.
 ARG NEXT_PUBLIC_API_BASE_URL=""
 ARG NEXT_PUBLIC_SITE_URL=""
 ARG NEXT_PUBLIC_DEFAULT_LOCALE="ar"
@@ -73,6 +87,7 @@ ARG NEXT_PUBLIC_CURRENCY="SAR"
 ARG NEXT_PUBLIC_META_PIXEL_ID=""
 ARG NEXT_PUBLIC_TIKTOK_PIXEL_ID=""
 ARG NEXT_PUBLIC_SNAPCHAT_PIXEL_ID=""
+ARG STUDIO_INTERNAL_URL=""
 
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
@@ -80,7 +95,8 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
     NEXT_PUBLIC_CURRENCY=$NEXT_PUBLIC_CURRENCY \
     NEXT_PUBLIC_META_PIXEL_ID=$NEXT_PUBLIC_META_PIXEL_ID \
     NEXT_PUBLIC_TIKTOK_PIXEL_ID=$NEXT_PUBLIC_TIKTOK_PIXEL_ID \
-    NEXT_PUBLIC_SNAPCHAT_PIXEL_ID=$NEXT_PUBLIC_SNAPCHAT_PIXEL_ID
+    NEXT_PUBLIC_SNAPCHAT_PIXEL_ID=$NEXT_PUBLIC_SNAPCHAT_PIXEL_ID \
+    STUDIO_INTERNAL_URL=$STUDIO_INTERNAL_URL
 
 # Pull the entire resolved install tree from the deps stage. Includes:
 #   /repo/node_modules                    (hoisted shared deps)
@@ -99,8 +115,11 @@ COPY packages/db ./packages/db
 COPY tsconfig.base.json turbo.json pnpm-workspace.yaml package.json ./
 
 # Echo what got inlined so build logs make misconfiguration obvious.
+# An empty STUDIO_INTERNAL_URL here means `next build` will bake an
+# empty rewrites array and elfanaa.com/studio will 404 at runtime.
 RUN echo "[build] NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL" \
- && echo "[build] NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL"
+ && echo "[build] NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL" \
+ && echo "[build] STUDIO_INTERNAL_URL=$STUDIO_INTERNAL_URL"
 
 # Defense-in-depth: regenerate the Prisma client now that the full source
 # tree is present. The deps stage already generated it, but running again

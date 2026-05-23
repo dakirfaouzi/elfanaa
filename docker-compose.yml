@@ -83,12 +83,19 @@ services:
     build:
       context: .
       dockerfile: apps/fanaa/Dockerfile
-      # CRITICAL — NEXT_PUBLIC_* are inlined by Webpack at build time, so
-      # they MUST be passed as build args, not just runtime environment
-      # variables. EasyPanel users: set these in the service's "Build
-      # Arguments" tab, not "Environment Variables". Forgetting this is
-      # the canonical cause of "orders go to /api/orders instead of the
-      # FastAPI backend, sheet stays empty" bugs.
+      # CRITICAL — these are inlined by `next build` and baked into the
+      # image at build time, NOT read at server startup:
+      #   • NEXT_PUBLIC_*       inlined into the client bundle by Webpack
+      #   • STUDIO_INTERNAL_URL evaluated inside next.config.mjs
+      #                         `rewrites()` and baked into
+      #                         `.next/routes-manifest.json`
+      # All of them MUST be passed as build args (not just runtime env
+      # vars). EasyPanel users: every entry in "Environment Variables"
+      # is automatically forwarded as a --build-arg, but the matching
+      # ARG line must exist in apps/fanaa/Dockerfile or Docker silently
+      # drops it. Forgetting NEXT_PUBLIC_API_BASE_URL = "orders go to
+      # /api/orders instead of FastAPI". Forgetting STUDIO_INTERNAL_URL
+      # = elfanaa.com/studio 404s with the storefront not-found page.
       args:
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elfanaa.com}
         NEXT_PUBLIC_DEFAULT_LOCALE: ar
@@ -97,6 +104,7 @@ services:
         NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
         NEXT_PUBLIC_TIKTOK_PIXEL_ID: ${NEXT_PUBLIC_TIKTOK_PIXEL_ID:-}
         NEXT_PUBLIC_SNAPCHAT_PIXEL_ID: ${NEXT_PUBLIC_SNAPCHAT_PIXEL_ID:-}
+        STUDIO_INTERNAL_URL: ${STUDIO_INTERNAL_URL:-http://elfanaa_studio:3000}
     restart: unless-stopped
     depends_on:
       elfanaa_api:

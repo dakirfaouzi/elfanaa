@@ -39,8 +39,22 @@ inlined at build time, not runtime.
 |-----|-----|-------|
 | Environment Variables | `STUDIO_INTERNAL_URL` | `http://elfanaa_studio:3000` (or the internal hostname your EasyPanel assigns the Studio service — see "Internal URL" in the Studio service overview) |
 
-Restart the storefront service. The rewrite is read on boot from
-`next.config.mjs`.
+EasyPanel automatically forwards every entry in "Environment Variables"
+as a Docker `--build-arg`, and `apps/fanaa/Dockerfile` declares the
+matching `ARG STUDIO_INTERNAL_URL`. **Rebuild** the storefront service
+after adding the env var (not just restart) — `rewrites()` is evaluated
+inside `next build` and baked into `.next/routes-manifest.json`. The
+standalone server reads the manifest at boot and never re-evaluates
+rewrites(), so setting the env var without rebuilding leaves the
+rewrite array empty and `/studio` 404s.
+
+After the build completes, the build log should contain:
+
+```
+[build] STUDIO_INTERNAL_URL=http://elfanaa_studio:3000
+```
+
+An empty value there is the canonical cause of the `/studio` 404.
 
 ### Verify
 
@@ -148,7 +162,7 @@ fully additive in source and gated by env at runtime + build time.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `elfanaa.com/studio` → storefront 404 | Storefront wasn't rebuilt/restarted after setting `STUDIO_INTERNAL_URL`. | Restart the storefront service. |
+| `elfanaa.com/studio` → storefront 404 | Storefront was only **restarted** after setting `STUDIO_INTERNAL_URL`, not **rebuilt**. `rewrites()` is baked at build time; the runtime env var alone has no effect. | Trigger a full rebuild in EasyPanel. Confirm by grepping the build log for `[build] STUDIO_INTERNAL_URL=` — empty value means Docker didn't receive the build arg (check the `ARG STUDIO_INTERNAL_URL` line still exists in `apps/fanaa/Dockerfile`). |
 | `elfanaa.com/studio` → 502 / `ECONNREFUSED` | `STUDIO_INTERNAL_URL` points to a hostname the storefront container can't resolve. | In EasyPanel, copy the Studio service's "Internal URL" exactly. On Docker compose use the service name `elfanaa_studio` (not `localhost`). |
 | Studio CSS / JS 404s in DevTools | Studio was built without the basePath build arg. | Set `NEXT_PUBLIC_STUDIO_BASE_PATH=/studio` in the Studio service's Build Arguments tab and rebuild. |
 | Login loops back to `/studio/login` | `_fa_studio` cookie is scoped to a different path than the basePath (typically left over from an old `/` mount). | Clear cookies for `elfanaa.com` in the browser. |
