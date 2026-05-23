@@ -35,23 +35,70 @@ import { providerEnv } from "../env";
 
 const PROVIDER_ID: ProviderId = "anthropic";
 
-// Model defaults — pinned for predictable behaviour. Override per-call with
-// `opts.model` when a specific stage needs a different SKU.
-const DEFAULT_TEXT_MODEL = "claude-3-5-sonnet-latest";
-const DEFAULT_VISION_MODEL = "claude-3-5-sonnet-latest";
-const HEALTH_MODEL = "claude-3-5-haiku-latest";
+// Model defaults — pinned to **dated aliases**, not `-latest`.
+//
+// Why: Anthropic's `-latest` aliases (e.g. `claude-3-5-sonnet-latest`)
+// are NOT universally available. Whether a given account / region /
+// project resolves a `-latest` alias is at Anthropic's discretion and
+// has changed silently in the past. The dated aliases (e.g.
+// `claude-3-5-sonnet-20241022`) are the documented stable contract —
+// any account with Claude 3.5 Sonnet access can resolve them.
+//
+// Symptom of getting this wrong:
+//   HTTP 404 {"type":"error","error":{"type":"not_found_error",
+//             "message":"model: claude-3-5-sonnet-latest"}}
+//
+// Each model can be overridden via env vars (`ANTHROPIC_TEXT_MODEL`,
+// `ANTHROPIC_VISION_MODEL`, `ANTHROPIC_HEALTH_MODEL`) — see
+// `providerEnv.anthropic*Model()` — so bumping to a newer SKU (Claude
+// Sonnet 4, Opus 4, …) doesn't require a code change.
+const BUILTIN_TEXT_MODEL = "claude-3-5-sonnet-20241022";
+const BUILTIN_VISION_MODEL = "claude-3-5-sonnet-20241022";
+const BUILTIN_HEALTH_MODEL = "claude-3-5-haiku-20241022";
+
+function defaultTextModel(): string {
+  return providerEnv.anthropicTextModel() ?? BUILTIN_TEXT_MODEL;
+}
+function defaultVisionModel(): string {
+  return providerEnv.anthropicVisionModel() ?? BUILTIN_VISION_MODEL;
+}
+function defaultHealthModel(): string {
+  return providerEnv.anthropicHealthModel() ?? BUILTIN_HEALTH_MODEL;
+}
 
 // Price table (USD per 1M tokens). Source: Anthropic public pricing as of
 // 2024-10. Re-validate when bumping major model versions.
+//
+// Lookup tries the exact model first, then a family prefix match so a
+// future operator who sets `ANTHROPIC_TEXT_MODEL=claude-3-5-sonnet-20250122`
+// (a new snapshot of the same SKU) still gets accurate cost recording
+// without us shipping a code update.
 const PRICE_PER_M_TOKENS: Record<string, { in: number; out: number }> = {
+  // Sonnet 3.5 family — dated aliases (preferred) and -latest (kept
+  // for backwards compatibility if an operator overrides to it).
+  "claude-3-5-sonnet-20241022": { in: 3, out: 15 },
+  "claude-3-5-sonnet-20240620": { in: 3, out: 15 },
   "claude-3-5-sonnet-latest": { in: 3, out: 15 },
+  // Haiku 3.5 family
+  "claude-3-5-haiku-20241022": { in: 0.8, out: 4 },
   "claude-3-5-haiku-latest": { in: 0.8, out: 4 },
-  // Legacy aliases — keep in sync with the Anthropic console.
+  // Opus 3 family (legacy)
+  "claude-3-opus-20240229": { in: 15, out: 75 },
   "claude-3-opus-latest": { in: 15, out: 75 },
 };
 
 function computeCostUsd(model: string, tokensIn: number, tokensOut: number): number {
-  const p = PRICE_PER_M_TOKENS[model] ?? { in: 3, out: 15 }; // sonnet default
+  // Exact match first.
+  let p = PRICE_PER_M_TOKENS[model];
+  // Family prefix fallback — covers future snapshots of the same SKU.
+  if (!p) {
+    if (model.startsWith("claude-3-5-sonnet")) p = { in: 3, out: 15 };
+    else if (model.startsWith("claude-3-5-haiku")) p = { in: 0.8, out: 4 };
+    else if (model.startsWith("claude-3-opus")) p = { in: 15, out: 75 };
+    else if (model.startsWith("claude-sonnet-4")) p = { in: 3, out: 15 };
+    else if (model.startsWith("claude-opus-4")) p = { in: 15, out: 75 };
+    else p = { in: 3, out: 15 }; // safe default (Sonnet rate)
+  }
   return (tokensIn * p.in + tokensOut * p.out) / 1_000_000;
 }
 
@@ -159,10 +206,11 @@ export function createAnthropicAdapter(): Adapter {
     id: PROVIDER_ID,
 
     async healthCheck(): Promise<ProviderHealth> {
+      const healthModel = defaultHealthModel();
       const startedAt = performance.now();
       try {
         const res = await client.messages.create({
-          model: HEALTH_MODEL,
+          model: healthModel,
           max_tokens: 1,
           messages: [{ role: "user", content: "ping" }],
         });
@@ -173,9 +221,9 @@ export function createAnthropicAdapter(): Adapter {
           ok: true,
           providerId: PROVIDER_ID,
           capability: "text",
-          model: HEALTH_MODEL,
+          model: healthModel,
           latencyMs,
-          costUsd: computeCostUsd(HEALTH_MODEL, inTok, outTok),
+          costUsd: computeCostUsd(healthModel, inTok, outTok),
           detail: { requestId: res.id, stopReason: res.stop_reason },
         };
       } catch (err) {
@@ -183,7 +231,7 @@ export function createAnthropicAdapter(): Adapter {
           ok: false,
           providerId: PROVIDER_ID,
           capability: "text",
-          model: HEALTH_MODEL,
+          model: healthModel,
           latencyMs: Math.round(performance.now() - startedAt),
           errorMessage: errorMessage(err),
         };
@@ -193,7 +241,7 @@ export function createAnthropicAdapter(): Adapter {
     async generate<T = string>(
       opts: TextCallOptions<T>
     ): Promise<TextResult<T>> {
-      const model = opts.model ?? DEFAULT_TEXT_MODEL;
+      const model = opts.model ?? defaultTextModel();
       const startedAt = performance.now();
       const res = await client.messages.create({
         model,
@@ -237,7 +285,7 @@ export function createAnthropicAdapter(): Adapter {
     async analyze<T = string>(
       opts: VisionCallOptions<T>
     ): Promise<VisionResult<T>> {
-      const model = opts.model ?? DEFAULT_VISION_MODEL;
+      const model = opts.model ?? defaultVisionModel();
       const startedAt = performance.now();
       const imageUrls = opts.images.map((r) => r.src);
       const res = await client.messages.create({

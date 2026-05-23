@@ -32,6 +32,19 @@ export const providerEnv = {
   imageChain: () => process.env.STUDIO_IMAGE_PROVIDERS,
   scraperChain: () => process.env.STUDIO_SCRAPER_PROVIDERS,
   embeddingChain: () => process.env.STUDIO_EMBED_PROVIDERS,
+
+  // Per-vendor model overrides — opt-out the bundled defaults without
+  // a code change. Surface separately for text/vision/health so an
+  // operator can bump only the expensive generation path while
+  // keeping the cheap health-check pings on Haiku. Useful when:
+  //   • A new model SKU ships (Claude 4, Sonnet 4.5, …) and you want
+  //     to A/B without redeploying.
+  //   • An account's region loses access to a specific dated alias.
+  //   • You want to pin to a specific snapshot for reproducibility
+  //     during a copywriting experiment.
+  anthropicTextModel: () => process.env.ANTHROPIC_TEXT_MODEL,
+  anthropicVisionModel: () => process.env.ANTHROPIC_VISION_MODEL,
+  anthropicHealthModel: () => process.env.ANTHROPIC_HEALTH_MODEL,
 } as const;
 
 /**
