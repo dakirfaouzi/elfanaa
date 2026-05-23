@@ -14,13 +14,14 @@ import type { TextResult, VisionResult } from "../result-types";
 import { providerEnv } from "../env";
 
 /**
- * Anthropic adapter — Claude 3.5 Sonnet primary for text + vision
+ * Anthropic adapter — Claude Sonnet 4.6 primary for text + vision
  * (PLATFORM.md §12 "Adapter table").
  *
  * # Why Anthropic is text + vision primary
  *
  *   • Best-in-class Arabic copywriting register for GCC luxury voice
- *     (the M5 copy stage's Khaleeji prompt was tuned against Claude).
+ *     (the M5 copy stage's Khaleeji prompt was tuned against Claude;
+ *     Sonnet 4.6 preserves register fidelity across the 3.5 → 4.x bump).
  *   • Vision model accepts multiple images in a single message — saves
  *     the M5 vision stage from batching.
  *   • Structured-output JSON via system-prompt instruction + reliable
@@ -28,33 +29,46 @@ import { providerEnv } from "../env";
  *
  * # Health-check ping
  *
- * Uses claude-3-5-haiku (the cheapest Anthropic model) with max_tokens=1,
- * costing ~$0.0000008 per ping. Safe to call on every container start
+ * Uses claude-haiku-4-5 (the cheapest Anthropic model) with max_tokens=1,
+ * costing ~$0.000001 per ping. Safe to call on every container start
  * and per-deployment-smoke-test.
  */
 
 const PROVIDER_ID: ProviderId = "anthropic";
 
-// Model defaults — pinned to **dated aliases**, not `-latest`.
+// Model defaults — pinned to the **4.6-generation dateless IDs**.
 //
-// Why: Anthropic's `-latest` aliases (e.g. `claude-3-5-sonnet-latest`)
-// are NOT universally available. Whether a given account / region /
-// project resolves a `-latest` alias is at Anthropic's discretion and
-// has changed silently in the past. The dated aliases (e.g.
-// `claude-3-5-sonnet-20241022`) are the documented stable contract —
-// any account with Claude 3.5 Sonnet access can resolve them.
+// History of two deprecation pain-points that informed this choice:
 //
-// Symptom of getting this wrong:
-//   HTTP 404 {"type":"error","error":{"type":"not_found_error",
-//             "message":"model: claude-3-5-sonnet-latest"}}
+//   1. `claude-3-5-sonnet-latest` (used by M2-M11): NOT universally
+//      resolvable. Some accounts / regions / projects 404'd silently.
+//      Switched to dated alias in feb9161.
+//
+//   2. `claude-3-5-sonnet-20241022` (used post-feb9161): now RETIRED
+//      (Anthropic retired the 3.5 family in late 2025 / early 2026).
+//      Any pipeline still pointing at it returns:
+//        HTTP 404 {"type":"error","error":{"type":"not_found_error",
+//                  "message":"model: claude-3-5-sonnet-20241022"}}
+//
+// Per Anthropic's 4.6-generation model-ID design, dateless IDs like
+// `claude-sonnet-4-6` are NOT convenience aliases — they're the
+// canonical, immutable snapshot. Weights/config never change under a
+// given ID; new versions ship under new IDs (`-4-7`, `-4-8`, ...).
+// This makes them a strictly better contract than both `-latest`
+// (unresolvable on some accounts) and dated aliases (subject to
+// retirement). Refs:
+//   https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions
+//   https://platform.claude.com/docs/en/about-claude/model-deprecations
 //
 // Each model can be overridden via env vars (`ANTHROPIC_TEXT_MODEL`,
 // `ANTHROPIC_VISION_MODEL`, `ANTHROPIC_HEALTH_MODEL`) — see
-// `providerEnv.anthropic*Model()` — so bumping to a newer SKU (Claude
-// Sonnet 4, Opus 4, …) doesn't require a code change.
-const BUILTIN_TEXT_MODEL = "claude-3-5-sonnet-20241022";
-const BUILTIN_VISION_MODEL = "claude-3-5-sonnet-20241022";
-const BUILTIN_HEALTH_MODEL = "claude-3-5-haiku-20241022";
+// `providerEnv.anthropic*Model()` — so bumping to a newer SKU
+// (Claude Sonnet 4.7, Opus 5, …) doesn't require a code change. Cost
+// tracking handles unknown SKUs via family-prefix fallback in
+// `computeCostUsd()` below.
+const BUILTIN_TEXT_MODEL = "claude-sonnet-4-6";
+const BUILTIN_VISION_MODEL = "claude-sonnet-4-6";
+const BUILTIN_HEALTH_MODEL = "claude-haiku-4-5";
 
 function defaultTextModel(): string {
   return providerEnv.anthropicTextModel() ?? BUILTIN_TEXT_MODEL;
@@ -66,23 +80,51 @@ function defaultHealthModel(): string {
   return providerEnv.anthropicHealthModel() ?? BUILTIN_HEALTH_MODEL;
 }
 
-// Price table (USD per 1M tokens). Source: Anthropic public pricing as of
-// 2024-10. Re-validate when bumping major model versions.
+// Price table (USD per 1M tokens, non-cached). Source: Anthropic's
+// public pricing page as of May 2026:
+//   https://platform.claude.com/docs/en/about-claude/pricing
+// Re-validate when bumping major model versions.
+//
+// Notable price shift: the Opus 4.5 generation dropped the input/output
+// rates from $15/$75 to $5/$25 vs. Opus 4 / Opus 3. Don't assume the
+// old Opus rate carries forward to new IDs.
 //
 // Lookup tries the exact model first, then a family prefix match so a
-// future operator who sets `ANTHROPIC_TEXT_MODEL=claude-3-5-sonnet-20250122`
-// (a new snapshot of the same SKU) still gets accurate cost recording
+// future operator who sets `ANTHROPIC_TEXT_MODEL=claude-sonnet-4-7`
+// (a future SKU we haven't seen yet) still gets cost recording
 // without us shipping a code update.
 const PRICE_PER_M_TOKENS: Record<string, { in: number; out: number }> = {
-  // Sonnet 3.5 family — dated aliases (preferred) and -latest (kept
-  // for backwards compatibility if an operator overrides to it).
+  // ─── Active in 2026 ────────────────────────────────────────────────
+  // Opus 4.7 / 4.6 / 4.5 share pricing ($5 in / $25 out).
+  "claude-opus-4-7": { in: 5, out: 25 },
+  "claude-opus-4-6": { in: 5, out: 25 },
+  "claude-opus-4-5": { in: 5, out: 25 },
+  "claude-opus-4-5-20251101": { in: 5, out: 25 },
+  // Sonnet 4.6 / 4.5 share pricing ($3 in / $15 out).
+  "claude-sonnet-4-6": { in: 3, out: 15 },
+  "claude-sonnet-4-5": { in: 3, out: 15 },
+  "claude-sonnet-4-5-20250929": { in: 3, out: 15 },
+  // Haiku 4.5.
+  "claude-haiku-4-5": { in: 1, out: 5 },
+  "claude-haiku-4-5-20251001": { in: 1, out: 5 },
+  // ─── Deprecated (retire 2026-06-15) — kept for cost tracking on
+  //      any in-flight run still referencing them.
+  "claude-sonnet-4-20250514": { in: 3, out: 15 },
+  "claude-sonnet-4-0": { in: 3, out: 15 },
+  "claude-opus-4-20250514": { in: 15, out: 75 },
+  "claude-opus-4-0": { in: 15, out: 75 },
+  "claude-opus-4-1": { in: 15, out: 75 },
+  "claude-opus-4-1-20250805": { in: 15, out: 75 },
+  // ─── Retired (will 404 on the API). Kept ONLY so historical run
+  //      records with these models still cost-resolve correctly when
+  //      rendered in the Studio's runs detail view. New requests
+  //      MUST NOT use them.
   "claude-3-5-sonnet-20241022": { in: 3, out: 15 },
   "claude-3-5-sonnet-20240620": { in: 3, out: 15 },
   "claude-3-5-sonnet-latest": { in: 3, out: 15 },
-  // Haiku 3.5 family
   "claude-3-5-haiku-20241022": { in: 0.8, out: 4 },
   "claude-3-5-haiku-latest": { in: 0.8, out: 4 },
-  // Opus 3 family (legacy)
+  "claude-3-7-sonnet-20250219": { in: 3, out: 15 },
   "claude-3-opus-20240229": { in: 15, out: 75 },
   "claude-3-opus-latest": { in: 15, out: 75 },
 };
@@ -91,12 +133,20 @@ function computeCostUsd(model: string, tokensIn: number, tokensOut: number): num
   // Exact match first.
   let p = PRICE_PER_M_TOKENS[model];
   // Family prefix fallback — covers future snapshots of the same SKU.
+  // Ordering matters: more specific prefixes must come before their
+  // generic ancestors (e.g. `claude-opus-4-1` must be checked before
+  // `claude-opus-4` since the former kept the $15/$75 rate while the
+  // 4.5+ family dropped to $5/$25).
   if (!p) {
-    if (model.startsWith("claude-3-5-sonnet")) p = { in: 3, out: 15 };
-    else if (model.startsWith("claude-3-5-haiku")) p = { in: 0.8, out: 4 };
-    else if (model.startsWith("claude-3-opus")) p = { in: 15, out: 75 };
+    if (model.startsWith("claude-opus-4-1")) p = { in: 15, out: 75 };
+    else if (model.startsWith("claude-opus-4-0") || model === "claude-opus-4") p = { in: 15, out: 75 };
+    else if (model.startsWith("claude-opus-4")) p = { in: 5, out: 25 }; // 4.5, 4.6, 4.7, future 4.x
     else if (model.startsWith("claude-sonnet-4")) p = { in: 3, out: 15 };
-    else if (model.startsWith("claude-opus-4")) p = { in: 15, out: 75 };
+    else if (model.startsWith("claude-haiku-4")) p = { in: 1, out: 5 };
+    else if (model.startsWith("claude-3-5-sonnet")) p = { in: 3, out: 15 };
+    else if (model.startsWith("claude-3-5-haiku")) p = { in: 0.8, out: 4 };
+    else if (model.startsWith("claude-3-7-sonnet")) p = { in: 3, out: 15 };
+    else if (model.startsWith("claude-3-opus")) p = { in: 15, out: 75 };
     else p = { in: 3, out: 15 }; // safe default (Sonnet rate)
   }
   return (tokensIn * p.in + tokensOut * p.out) / 1_000_000;

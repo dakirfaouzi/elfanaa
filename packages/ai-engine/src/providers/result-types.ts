@@ -35,7 +35,7 @@ export type TextResult<T = string> = {
   usage: TokenUsage;
   costUsd: number;
   latencyMs: number;
-  /** Vendor model identifier ("claude-3-5-sonnet-latest"). */
+  /** Vendor model identifier ("claude-sonnet-4-6", "gpt-5", ...). */
   model: string;
   /** Which adapter served this call — useful when callers iterate a chain. */
   providerId: ProviderId;

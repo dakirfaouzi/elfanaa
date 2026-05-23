@@ -142,7 +142,7 @@ export interface StoreTemplates {
 /**
  * Per-store override of which AI providers are approved.
  *
- * Concrete provider IDs ("anthropic.claude-3-5-sonnet", "fal.flux-1.1-pro")
+ * Concrete provider IDs ("anthropic.claude-sonnet-4-6", "fal.flux-1.1-pro")
  * live in `@platform/ai-engine` (M4). The contract here keeps the surface
  * loose — string-typed model IDs so the StoreConfig doesn't need to
  * import from ai-engine.

@@ -56,7 +56,7 @@ export type ProviderHealth = {
   ok: boolean;
   providerId: ProviderId;
   capability: ProviderCapability;
-  /** Vendor model used for the ping (e.g. "claude-3-5-haiku-latest"). */
+  /** Vendor model used for the ping (e.g. "claude-haiku-4-5"). */
   model?: string;
   latencyMs: number;
   /** Approximate cost of the ping in USD (≤ 0.001 for any compliant adapter). */
