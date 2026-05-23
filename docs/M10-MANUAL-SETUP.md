@@ -145,6 +145,50 @@ You should see seven tables:
 > `DROP TYPE studio_asset_source, studio_step_status,
 > studio_run_status, studio_draft_status, studio_store_status;`.
 
+### 1d — Recovering from a corrupted `_prisma_migrations` history
+
+If at any point you see this combination in the Studio runtime logs:
+
+```
+The table `public.studio_draft` does not exist in the current database.
+...
+[entrypoint] STUDIO_AUTO_MIGRATE=true — applying pending Prisma migrations
+...
+No pending migrations to apply.
+```
+
+…the database's `_prisma_migrations` tracking table thinks the migrations
+are applied, but the tables aren't physically there. Two common ways to
+end up here:
+
+1. Someone previously ran `prisma migrate resolve --applied <name>`
+   against the wrong database. `--applied` only updates the tracking
+   table; it never executes the SQL. Migrating to a different DB and
+   re-running `--applied` doesn't create the tables on the new DB.
+2. The tables were created once, then dropped (e.g. during a manual
+   schema cleanup or a partial `pg_restore`), without also clearing
+   the matching `_prisma_migrations` rows.
+
+Prisma 6 refuses `prisma migrate resolve --rolled-back` on migrations it
+records as successfully applied (you'll see `P3012: Migration ... is not
+in a failed state`). The supported recovery is to delete the bogus
+tracking rows directly, then re-deploy. From the Studio Shell:
+
+```sh
+echo "DELETE FROM _prisma_migrations WHERE migration_name IN ('0002_studio_tables', '0003_studio_published_product');" \
+  | prisma db execute --stdin --schema=/app/packages/db/prisma/schema.prisma
+
+prisma migrate deploy --schema=/app/packages/db/prisma/schema.prisma
+```
+
+`prisma db execute` uses the same connection setup as the running app —
+no risk of hitting the wrong DB. After the second command prints "All
+migrations have been successfully applied", restart the Studio service
+(not rebuild — only the DB state changed) and the drafts page renders.
+
+The Prisma upstream docs cover this scenario at
+<https://www.prisma.io/docs/orm/prisma-migrate/workflows/patching-and-hotfixing>.
+
 ---
 
 ## Step 2 — Create the Cloudflare R2 bucket
