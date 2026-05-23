@@ -1,0 +1,12 @@
+# Pin POSIX-only files to LF regardless of the developer's `core.autocrlf`
+# setting. The repo is consumed from Windows (PowerShell), macOS, and
+# Linux containers (Docker builds). Without this, a Windows checkout
+# converts shell-script line endings to CRLF, and the resulting `\r`
+# in the shebang line breaks parsing inside alpine:
+#   /bin/sh^M: bad interpreter: No such file or directory
+# Manifested originally as apps/studio/docker-entrypoint.sh exiting 126
+# inside the elfanaa_studio container on EasyPanel deploys committed
+# from Windows.
+*.sh           text eol=lf
+Dockerfile     text eol=lf
+*.dockerfile   text eol=lf

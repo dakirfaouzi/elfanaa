@@ -140,6 +140,32 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
+# Prisma CLI for in-container migrations.
+#
+# Why ship the CLI in the runtime image (vs. building a separate migration
+# container or doing it from a developer laptop):
+#   • The EasyPanel-internal Postgres (elfanaa_database) is NOT reachable
+#     from outside the Docker network, so `prisma migrate deploy` from a
+#     developer machine isn't an option without temporarily exposing the
+#     DB port.
+#   • A separate one-shot migration container would need its own image,
+#     build pipeline, and EasyPanel service — operational overhead for
+#     something we run every Studio schema bump.
+#   • Co-locating the CLI with the running app means the entrypoint can
+#     conditionally migrate on boot (see docker-entrypoint.sh) AND the
+#     operator can run ad-hoc `prisma migrate ...` from EasyPanel's
+#     Shell tab against the same DB the app talks to, with zero risk of
+#     cross-environment mistakes.
+#
+# Cost: +libc6-compat (~3MB) + prisma global (~70MB compressed). Acceptable
+# for an internal-only admin tool.
+#
+# libc6-compat is required by the Prisma migration engine binary (the
+# query engine bundled with `.prisma/client` already needs it, but it
+# wasn't strictly necessary before we shipped the migration engine).
+RUN apk add --no-cache libc6-compat \
+ && npm install -g prisma@6.19.3
+
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
@@ -156,6 +182,23 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/studio/.next/static ./apps/
 # resolves at runtime.
 COPY --from=builder --chown=nextjs:nodejs /tmp/prisma-runtime/.prisma ./apps/studio/node_modules/.prisma
 
+# Prisma schema + migrations, needed by `prisma migrate deploy` whether
+# invoked automatically (STUDIO_AUTO_MIGRATE=true) or manually from the
+# EasyPanel Shell. ~30KB total; cheap to ship.
+COPY --from=builder --chown=nextjs:nodejs /repo/packages/db/prisma ./packages/db/prisma
+
+# Entrypoint shim — conditionally runs `prisma migrate deploy` before
+# starting the Next.js server. Idempotent; safe to leave STUDIO_AUTO_MIGRATE
+# permanently on. See the script header for the full rationale.
+COPY --chown=nextjs:nodejs apps/studio/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# `sed` strips any CR characters that snuck in from a Windows checkout
+# with a misconfigured core.autocrlf — the repo's .gitattributes pins
+# *.sh to LF, but defense-in-depth means a stale local clone or a
+# CI/CD copy that bypasses git checkout still produces a runnable image
+# instead of silently failing with `/bin/sh^M: bad interpreter`.
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+ && chmod +x /usr/local/bin/docker-entrypoint.sh
+
 USER nextjs
 EXPOSE 3000
 
@@ -163,4 +206,7 @@ EXPOSE 3000
 # baked in, because EasyPanel's Traefik probes the TCP socket directly and a
 # hard-coded HEALTHCHECK port silently breaks the moment PORT is overridden.
 
+# ENTRYPOINT runs the migration shim; CMD is exec'd by the shim so signals
+# reach Node directly (no PID-1 shell intercepting SIGTERM).
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "apps/studio/server.js"]

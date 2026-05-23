@@ -182,6 +182,13 @@ services:
       # `elfanaa.com/studio` deployment).
       STUDIO_PERSISTENCE_MODE: ${STUDIO_PERSISTENCE_MODE:-}
       ADMIN_DATABASE_URL: ${ADMIN_DATABASE_URL:-}
+      # Auto-apply Prisma migrations on container start. Idempotent
+      # (Prisma's `_prisma_migrations` tracking table skips already-applied
+      # migrations). Set to "true" the first time you deploy against a
+      # fresh database OR after pulling a release that introduces a new
+      # migration under packages/db/prisma/migrations/. Safe to leave on
+      # permanently. See apps/studio/docker-entrypoint.sh for rationale.
+      STUDIO_AUTO_MIGRATE: ${STUDIO_AUTO_MIGRATE:-false}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}

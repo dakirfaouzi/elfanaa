@@ -63,14 +63,57 @@ pg_dump -h <host> -U <user> -d <database> -Fc -f backup-pre-m10.dump
 
 ### 1b — Apply via `prisma migrate deploy`
 
-From the repo root:
+**Three options** depending on how you reach the database:
+
+#### Option A — From your developer machine (DB reachable externally)
 
 ```bash
 export ADMIN_DATABASE_URL='postgresql://<user>:<pass>@<host>:5432/<database>'
 pnpm --filter @platform/db exec prisma migrate deploy --schema=prisma/schema.prisma
 ```
 
-Expected output ends with:
+#### Option B — Auto-apply on Studio container start (recommended for EasyPanel internal DBs)
+
+The Studio runtime image ships with the Prisma CLI + the
+`packages/db/prisma/migrations/` directory, and an entrypoint
+(`apps/studio/docker-entrypoint.sh`) that conditionally runs
+`prisma migrate deploy` before starting the Next.js server.
+
+EasyPanel → Services → **elfanaa_studio** → **Environment Variables**:
+
+| Key | Value |
+|---|---|
+| `STUDIO_AUTO_MIGRATE` | `true` |
+
+Restart the Studio service. On the next boot you should see in the
+Studio runtime logs:
+
+```
+[entrypoint] STUDIO_AUTO_MIGRATE=true — applying pending Prisma migrations
+...
+The following migration(s) have been applied:
+  └─ 0002_studio_tables/
+[entrypoint] migrations applied — handing off to node
+▲ Next.js 15.5.x  Ready in ...
+```
+
+Idempotent — Prisma's `_prisma_migrations` tracking table skips any
+migration already applied, so leaving `STUDIO_AUTO_MIGRATE=true` on
+permanently is safe and adds ~30ms to hot restarts. **This is the
+right option for the EasyPanel internal Postgres** because the DB
+isn't reachable from outside the Docker network.
+
+#### Option C — Manual from inside the running Studio container
+
+EasyPanel → Services → **elfanaa_studio** → **Shell** tab:
+
+```sh
+prisma migrate deploy --schema=/app/packages/db/prisma/schema.prisma
+```
+
+Reads `ADMIN_DATABASE_URL` from the container env automatically.
+
+**All three options** produce the same end state:
 
 ```
 The following migration(s) have been applied:
