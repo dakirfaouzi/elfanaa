@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { stripStudioBasePath } from "@/lib/base-path";
 
 /**
  * Studio root middleware.
@@ -74,7 +75,17 @@ export async function middleware(req: NextRequest) {
   const loginUrl = req.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";
-  loginUrl.searchParams.set("next", pathname + req.nextUrl.search);
+  // The `next` query MUST be app-relative (no basePath) because the login
+  // page hands it to `router.replace()`, which automatically re-prepends
+  // basePath. Passing `/studio/drafts` here would navigate the client to
+  // `/studio/studio/drafts` → 404. In Next.js 15.5 the Edge middleware
+  // sees `pathname` WITH the basePath (docs claim otherwise but real
+  // behaviour disagrees), so strip it defensively. `stripStudioBasePath`
+  // is a no-op when basePath is unset.
+  loginUrl.searchParams.set(
+    "next",
+    stripStudioBasePath(pathname) + req.nextUrl.search
+  );
   return NextResponse.redirect(loginUrl);
 }
 

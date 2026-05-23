@@ -65,3 +65,32 @@ export function studioPath(p: string): string {
 export function studioCookiePath(): string {
   return STUDIO_BASE_PATH || "/";
 }
+
+/**
+ * Inverse of `studioPath()` — strip the basePath from a path if present.
+ *
+ * Use for:
+ *   • Building the `?next=` query in the middleware (`router.replace()`
+ *     re-prefixes basePath, so writing `/studio/drafts` into `next`
+ *     causes a double-prefix → `/studio/studio/drafts` → 404).
+ *   • Sanitising any externally-provided `next` redirect target before
+ *     passing it to a Next.js client navigation API (`router.push/replace`,
+ *     `<Link href>`) — those auto-prefix basePath. Do NOT apply before
+ *     server `redirect()` from `next/navigation`; that one does not
+ *     auto-prefix, so `studioPath()` is the correct helper there.
+ *
+ * Notes:
+ *   • Empty basePath (mounted at root) → returns the input unchanged.
+ *   • Path equal to the basePath itself (`/studio`) → returns `/` so
+ *     navigation lands on the app root, not the empty string.
+ *   • Non-matching paths returned unchanged — never silently rewrites
+ *     unrelated URLs.
+ */
+export function stripStudioBasePath(p: string): string {
+  if (!STUDIO_BASE_PATH) return p;
+  if (p === STUDIO_BASE_PATH) return "/";
+  if (p.startsWith(`${STUDIO_BASE_PATH}/`)) {
+    return p.slice(STUDIO_BASE_PATH.length);
+  }
+  return p;
+}

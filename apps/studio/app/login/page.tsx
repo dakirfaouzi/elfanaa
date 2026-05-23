@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { studioPath } from "@/lib/base-path";
+import { studioPath, stripStudioBasePath } from "@/lib/base-path";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,15 @@ function LoginForm() {
   const params = useSearchParams();
   // Open-redirect guard: only honour `next` paths that stay inside Studio.
   const rawNext = params?.get("next") || "/";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const safeNext =
+    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  // `router.replace()` auto-prepends basePath. If `next` already includes
+  // the basePath (e.g. a manually-bookmarked link to
+  // `/studio/login?next=/studio/drafts`), strip it here so we end up
+  // navigating to `/studio/drafts`, not `/studio/studio/drafts`. The
+  // middleware now writes app-relative paths into `next`, so the strip
+  // is a no-op for our own internal redirects.
+  const next = stripStudioBasePath(safeNext);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
