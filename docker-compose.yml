@@ -197,7 +197,25 @@ services:
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
     ports:
       - "3001:3000"
+    volumes:
+      # Persistent run/draft artefact storage.
+      #
+      # The M6 worker writes runs to .platform-data/runs/<runId>.json and
+      # apps/studio/lib/studio/run-loader.ts reads them back from there.
+      # Without this volume, every container rebuild discards the entire
+      # run history — operators lose replay capability, recent failures
+      # disappear from /studio/runs, and drafts orphan from their
+      # producer run record.
+      #
+      # Named volume (not bind mount) so the directory inherits the
+      # nextjs:nodejs ownership pre-created in apps/studio/Dockerfile on
+      # first init. EasyPanel operators must mirror this by adding a
+      # volume mount at /app/.platform-data via Service → Mounts. See
+      # docs/M12-MOUNT-STUDIO.md §Persistent volume.
+      - elfanaa_studio_data:/app/.platform-data
 
 volumes:
   elfanaa_pgdata:
+    driver: local
+  elfanaa_studio_data:
     driver: local

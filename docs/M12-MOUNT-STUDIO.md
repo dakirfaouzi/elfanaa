@@ -29,9 +29,19 @@ Set these three env / build args, redeploy both services, then visit
 | Build Arguments | `NEXT_PUBLIC_STUDIO_BASE_PATH` | `/studio` |
 | Environment Variables | `NEXT_PUBLIC_STUDIO_BASE_PATH` | `/studio` |
 | Environment Variables | (already set from M10) `STUDIO_PERSISTENCE_MODE`, `ADMIN_DATABASE_URL`, `STORAGE_DRIVER`, `R2_*`, `STUDIO_EMAIL`, `STUDIO_PASSWORD_HASH`, `STUDIO_JWT_SECRET` | unchanged |
+| Mounts | Volume mount | Host/Volume: `elfanaa_studio_data` · Container path: `/app/.platform-data` |
 
 Rebuild the Studio service after setting the build arg — basePath is
 inlined at build time, not runtime.
+
+> **CRITICAL: the `/app/.platform-data` mount.** Without it, every Studio
+> rebuild discards the entire run history. The M6 worker writes runs to
+> `.platform-data/runs/<runId>.json` on the container's writable layer,
+> which Docker throws away when the image is replaced. Symptoms of a
+> missing mount: `/studio/runs` shows "No runs yet" after a rebuild,
+> direct run URLs return 404, and the "Replay run" button vanishes.
+> Drafts are unaffected because they're stored in Postgres. See the
+> dedicated [Persistent volume](#persistent-volume) section below.
 
 ### Storefront service (EasyPanel)
 
@@ -167,3 +177,83 @@ fully additive in source and gated by env at runtime + build time.
 | Studio CSS / JS 404s in DevTools | Studio was built without the basePath build arg. | Set `NEXT_PUBLIC_STUDIO_BASE_PATH=/studio` in the Studio service's Build Arguments tab and rebuild. |
 | Login loops back to `/studio/login` | `_fa_studio` cookie is scoped to a different path than the basePath (typically left over from an old `/` mount). | Clear cookies for `elfanaa.com` in the browser. |
 | Storefront `/admin` or analytics broken | Should not happen — the M12 changes do not touch storefront business logic. | If it does, set `STUDIO_INTERNAL_URL=` (empty) to disable the rewrite; the storefront returns to its exact M11 behaviour. |
+| `/studio/runs` shows "No runs yet" after a rebuild · direct run URL returns 404 · "Replay run" button vanishes | No persistent volume is mounted at `/app/.platform-data`. The M6 worker writes runs to the container's writable layer, which Docker discards on every image replacement. Drafts survive because they're in Postgres. | See [Persistent volume](#persistent-volume) below — add the mount in EasyPanel → elfanaa_studio → **Mounts**. The lost runs are unrecoverable; future runs persist correctly. The entrypoint logs `[entrypoint] INFO: persistent volume detected at /app/.platform-data` on every healthy boot. |
+
+---
+
+## Persistent volume
+
+The M6 worker persists every pipeline execution to
+`.platform-data/runs/<runId>.json` on the Studio container's filesystem,
+and `apps/studio/lib/studio/run-loader.ts` reads them back from there
+for both the `/studio/runs` list and the `/studio/runs/[id]` detail
+page. Without a Docker volume mounted at that path, **every rebuild
+discards the entire run history**:
+
+* `/studio/runs` shows "No runs yet"
+* direct run URLs return 404
+* the "Replay run" button disappears from the UI
+* drafts orphan from their producer run record (the draft survives in
+  Postgres, but the run that produced it is gone)
+
+> Drafts are stored in Postgres via `@platform/persistence` and survive
+> rebuilds regardless of this mount. Runs are filesystem-only until the
+> M10-to-M13 dual-read migration completes — for now, the volume is
+> mandatory.
+
+### EasyPanel setup (one-time)
+
+1. Open EasyPanel → **elfanaa_studio** service → **Mounts** tab.
+2. Click **Add Mount** and choose **Volume** (not File / not Bind).
+3. Name: `elfanaa_studio_data` · Container path: `/app/.platform-data`
+4. Save and **redeploy** the service (a plain restart is not enough —
+   Docker only resolves new mounts on container creation).
+5. Verify in the **Logs** tab — on a healthy boot you will see one of:
+
+   ```
+   [entrypoint] INFO: ${DATA_DIR} is empty (fresh mount or first boot)
+   ```
+
+   (first ever boot against this volume) followed on subsequent boots
+   by:
+
+   ```
+   [entrypoint] INFO: persistent volume detected at /app/.platform-data (initialised 2026-05-23T18:00:00Z)
+   ```
+
+   If you instead see:
+
+   ```
+   [entrypoint] WARN: /app/.platform-data/runs is not writable by uid=1001 gid=1001
+   ```
+
+   the mount is a root-owned bind mount. SSH into the host and run:
+
+   ```
+   chown -R 1001:1001 <host-path-mounted-at-/app/.platform-data>
+   ```
+
+   Named volumes (the recommended path above) avoid this entirely
+   because Docker copies the directory's nextjs:nodejs ownership from
+   the Dockerfile's pre-created `/app/.platform-data` into the volume
+   on first init.
+
+### Local development
+
+`docker-compose.yml` already declares `elfanaa_studio_data` as a named
+volume and mounts it at `/app/.platform-data`. `docker compose down`
+keeps the volume; `docker compose down -v` wipes it (equivalent of a
+fresh deployment).
+
+### Recovering after this has already happened
+
+There is no recovery for runs lost to a missing mount — they were never
+written to a durable store. You have two options:
+
+1. **Accept the loss**, add the mount as above, and start fresh. All
+   future runs persist. Drafts that orphan from their (now missing)
+   producer run remain editable in `/studio/drafts` — only the
+   replay-from-source-run path is broken for them.
+2. **Re-run the affected products** by dispatching new intake jobs.
+   `/studio/intake` accepts the same supplier URL again and produces a
+   new run that's persisted to the volume.

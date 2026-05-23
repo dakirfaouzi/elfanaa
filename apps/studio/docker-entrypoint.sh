@@ -2,10 +2,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Studio container entrypoint.
 #
-# Two responsibilities:
-#   1. Optionally apply pending Prisma migrations to ADMIN_DATABASE_URL
+# Three responsibilities:
+#   1. Sanity-check the .platform-data mount so a missing/mis-permissioned
+#      volume fails loudly at boot rather than silently after the first
+#      pipeline run (when the worker's first fs.writeFile EACCES would
+#      otherwise look like a generic 500 in /studio/intake).
+#   2. Optionally apply pending Prisma migrations to ADMIN_DATABASE_URL
 #      before the Next.js server starts.
-#   2. exec() the original CMD so PID 1 ends up as the Node process
+#   3. exec() the original CMD so PID 1 ends up as the Node process
 #      (proper SIGTERM handling, no zombie shell).
 #
 # Migration is opt-in via STUDIO_AUTO_MIGRATE=true. Reasons:
@@ -32,6 +36,52 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
+# ─── 1. Persistent volume sanity check ───────────────────────────────────────
+#
+# apps/studio/lib/studio/run-loader.ts reads, and the M6 worker writes,
+# `${PLATFORM_DATA_ROOT:-/app/.platform-data}/runs/<runId>.json`. Without
+# a Docker volume mounted there, every rebuild discards the entire run
+# history (drafts in Postgres survive, runs do not — they're filesystem
+# only until the M10 → DB-backed-runs migration completes).
+#
+# This check is purely diagnostic; it never aborts boot. The goal is to
+# leave a single, greppable line in the container logs that an operator
+# investigating "where did my runs go?" can find immediately.
+DATA_DIR="${PLATFORM_DATA_ROOT:-/app/.platform-data}"
+RUNS_DIR="${DATA_DIR}/runs"
+
+mkdir -p "${RUNS_DIR}" 2>/dev/null || true
+
+if [ ! -d "${RUNS_DIR}" ]; then
+  echo "[entrypoint] WARN: ${RUNS_DIR} does not exist and could not be created — runs will fail to persist" 1>&2
+elif [ ! -w "${RUNS_DIR}" ]; then
+  echo "[entrypoint] WARN: ${RUNS_DIR} is not writable by uid=$(id -u) gid=$(id -g)" 1>&2
+  echo "[entrypoint] WARN: this usually means a bind-mounted host directory is owned by root" 1>&2
+  echo "[entrypoint] WARN: on the host run: chown -R 1001:1001 <host-path-mounted-at-${DATA_DIR}>" 1>&2
+else
+  # Distinguish a real Docker volume mount from the container's
+  # ephemeral overlayfs by reading /proc/self/mounts. Every Docker
+  # volume (named or bind) shows up there as a dedicated mountpoint;
+  # an unmounted directory does not. This is deterministic across
+  # boots — unlike a sentinel marker file, which a single restart
+  # would create and falsely report as "persisted" on the next boot
+  # of an unmounted container.
+  #
+  # /proc/self/mounts is readable by the nextjs user without any
+  # special capabilities. The grep -F (fixed string) avoids the need
+  # to escape dots in the path.
+  if grep -qF " ${DATA_DIR} " /proc/self/mounts 2>/dev/null; then
+    echo "[entrypoint] INFO: persistent volume detected at ${DATA_DIR}"
+  else
+    echo "[entrypoint] WARN: NO persistent volume at ${DATA_DIR} — run history will be discarded on the next rebuild" 1>&2
+    echo "[entrypoint] WARN: drafts in Postgres survive; runs/products on the filesystem do not" 1>&2
+    echo "[entrypoint] WARN: fix: EasyPanel → elfanaa_studio → Mounts → add Volume \`elfanaa_studio_data\` at \`${DATA_DIR}\`" 1>&2
+    echo "[entrypoint] WARN: see docs/M12-MOUNT-STUDIO.md §Persistent volume" 1>&2
+  fi
+fi
+
+# ─── 2. Prisma migrations (opt-in) ───────────────────────────────────────────
+
 if [ "${STUDIO_AUTO_MIGRATE:-false}" = "true" ]; then
   echo "[entrypoint] STUDIO_AUTO_MIGRATE=true — applying pending Prisma migrations"
   if [ -z "${ADMIN_DATABASE_URL}" ]; then
@@ -45,6 +95,7 @@ if [ "${STUDIO_AUTO_MIGRATE:-false}" = "true" ]; then
   echo "[entrypoint] migrations applied — handing off to ${1}"
 fi
 
+# ─── 3. exec CMD ─────────────────────────────────────────────────────────────
 # exec replaces this shell with the CMD process so signals reach Node
 # directly (no PID-1 shell intercepting SIGTERM during graceful shutdown).
 exec "$@"

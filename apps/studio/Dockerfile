@@ -169,6 +169,32 @@ RUN apk add --no-cache libc6-compat \
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
+# Persistent storage scaffold for the M6 worker artefacts.
+#
+# apps/studio/lib/studio/run-loader.ts reads from
+#   `process.cwd()/.platform-data/runs/<runId>.json`
+# i.e. `/app/.platform-data/runs/`. Operators MUST mount a Docker
+# volume there or every container rebuild wipes the entire run history
+# (replay buttons disappear, drafts orphan from their producer run,
+# operators lose the ability to debug failed pipelines).
+#
+# Pre-creating both subdirectories with nextjs:nodejs ownership has
+# two purposes:
+#   1. The Studio renders an empty-state UI gracefully when the dir
+#      exists but is empty — no ENOENT crash on first boot.
+#   2. When the operator mounts a *named volume* at /app/.platform-data,
+#      Docker copies the directory metadata (including ownership) into
+#      the volume on first initialization. So the volume inherits
+#      nextjs:nodejs perms and the Studio process can write into it
+#      without root privileges or runtime chown.
+#
+# If the operator instead mounts a *bind mount* from a host directory
+# (e.g. EasyPanel "Mounts" → File mode), they must `chown -R 1001:1001`
+# the host path themselves. The entrypoint logs a clear warning if the
+# mount lands and is not nextjs-writable. See docker-entrypoint.sh.
+RUN mkdir -p /app/.platform-data/runs /app/.platform-data/products \
+ && chown -R nextjs:nodejs /app/.platform-data
+
 # Standalone output. `outputFileTracingRoot = monorepo-root` in
 # apps/studio/next.config.mjs means the bundle preserves the apps/studio/
 # prefix and the entrypoint is apps/studio/server.js.
