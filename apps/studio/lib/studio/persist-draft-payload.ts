@@ -1,6 +1,6 @@
 import type { UniversalProduct } from "@platform/catalog-schema";
 import { DraftDocumentSchema } from "@platform/builder-schema";
-import { PersistenceError } from "@platform/persistence";
+import { PersistenceError, type StudioDraftRow } from "@platform/persistence";
 import type { StudioPersistence } from "./persistence";
 import { runIdToSlug } from "./persistence";
 import { productToDraftDocument } from "./product-to-draft";
@@ -37,6 +37,28 @@ import { productToDraftDocument } from "./product-to-draft";
  * `PersistenceError{conflict}` and we LOG-AND-SKIP rather than
  * clobber operator work. The status transition still fires so the
  * UI banner correctly flips to "ready".
+ *
+ * # Self-heal for stale-invalid payloads
+ *
+ * There's one nasty case the pure version check can't see: a
+ * payload that was written BEFORE the schema validation gate
+ * existed (commits before ba02b8b), or a payload written with a
+ * since-tightened constraint. `payloadVersion` is >0 (so the lock
+ * fires) but the payload itself can't even be parsed (so the GET
+ * route silently falls back to a blank canvas and the operator
+ * sees an empty editor). The optimistic lock then traps the draft
+ * in a permanent broken state — every replay logs
+ * "preserving operator edits" while the operator stares at a
+ * payload they never actually edited.
+ *
+ * Fix: before honoring the lock, parse the existing payload
+ * against `DraftDocumentSchema`. If it fails, there are no real
+ * edits to preserve — the editor can't even render this row — so
+ * we force-overwrite with `expectedPayloadVersion: -1` (the same
+ * escape hatch the seed-write uses) and log the repair distinctly
+ * so an operator scanning the journal can tell "AI replaced a
+ * broken payload" from "AI clobbered my edits". Genuine valid
+ * edits (the common case) are still preserved.
  *
  * # Failure semantics
  *
@@ -140,13 +162,25 @@ export async function persistDraftFromProduct(
     };
   }
 
+  // ── Decide write strategy: lock-respecting OR self-heal ──
+  //
+  // Default: optimistic lock at version 0 (safe — only writes if
+  // the row has never been touched).
+  //
+  // Override: if the row IS touched (version > 0) BUT the stored
+  // payload doesn't parse as a DraftDocument, that "version bump"
+  // was a buggy historical write, not an operator edit. Bypass the
+  // lock (`-1`) so the user isn't permanently stuck with a payload
+  // that can't even be loaded into the editor.
+  const expectedVersion = decideExpectedVersion(draft, opts.runId);
+
   // ── Payload write — respects operator edits via optimistic lock ──
   let payloadUpdated = false;
   try {
     await repos.draft.savePayload({
       id: draft.id,
       payload: document,
-      expectedPayloadVersion: 0, // only write if untouched
+      expectedPayloadVersion: expectedVersion,
       title,
     });
     payloadUpdated = true;
@@ -225,4 +259,41 @@ function pickPreferredTitle(product: UniversalProduct): string | undefined {
 
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Pick the `expectedPayloadVersion` to pass to `savePayload`.
+ *
+ * Three branches:
+ *
+ *   1. `payloadVersion === 0` (never persisted) → write at `0`. Normal
+ *      first-save case; lock is moot.
+ *   2. `payloadVersion > 0` AND existing payload parses cleanly →
+ *      treat as a real operator edit, write at `0` so the lock
+ *      throws `conflict` and we skip the overwrite.
+ *   3. `payloadVersion > 0` AND existing payload FAILS schema
+ *      validation → treat as a stale-broken historical write,
+ *      bypass the lock with `-1` and log the repair distinctly
+ *      so it's auditable in the journal.
+ *
+ * Branch 3 is the self-heal path documented in the helper's JSDoc.
+ * Without it, a single bad write from a pre-validation-gate era
+ * (or any future tightening of `DraftDocumentSchema`) traps the
+ * draft in a permanent dead state.
+ */
+function decideExpectedVersion(
+  draft: StudioDraftRow,
+  runId: string,
+): number {
+  if (draft.payloadVersion === 0) return 0;
+
+  // Payload exists and version is bumped. Is it actually loadable?
+  const existingValid = DraftDocumentSchema.safeParse(draft.payload).success;
+  if (existingValid) return 0;
+
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[persist-draft-payload] self_heal_stale_invalid_payload draftId=${draft.id} runId=${runId} payloadVersion=${draft.payloadVersion} — existing payload fails schema, force-overwriting (no operator edits to preserve)`,
+  );
+  return -1;
 }
