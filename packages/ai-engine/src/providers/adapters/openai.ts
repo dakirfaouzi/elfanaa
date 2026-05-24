@@ -14,6 +14,7 @@ import type {
 } from "../contracts";
 import type { TextResult, VisionResult } from "../result-types";
 import { providerEnv } from "../env";
+import { parseJsonWithRepair } from "../_helpers/parse-json";
 
 /**
  * OpenAI adapter — text + vision fallback, embedding primary
@@ -85,12 +86,13 @@ function parseStructuredOutput<T>(
   schema: TextCallOptions<T>["schema"]
 ): T | undefined {
   if (!schema) return undefined;
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch (err) {
-    throw new Error("openai_json_parse_failed", { cause: err });
-  }
+  // Two-stage parse via the shared helper — see
+  // `_helpers/parse-json.ts` for rationale. OpenAI rarely emits
+  // malformed JSON (the SDK uses `response_format` + JSON-mode), but
+  // we apply the same repair fallback for consistency with the
+  // Anthropic adapter and as defense in depth — a future model
+  // change or prompt edit shouldn't re-introduce parse fragility.
+  const json = parseJsonWithRepair(text, "openai");
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
     throw new Error("openai_schema_validation_failed", {

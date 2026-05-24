@@ -18,7 +18,10 @@
     "./schemas": "./src/schemas/index.ts",
     "./prompts": "./src/prompts/index.ts"
   },
-  "files": ["src", "scripts"],
+  "files": [
+    "src",
+    "scripts"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "ping": "tsx scripts/check-providers.ts",
@@ -31,6 +34,7 @@
     "@mendable/firecrawl-js": "^1.4.0",
     "@platform/catalog-schema": "workspace:*",
     "@platform/stores": "workspace:*",
+    "jsonrepair": "^3.14.0",
     "openai": "^4.70.0",
     "zod": "^3.23.8"
   },

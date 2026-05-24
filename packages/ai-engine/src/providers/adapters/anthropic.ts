@@ -12,6 +12,7 @@ import type {
 } from "../contracts";
 import type { TextResult, VisionResult } from "../result-types";
 import { providerEnv } from "../env";
+import { parseJsonWithRepair } from "../_helpers/parse-json";
 
 /**
  * Anthropic adapter — Claude Sonnet 4.6 primary for text + vision
@@ -213,12 +214,17 @@ function parseStructuredOutput<T>(
   schema: TextCallOptions<T>["schema"]
 ): T | undefined {
   if (!schema) return undefined;
-  let json: unknown;
-  try {
-    json = JSON.parse(extractJsonBlob(text));
-  } catch (err) {
-    throw new Error("anthropic_json_parse_failed", { cause: err });
-  }
+  // Two-stage parse via the shared helper:
+  //   1. native JSON.parse (happy path, zero overhead)
+  //   2. on failure, jsonrepair → re-parse (handles missing commas,
+  //      smart-quote escapes, etc. — see parse-json.ts header for
+  //      the full failure-mode catalogue and the reasoning)
+  // `extractJsonBlob` still strips markdown fences before either
+  // pass; jsonrepair's own fence-stripping is a safety net, not the
+  // primary mechanism, so behaviour stays predictable when Claude
+  // emits a fenced block (which it sometimes does despite the system
+  // prompt instruction).
+  const json = parseJsonWithRepair(extractJsonBlob(text), "anthropic");
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
     throw new Error("anthropic_schema_validation_failed", {
