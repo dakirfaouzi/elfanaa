@@ -1,4 +1,7 @@
-import type { Targeting } from "@platform/ingest";
+// Deep-import the metadata subpath — bundled with `IntakeForm`
+// (client). The root barrel drags `node:fs` into the browser
+// chunk and breaks `next build`.
+import type { Targeting } from "@platform/ingest/metadata";
 import {
   AWARENESS_LABELS,
   EMOTIONAL_ANGLE_LABELS,

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useId, useMemo } from "react";
-import type { CostBreakdown } from "@platform/ingest";
+// Deep-import the metadata subpath — see TargetingControls.tsx for
+// the full rationale. The root `@platform/ingest` barrel pulls in
+// `FileQueue` → `node:fs` and breaks the client bundle.
+import type { CostBreakdown } from "@platform/ingest/metadata";
 import {
   computeLandedCost,
   computeRealisedMarginPercent,

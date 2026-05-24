@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useId } from "react";
-import type { OfferTier } from "@platform/ingest";
+// Deep-import the metadata subpath — see TargetingControls.tsx for
+// the full rationale. The root barrel pulls `node:fs` into the
+// browser bundle and the webpack build fails.
+import type { OfferTier } from "@platform/ingest/metadata";
 import {
   baselinePerUnit,
   bundleMarginPercent,

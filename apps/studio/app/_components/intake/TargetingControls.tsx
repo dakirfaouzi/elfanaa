@@ -1,6 +1,15 @@
 "use client";
 
 import { useCallback, useId } from "react";
+// Deep-import the metadata subpath rather than the root barrel.
+// The root `@platform/ingest` barrel re-exports `FileQueue`, which
+// transitively imports `node:fs` / `node:path` / `node:fs/promises`.
+// Pulling that graph into a `"use client"` component fails the
+// webpack build with `UnhandledSchemeError: node:fs` because the
+// browser bundler can't resolve Node built-in schemes. The
+// `@platform/ingest/metadata` subpath (declared in the ingest
+// package.json `exports` map) gives us exactly the schemas /
+// const arrays / types we need with zero Node-runtime dependencies.
 import {
   AWARENESS_VALUES,
   EMOTIONAL_ANGLE_VALUES,
@@ -15,7 +24,7 @@ import {
   type SophisticationValue,
   type Targeting,
   type ToneStyleValue,
-} from "@platform/ingest";
+} from "@platform/ingest/metadata";
 import {
   AWARENESS_LABELS,
   EMOTIONAL_ANGLE_LABELS,

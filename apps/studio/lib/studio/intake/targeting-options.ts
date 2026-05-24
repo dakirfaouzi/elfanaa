@@ -1,3 +1,7 @@
+// Deep-import the metadata subpath — this file is transitively
+// bundled into the `TargetingControls` client component. The root
+// `@platform/ingest` barrel pulls `FileQueue` (node:fs) into the
+// client webpack chunk and fails the build.
 import type {
   AwarenessValue,
   EmotionalAngleValue,
@@ -5,7 +9,7 @@ import type {
   PrimaryLanguageValue,
   SophisticationValue,
   ToneStyleValue,
-} from "@platform/ingest";
+} from "@platform/ingest/metadata";
 
 /**
  * UI label dictionaries for the structured targeting controls.

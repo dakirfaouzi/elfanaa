@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
 import { detectProvider } from "@/lib/studio/intake/provider-detect";
 import { marketPresets } from "@/lib/studio/intake/currencies";
-import type { CostBreakdown, OfferTier, Targeting } from "@platform/ingest";
+// Deep-import the metadata subpath — see TargetingControls.tsx for
+// the full rationale. The root barrel pulls `FileQueue` (and its
+// `node:fs` dependency) into the client bundle and the build fails
+// with `UnhandledSchemeError: node:fs`.
+import type {
+  CostBreakdown,
+  OfferTier,
+  Targeting,
+} from "@platform/ingest/metadata";
 import {
   ImageUploader,
   type IntakeImageItem,

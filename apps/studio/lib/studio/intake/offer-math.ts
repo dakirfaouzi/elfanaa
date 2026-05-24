@@ -1,4 +1,7 @@
-import type { OfferTier } from "@platform/ingest";
+// Deep-import the metadata subpath — bundled with `OfferBuilder`
+// (client). The root barrel drags `node:fs` into the browser
+// chunk and breaks `next build`.
+import type { OfferTier } from "@platform/ingest/metadata";
 
 /**
  * Pure derivation helpers for the offer builder's live preview
