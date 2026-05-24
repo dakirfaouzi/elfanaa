@@ -5,6 +5,7 @@ import {
   getBuildShaShort,
   getBuildTimestamp,
 } from "@/lib/studio/build-info";
+import { getStudioPersistence } from "@/lib/studio/persistence";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,75 @@ export function GET() {
     process.env.NEXT_PUBLIC_STUDIO_BASE_PATH ?? ""
   ).trim();
 
+  // ── Storage snapshot ────────────────────────────────────────────
+  //
+  // Phase B intake uploads were silently failing with
+  // `bucket_missing` because the runtime env var the env resolver
+  // expects (R2_BUCKET_FANAA) differs from the name commonly used
+  // in EasyPanel templates (R2_BUCKET). The operator had no way to
+  // confirm this without SSHing into the container.
+  //
+  // This block surfaces the bucket-resolution state explicitly.
+  // The fields below are designed to NOT leak any credentials:
+  //
+  //   • `driver` — `r2` or `memory`, a public deployment choice.
+  //   • `hasAccountId / hasAccessKey / hasSecretKey` — booleans only,
+  //     never the actual values. Operators just need to confirm
+  //     "yes a key is set" / "no it's missing".
+  //   • `storesWithBuckets` — array of storeIds for which a bucket
+  //     was successfully configured. storeIds themselves are public
+  //     (they appear in /studio/intake's store dropdown); the
+  //     BUCKET NAMES are deliberately NOT exposed because they're
+  //     unnecessary for triage and an attacker could use them for
+  //     direct S3 enumeration attempts.
+  //   • `storesWithPublicUrls` — same shape, for diagnosing the
+  //     thumbnail-render path.
+  //   • `warnings` — the env resolver's own warning array, e.g.
+  //     "STORAGE_DRIVER=r2 but R2_BUCKET_FANAA missing". These are
+  //     already non-sensitive by construction (they cite env-var
+  //     names, never values).
+  //
+  // The bucket map itself is NEVER returned.
+  let storage: {
+    driver: string;
+    hasAccountId: boolean;
+    hasAccessKey: boolean;
+    hasSecretKey: boolean;
+    storesWithBuckets: string[];
+    storesWithPublicUrls: string[];
+    warnings: string[];
+  };
+  try {
+    const persistence = getStudioPersistence();
+    const r2 = persistence.config.r2;
+    storage = {
+      driver: r2.driver,
+      hasAccountId: Boolean(r2.accountId),
+      hasAccessKey: Boolean(r2.accessKeyId),
+      hasSecretKey: Boolean(r2.secretAccessKey),
+      storesWithBuckets: Object.keys(r2.buckets).sort(),
+      storesWithPublicUrls: Object.keys(r2.publicBaseUrls).sort(),
+      warnings: r2.warnings,
+    };
+  } catch (err) {
+    // If env resolution throws at boot (invalid env), surface the
+    // failure type but never the underlying message — that message
+    // can include partially-validated values (e.g. malformed URLs).
+    storage = {
+      driver: "unresolved",
+      hasAccountId: false,
+      hasAccessKey: false,
+      hasSecretKey: false,
+      storesWithBuckets: [],
+      storesWithPublicUrls: [],
+      warnings: [
+        err instanceof Error && err.message.startsWith("studio_persistence_env_invalid:")
+          ? "studio_persistence_env_invalid"
+          : "studio_persistence_init_failed",
+      ],
+    };
+  }
+
   // Whitelist payload. Update this object shape — not the bag of
   // env vars — if/when new diagnostic fields are needed.
   const body = {
@@ -95,6 +165,7 @@ export function GET() {
       // half is broken).
       inSync: runtimeBasePath === STUDIO_BASE_PATH,
     },
+    storage,
     nodeEnv: process.env.NODE_ENV ?? "unknown",
     // Lets the caller correlate the response to a specific request
     // when sweeping multiple instances behind a load balancer.

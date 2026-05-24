@@ -63,14 +63,38 @@ interface PendingItem {
   previewUrl: string;
   /** Original file name, for the delete-confirm tooltip. */
   filename: string;
-  /** Mirrors XHR lifecycle. */
-  status: "uploading" | "uploaded" | "error";
-  /** 0-100 once a PUT is in flight; null before XHR starts. */
+  /** Held on the item itself so a Retry click can resubmit without
+   *  re-prompting the operator (the <input type=file> dialog can't
+   *  be opened programmatically a second time for the same file).
+   *  This adds a per-pending-tile heap reference equal to the file
+   *  size — bounded by `MAX_FILES * MAX_BYTES = 500 MB` worst case,
+   *  in practice ~50 MB for typical 5-image intake batches. */
+  file: File;
+  /** Mirrors the full upload lifecycle.
+   *
+   *   • `presigning` — POST /api/.../presign in flight. No XHR yet,
+   *     so progress is null.
+   *   • `uploading`  — Presign succeeded, PUT to R2 in flight.
+   *     `progress` updates 0→100 from XHR `upload.onprogress`.
+   *   • `error`      — Either presign or PUT failed. `errorCode`
+   *     drives the human-readable message in the UI.
+   *
+   * `uploaded` is intentionally NOT in the union: once an upload
+   * completes the item is moved into `completed[]` and the pending
+   * entry is removed. */
+  status: "presigning" | "uploading" | "error";
+  /** 0-100 once a PUT is in flight; null while presigning or errored. */
   progress: number | null;
-  /** Populated once `status = uploaded`. */
-  src?: string;
-  /** Populated when `status = error`. */
-  errorMessage?: string;
+  /** Populated when `status = error` — machine code from the server
+   *  (e.g. `bucket_missing`, `presign_failed`, `r2_put_403`). Mapped
+   *  to a human-readable string at render time. */
+  errorCode?: string;
+  /** Verbatim server reason where applicable (StorageError message,
+   *  validation issues). Shown in the tile's expandable details. */
+  errorDetail?: string;
+  /** Server-side requestId from the presign route — printed next to
+   *  the error so operators can correlate to log lines. */
+  requestId?: string;
 }
 
 const ACCEPTED_MIME = [
@@ -127,10 +151,54 @@ export function ImageUploader({
 
   // ── Upload pipeline ──────────────────────────────────────────────
 
+  // Single-shot error setter that records the machine code, the
+  // (optional) server detail, and the (optional) requestId so the
+  // tile can show a precise diagnostic. Reset `progress` to null
+  // so the percentage overlay doesn't bleed through the error
+  // overlay if the operator hammers Retry mid-PUT.
+  const markPendingError = useCallback(
+    (
+      localId: string,
+      errorCode: string,
+      errorDetail?: string,
+      requestId?: string,
+    ) => {
+      setPending((prev) =>
+        prev.map((p) =>
+          p.localId === localId
+            ? {
+                ...p,
+                status: "error",
+                progress: null,
+                errorCode,
+                errorDetail,
+                requestId,
+              }
+            : p,
+        ),
+      );
+    },
+    [],
+  );
+
   const uploadOne = useCallback(
     async (file: File, localId: string) => {
-      // STEP 1 — presign request.
-      let presignBody;
+      // STEP 1 — presign request. Tile starts in `presigning` state
+      // (set by caller). Don't touch progress here — it's null while
+      // we wait for the round-trip.
+      let presignBody: {
+        presigned?: {
+          url: string;
+          headers: Record<string, string>;
+          method: "PUT";
+          ref: { key: string; bucket: string };
+        };
+        error?: string;
+        reason?: string;
+        requestId?: string;
+        storeId?: string;
+      };
+      let serverRequestId: string | undefined;
       try {
         const presignRes = await fetch(
           studioPath("/api/studio/intake/assets/presign"),
@@ -146,31 +214,40 @@ export function ImageUploader({
             }),
           },
         );
-        presignBody = await presignRes.json();
+        presignBody = (await presignRes.json()) as typeof presignBody;
+        serverRequestId = presignBody?.requestId;
         if (!presignRes.ok) {
-          throw new Error(
+          markPendingError(
+            localId,
             presignBody?.error ?? `presign_http_${presignRes.status}`,
+            presignBody?.reason,
+            serverRequestId,
           );
+          return;
         }
       } catch (err) {
+        // Network-level failure (CORS, DNS, offline). The server
+        // never received the request so there's no requestId.
         markPendingError(
           localId,
-          err instanceof Error ? err.message : "presign_failed",
+          "presign_network",
+          err instanceof Error ? err.message : undefined,
         );
         return;
       }
 
-      const { presigned } = presignBody as {
-        presigned: {
-          url: string;
-          headers: Record<string, string>;
-          method: "PUT";
-          ref: { key: string; bucket: string };
-        };
-      };
+      const presigned = presignBody.presigned!;
 
-      // STEP 2 — direct PUT to R2 via XHR (XHR gives us progress
-      // events; fetch() doesn't natively).
+      // STEP 2 — promote to `uploading` so the tile flips from
+      // "Preparing…" to "0%" immediately, then direct PUT to R2 via
+      // XHR (XHR gives us progress events; fetch() doesn't natively).
+      setPending((prev) =>
+        prev.map((p) =>
+          p.localId === localId
+            ? { ...p, status: "uploading", progress: 0 }
+            : p,
+        ),
+      );
       await new Promise<void>((resolve) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presigned.url);
@@ -189,39 +266,80 @@ export function ImageUploader({
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            // Promote pending → completed.
-            setPending((prev) => prev.filter((p) => p.localId !== localId));
+            // Promote pending → completed. Revoke the preview URL on
+            // the way out — once the R2 PUT succeeds we don't need
+            // the local blob anymore (a future thumbnail render uses
+            // a presigned GET, not the upload-side preview).
+            setPending((prev) => {
+              const dropped = prev.find((p) => p.localId === localId);
+              if (dropped) {
+                URL.revokeObjectURL(dropped.previewUrl);
+                previewRegistry.current.delete(dropped.previewUrl);
+              }
+              return prev.filter((p) => p.localId !== localId);
+            });
             setCompleted((prev) => {
               const next = [...prev, { src: presigned.ref.key }];
               onChange(next);
               return next;
             });
           } else {
-            markPendingError(localId, `r2_put_${xhr.status}`);
+            // R2 (or any S3-compatible) returns a small XML error
+            // body. We surface the status code as the machine code
+            // (`r2_put_403`, `r2_put_400` etc.) and a tiny excerpt
+            // of the response text as detail so operators can spot
+            // the AWS-style error code (e.g. SignatureDoesNotMatch).
+            const detail = xhr.responseText
+              ? xhr.responseText.slice(0, 240)
+              : undefined;
+            markPendingError(
+              localId,
+              `r2_put_${xhr.status}`,
+              detail,
+              serverRequestId,
+            );
           }
           resolve();
         };
         xhr.onerror = () => {
-          markPendingError(localId, "r2_put_network");
+          markPendingError(localId, "r2_put_network", undefined, serverRequestId);
           resolve();
         };
         xhr.send(file);
       });
     },
-    [storeId, onChange],
+    [storeId, onChange, markPendingError],
   );
 
-  const markPendingError = useCallback(
-    (localId: string, message: string) => {
-      setPending((prev) =>
-        prev.map((p) =>
+  // Re-run uploadOne for an errored pending item. Resets the entry
+  // to `presigning` (clearing `errorCode` / `errorDetail`) so the
+  // operator sees an immediate state change. The held File ref makes
+  // this possible without re-prompting via the file picker.
+  const retryPending = useCallback(
+    (localId: string) => {
+      let file: File | undefined;
+      setPending((prev) => {
+        const target = prev.find((p) => p.localId === localId);
+        if (!target || target.status !== "error") return prev;
+        file = target.file;
+        return prev.map((p) =>
           p.localId === localId
-            ? { ...p, status: "error", errorMessage: message }
+            ? {
+                ...p,
+                status: "presigning",
+                progress: null,
+                errorCode: undefined,
+                errorDetail: undefined,
+                requestId: undefined,
+              }
             : p,
-        ),
-      );
+        );
+      });
+      if (file) {
+        void uploadOne(file, localId);
+      }
     },
-    [],
+    [uploadOne],
   );
 
   // ── File intake (from picker OR drop) ────────────────────────────
@@ -259,8 +377,11 @@ export function ImageUploader({
         );
       }
 
-      // Mint pending entries up-front so the UI shows progress
-      // immediately rather than waiting for the presign roundtrip.
+      // Mint pending entries up-front so the UI shows a "Preparing…"
+      // overlay immediately rather than looking dead while the
+      // presign roundtrip happens. We hold the File ref on each
+      // entry so the Retry button can resubmit without re-prompting
+      // via the picker dialog.
       const newPending: PendingItem[] = accepted.map((file) => {
         const localId = `pend_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const previewUrl = URL.createObjectURL(file);
@@ -269,7 +390,8 @@ export function ImageUploader({
           localId,
           previewUrl,
           filename: file.name,
-          status: "uploading",
+          file,
+          status: "presigning",
           progress: null,
         };
       });
@@ -443,6 +565,7 @@ export function ImageUploader({
               key={p.localId}
               item={p}
               onRemove={() => removePending(p.localId)}
+              onRetry={() => retryPending(p.localId)}
             />
           ))}
         </div>
@@ -568,16 +691,63 @@ function CompletedTile(props: {
   );
 }
 
+/**
+ * Map an internal machine error code to a short, operator-friendly
+ * one-line message. The full machine code + server detail are still
+ * shown below the message in monospace for ops triage.
+ *
+ * Keep this list in sync with:
+ *   • Server side: app/api/studio/intake/assets/presign/route.ts
+ *     (the `result.status` switch + thrown errors)
+ *   • R2 / S3 PUT response codes the browser surfaces as `r2_put_<n>`.
+ */
+function humaniseUploadError(code: string | undefined): string {
+  if (!code) return "Upload failed";
+  switch (code) {
+    case "bucket_missing":
+      // The single most-encountered failure when first enabling R2.
+      // Make the next-action explicit so an operator can fix it
+      // without bothering an engineer.
+      return "Storage misconfigured (no bucket for this store). Set R2_BUCKET_FANAA in EasyPanel → Environment Variables and restart the Studio service.";
+    case "invalid_store_id":
+      return "Unrecognised store. Refresh the page; if it persists, contact ops.";
+    case "validation_failed":
+      return "Upload rejected — file failed validation (size or content type).";
+    case "presign_failed":
+      return "Storage backend rejected the presign request. R2 credentials may be invalid.";
+    case "presign_network":
+      return "Network error while requesting the upload URL. Check your connection.";
+    case "r2_put_network":
+      return "Network error while uploading to storage. Retry usually works.";
+    case "r2_put_403":
+      return "Storage rejected the upload (signature mismatch). Most often: R2 credentials were rotated server-side mid-upload.";
+    case "r2_put_400":
+      return "Storage rejected the upload (bad request). Check the file is a real image.";
+    case "r2_put_413":
+      return "File too large for storage policy.";
+    default:
+      if (code.startsWith("r2_put_"))
+        return `Storage upload failed (HTTP ${code.slice(7)}).`;
+      if (code.startsWith("presign_http_"))
+        return `Presign request failed (HTTP ${code.slice(13)}).`;
+      return "Upload failed";
+  }
+}
+
 function PendingTile(props: {
   item: PendingItem;
   onRemove: () => void;
+  onRetry: () => void;
 }) {
   const { item } = props;
+  const isError = item.status === "error";
+  const isPresigning = item.status === "presigning";
+  const isUploading = item.status === "uploading";
   return (
     <div
       style={{
         position: "relative",
-        border: `1px solid ${item.status === "error" ? "var(--danger)" : "var(--border)"}`,
+        border: `1px solid ${isError ? "var(--danger)" : "var(--border)"}`,
         borderRadius: "var(--radius-md, 8px)",
         overflow: "hidden",
         background: "var(--surface)",
@@ -590,7 +760,24 @@ function PendingTile(props: {
           position: "relative",
         }}
       >
-        {item.status === "uploading" && (
+        {isPresigning && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Preparing…
+          </div>
+        )}
+        {isUploading && (
           <div
             style={{
               position: "absolute",
@@ -607,12 +794,12 @@ function PendingTile(props: {
             {item.progress !== null ? `${item.progress}%` : "Uploading…"}
           </div>
         )}
-        {item.status === "error" && (
+        {isError && (
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: "rgba(0,0,0,0.55)",
+              background: "rgba(0,0,0,0.7)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -621,12 +808,25 @@ function PendingTile(props: {
               padding: 8,
               fontSize: 11,
               textAlign: "center",
-              gap: 4,
+              gap: 6,
+              overflow: "hidden",
             }}
           >
-            <div>Upload failed</div>
-            <div style={{ opacity: 0.8, fontSize: 10 }}>
-              {item.errorMessage}
+            <div style={{ fontWeight: 600 }}>Upload failed</div>
+            <div style={{ opacity: 0.92, lineHeight: 1.35 }}>
+              {humaniseUploadError(item.errorCode)}
+            </div>
+            <div
+              style={{
+                opacity: 0.55,
+                fontSize: 9,
+                fontFamily:
+                  "ui-monospace, SFMono-Regular, Menlo, monospace",
+                wordBreak: "break-all",
+              }}
+            >
+              {item.errorCode ?? "unknown"}
+              {item.requestId ? ` · req=${item.requestId}` : ""}
             </div>
           </div>
         )}
@@ -635,15 +835,27 @@ function PendingTile(props: {
         style={{
           display: "flex",
           padding: 4,
+          gap: 2,
           background: "var(--surface)",
           borderTop: "1px solid var(--border)",
           justifyContent: "flex-end",
         }}
       >
+        {isError && (
+          <button
+            type="button"
+            onClick={props.onRetry}
+            title="Retry upload"
+            className="btn btn-ghost"
+            style={{ ...tileBtnStyle, color: "var(--accent)", flex: 1 }}
+          >
+            ↻ Retry
+          </button>
+        )}
         <button
           type="button"
           onClick={props.onRemove}
-          title="Cancel / remove"
+          title={isError ? "Discard" : "Cancel / remove"}
           className="btn btn-ghost"
           style={{ ...tileBtnStyle, color: "var(--danger)" }}
         >
