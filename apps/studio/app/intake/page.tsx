@@ -17,7 +17,7 @@ export default function IntakePage() {
       <NavBar active="intake" />
       <main className="shell-main">
         <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span className="section-eyebrow">M9 · Intake</span>
+          <span className="section-eyebrow">Intake</span>
           <h1
             style={{
               margin: 0,
@@ -26,13 +26,15 @@ export default function IntakePage() {
               letterSpacing: -0.4,
             }}
           >
-            Dispatch a new pipeline run
+            Dispatch a new product run
           </h1>
           <p className="text-dim" style={{ margin: 0, fontSize: 14, maxWidth: 720, lineHeight: 1.55 }}>
-            Submit a supplier URL and operator notes. The dispatcher mints a
-            runId, runs the 11-stage pipeline through the resolved provider
-            chain (Anthropic / fal.ai / Firecrawl), enforces the store's
-            cost ceiling, and writes the published bundle to{" "}
+            Paste any ecommerce supplier URL — Alibaba, AliExpress, Amazon,
+            Shopify, WooCommerce, Etsy, eBay, TikTok Shop, Temu, Noon,
+            CJ Dropshipping, or a generic store. The dispatcher mints a
+            runId, runs the 11-stage AI pipeline (Anthropic / fal.ai /
+            Firecrawl), enforces the per-store cost ceiling, and writes
+            the published bundle to{" "}
             <code className="code">.platform-data/products/</code>.
           </p>
         </header>

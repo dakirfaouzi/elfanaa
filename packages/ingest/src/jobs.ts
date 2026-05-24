@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { Money, StoreId } from "@platform/catalog-schema";
 import { MoneySchema } from "@platform/catalog-schema/schemas";
+import {
+  IntakeMetadataSchema,
+  type IntakeMetadata,
+} from "./metadata/intake-metadata";
 
 /**
  * Ingest job — the dispatch payload that initiates a Studio pipeline
@@ -59,6 +63,20 @@ export interface IngestJob {
 
   /** ISO timestamp of when the job was created (intake server clock). */
   createdAt: string;
+
+  /**
+   * Structured intake metadata namespace (M14+).
+   *
+   * Optional, opt-in container for the universal-supplier intake
+   * features (provider detection, multi-tier offers, structured
+   * targeting, cost breakdown, generation mode). Old payloads omit
+   * this field entirely; orchestrator MUST treat absence as
+   * semantically identical to the legacy free-text intake.
+   *
+   * See `metadata/intake-metadata.ts` for the full backward-compat
+   * contract and forward-evolution guarantees.
+   */
+  intakeMetadata?: IntakeMetadata;
 }
 
 export interface IngestImageRef {
@@ -88,4 +106,5 @@ export const IngestJobSchema: z.ZodType<IngestJob> = z.object({
   marginNotes: z.string().optional(),
   skipResearch: z.boolean().optional(),
   createdAt: z.string().min(1),
+  intakeMetadata: IntakeMetadataSchema.optional(),
 });

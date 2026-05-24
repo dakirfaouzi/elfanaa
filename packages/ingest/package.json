@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./jobs": "./src/jobs.ts",
+    "./metadata": "./src/metadata/index.ts",
     "./queue": "./src/queue/index.ts",
     "./store": "./src/store/index.ts",
     "./retry": "./src/retry/index.ts"

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
+import { detectProvider } from "@/lib/studio/intake/provider-detect";
+import { marketPresets } from "@/lib/studio/intake/currencies";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -18,21 +20,51 @@ import { studioPath } from "@/lib/base-path";
  *
  * Mirrors `validateIntake`'s expected shape:
  *   - storeId            (select)
- *   - supplierUrl        (required)
+ *   - supplierUrl        (required, universal — any ecommerce URL)
  *   - priceHintMajor     (required, number)
- *   - currency           (select; default SAR)
+ *   - currency           (select; market-default per storeId)
  *   - operatorNotes      (textarea)
  *   - skipResearch       (checkbox)
  *
- * Uploaded images are intentionally minimal in M9 — operators paste
- * URLs / R2 keys (one per line). The R2 presigned-upload flow lands
- * with the M10 asset browser.
+ * # Phase A4 — universal supplier + currency
+ *
+ *   • Supplier URL hint reflects the full provider set
+ *     (Alibaba/AliExpress/Amazon/Shopify/WooCommerce/Etsy/eBay/
+ *     TikTok Shop/Temu/Noon/CJ + generic) instead of the M9
+ *     Alibaba-only copy.
+ *   • Detected platform is surfaced inline so the operator can
+ *     confirm before dispatching — purely informational; the
+ *     research stage is provider-agnostic.
+ *   • Currency dropdown now lists all GCC currencies (SAR, AED,
+ *     KWD, QAR, BHD, OMR) + USD anchor; default is derived from
+ *     `marketDefaultCurrency(storeId)`.
+ *
+ * Uploaded images are intentionally still minimal — Phase B1 swaps
+ * the textarea for a drag-drop uploader wired into the existing R2
+ * presign infrastructure.
  */
 export function IntakeForm(props: { defaultStoreId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<Array<{ path: string; message: string }>>([]);
+
+  // Mirror the supplier URL into local state so we can re-detect the
+  // provider on every keystroke. `detectProvider` is a pure function
+  // — no network — and gives the operator instant feedback like
+  // "Detected: Shopify" inline below the input.
+  const [supplierUrl, setSupplierUrl] = useState("");
+  const detected = useMemo(() => detectProvider(supplierUrl), [supplierUrl]);
+
+  // Currency options derive from the per-store preset list. Stable
+  // order across renders (matches `SUPPORTED_CURRENCIES`) so the
+  // dropdown doesn't reshuffle as the user types.
+  const currencyOptions = useMemo(
+    () => marketPresets(props.defaultStoreId),
+    [props.defaultStoreId],
+  );
+  const defaultCurrency =
+    currencyOptions.find((c) => c.isDefault)?.meta.code ?? "SAR";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -103,14 +135,29 @@ export function IntakeForm(props: { defaultStoreId: string }) {
         </select>
       </Field>
 
-      <Field label="Supplier URL" htmlFor="supplierUrl" hint="Alibaba / AliExpress / Taobao product page (https only).">
+      <Field
+        label="Supplier URL"
+        htmlFor="supplierUrl"
+        hint="Any ecommerce product page (https). Alibaba, AliExpress, Amazon, Shopify, WooCommerce, Etsy, eBay, TikTok Shop, Temu, Noon, CJ Dropshipping — or any generic store."
+      >
         <input
           id="supplierUrl"
           name="supplierUrl"
           type="url"
           required
-          placeholder="https://www.alibaba.com/product-detail/…"
+          value={supplierUrl}
+          onChange={(e) => setSupplierUrl(e.target.value)}
+          placeholder="https://store.example.com/products/…"
         />
+        {supplierUrl.length > 0 && detected.hostname && (
+          <span
+            className="text-faint"
+            style={{ fontSize: 11, marginTop: 2 }}
+          >
+            Detected platform: <strong>{detected.displayName}</strong>
+            {detected.id === "generic" && " (generic extractor)"}
+          </span>
+        )}
       </Field>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
@@ -126,10 +173,12 @@ export function IntakeForm(props: { defaultStoreId: string }) {
           />
         </Field>
         <Field label="Currency" htmlFor="currency">
-          <select id="currency" name="currency" defaultValue="SAR">
-            <option value="SAR">SAR</option>
-            <option value="AED">AED</option>
-            <option value="USD">USD</option>
+          <select id="currency" name="currency" defaultValue={defaultCurrency}>
+            {currencyOptions.map(({ meta }) => (
+              <option key={meta.code} value={meta.code}>
+                {meta.code} — {meta.displayName}
+              </option>
+            ))}
           </select>
         </Field>
       </div>
@@ -137,7 +186,7 @@ export function IntakeForm(props: { defaultStoreId: string }) {
       <Field
         label="Uploaded images"
         htmlFor="uploadedImages"
-        hint="Optional. One URL or R2 key per line. M10 wires direct browser upload."
+        hint="Optional. One URL or R2 key per line. Drag-and-drop uploader ships in Phase B1."
       >
         <textarea id="uploadedImages" name="uploadedImages" rows={3} placeholder="https://…/photo1.jpg" />
       </Field>

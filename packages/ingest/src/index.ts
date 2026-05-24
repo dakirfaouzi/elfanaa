@@ -21,6 +21,9 @@
 export type { IngestJob, IngestImageRef } from "./jobs";
 export { IngestJobSchema } from "./jobs";
 
+export type { IntakeMetadata } from "./metadata";
+export { IntakeMetadataSchema } from "./metadata";
+
 export type {
   DequeueOptions,
   EnqueueResult,

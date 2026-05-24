@@ -131,4 +131,81 @@ describe("validateIntake", () => {
     expect(paths).toContain("supplierUrl");
     expect(paths).toContain("priceHintMajor");
   });
+
+  // ── Phase A1 — IntakeMetadata namespace backward / forward compat ─
+  //
+  // The canonical IngestJobSchema acquired one new optional field
+  // (`intakeMetadata`). These tests pin the THREE semantically-equal
+  // shapes the system must accept, and verify the legacy fields
+  // are untouched. Regression here would break replay of any
+  // pre-Phase-A run record on disk.
+
+  it("M9-shaped payload (no intakeMetadata field at all) still validates and omits the namespace", () => {
+    const result = validateIntake(baseForm, {
+      now: fixedNow,
+      mintRunId: fixedRunId,
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    // The job MUST NOT carry an intakeMetadata key when the form
+    // didn't provide one — keeps on-disk JSON identical to M9 for
+    // backward-compatible replay.
+    expect("intakeMetadata" in result.job).toBe(false);
+  });
+
+  it("empty intakeMetadata object validates and passes through", () => {
+    const result = validateIntake(
+      { ...baseForm, intakeMetadata: {} },
+      { now: fixedNow, mintRunId: fixedRunId },
+    );
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.job.intakeMetadata).toEqual({});
+  });
+
+  it("unknown keys inside intakeMetadata are stripped, not rejected (forward compat)", () => {
+    // A FUTURE studio version may emit fields not yet known to an
+    // older worker. Zod's default `.strip()` behaviour means those
+    // fields are dropped silently, NOT rejected — the payload
+    // still validates. This is the contract that lets the studio
+    // and worker deploy out of sync.
+    const result = validateIntake(
+      {
+        ...baseForm,
+        intakeMetadata: {
+          someFutureField: "value",
+          anotherUnknown: { nested: 1 },
+        },
+      },
+      { now: fixedNow, mintRunId: fixedRunId },
+    );
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    // After strip, the namespace is empty — but it IS still
+    // present on the output, so consumers can distinguish "operator
+    // sent a structured intake (even if empty)" from "operator sent
+    // a legacy M9 form".
+    expect(result.job.intakeMetadata).toEqual({});
+  });
+
+  it("legacy free-text fields (operatorNotes, marginNotes) coexist with intakeMetadata", () => {
+    // The Phase A → B migration period: forms may emit BOTH the
+    // legacy string fields AND the structured namespace. Both
+    // must flow through untouched so the orchestrator can decide
+    // its merge strategy.
+    const result = validateIntake(
+      {
+        ...baseForm,
+        operatorNotes: "free-text positioning",
+        marginNotes: "supplier $4.20",
+        intakeMetadata: {},
+      },
+      { now: fixedNow, mintRunId: fixedRunId },
+    );
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.job.operatorNotes).toBe("free-text positioning");
+    expect(result.job.marginNotes).toBe("supplier $4.20");
+    expect(result.job.intakeMetadata).toEqual({});
+  });
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   IngestJobSchema,
+  IntakeMetadataSchema,
   type IngestJob,
   type IngestImageRef,
 } from "@platform/ingest";
@@ -67,6 +68,12 @@ const FormSchema = z.object({
   operatorNotes: z.string().max(4000).optional(),
   marginNotes: z.string().max(4000).optional(),
   skipResearch: z.boolean().optional(),
+  // Structured intake namespace (Phase A1+). Currently an empty
+  // schema — fields land per phase. The form may pass an empty
+  // object, omit the field entirely, or (post-Phase B) emit
+  // structured offers/targeting/cost data; all three shapes are
+  // semantically equivalent today and validate identically.
+  intakeMetadata: IntakeMetadataSchema.optional(),
 });
 
 export type IntakeFormInput = z.input<typeof FormSchema>;
@@ -125,6 +132,13 @@ export function validateIntake(
     marginNotes: parsed.data.marginNotes,
     skipResearch: parsed.data.skipResearch,
     createdAt: now().toISOString(),
+    // Pass the namespace through verbatim. Empty / undefined
+    // payloads stay that way; future structured intake fields flow
+    // unchanged to the canonical contract without re-touching this
+    // serializer.
+    ...(parsed.data.intakeMetadata
+      ? { intakeMetadata: parsed.data.intakeMetadata }
+      : {}),
   };
 
   // Cross-check: the IngestJobSchema is the canonical boundary. If
