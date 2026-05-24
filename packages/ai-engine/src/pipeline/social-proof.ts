@@ -69,7 +69,16 @@ export async function socialProof(
       storeId: opts.storeConfig.id,
       runId: opts.runId,
       temperature: 0.85,
-      maxTokens: 3_500,
+      // Sized for the worst-case schema: 8 bilingual reviews (≈ 200-300
+      // Arabic + English chars each), 9 bilingual FAQ entries, and 8 ad
+      // hooks. Empirical truncation (observed in run_mpiptq9l_pligqded:
+      // "Unterminated string at position 8392") confirmed 3500 tokens
+      // was insufficient even for the middle of the schema range.
+      // Arabic glyphs cost 2-4 tokens each in Claude's BPE, so 6000
+      // tokens ≈ 4000-6000 Arabic chars + structural overhead — gives
+      // ~2x headroom over the observed truncation point while staying
+      // well under Sonnet 4.6's 8K output ceiling.
+      maxTokens: 6_000,
       maxRetries: 0,
     });
 

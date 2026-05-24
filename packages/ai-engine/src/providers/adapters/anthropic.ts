@@ -292,10 +292,11 @@ export function createAnthropicAdapter(): Adapter {
       opts: TextCallOptions<T>
     ): Promise<TextResult<T>> {
       const model = opts.model ?? defaultTextModel();
+      const maxTokens = opts.maxTokens ?? 4096;
       const startedAt = performance.now();
       const res = await client.messages.create({
         model,
-        max_tokens: opts.maxTokens ?? 4096,
+        max_tokens: maxTokens,
         temperature: opts.temperature,
         system: withSchemaInstruction(opts.system, !!opts.schema),
         messages: [{ role: "user", content: opts.prompt }],
@@ -306,6 +307,22 @@ export function createAnthropicAdapter(): Adapter {
         .join("");
       const inTok = res.usage.input_tokens;
       const outTok = res.usage.output_tokens;
+      // Truncation detection — fire BEFORE JSON parse. When Claude
+      // hits `max_tokens`, the output is sliced mid-string, which
+      // surfaces downstream as a generic SyntaxError (e.g.
+      // "Unterminated string in JSON at position 8392"). Operators
+      // stare at the parse error and have no obvious next move.
+      // Catching `stop_reason === "max_tokens"` here lets us throw
+      // a precise, actionable message naming both the model and the
+      // cap that was exceeded. Only applied when a schema is set —
+      // free-text callers (e.g. brainstorm/echo prompts) intentionally
+      // tolerate truncation.
+      if (opts.schema && res.stop_reason === "max_tokens") {
+        throw new Error(
+          `anthropic_response_truncated: model=${model} max_tokens=${maxTokens} ` +
+            `output_tokens=${outTok} — raise the stage's maxTokens to receive a complete response.`,
+        );
+      }
       return {
         text: out,
         parsed: opts.schema
@@ -336,11 +353,12 @@ export function createAnthropicAdapter(): Adapter {
       opts: VisionCallOptions<T>
     ): Promise<VisionResult<T>> {
       const model = opts.model ?? defaultVisionModel();
+      const maxTokens = opts.maxTokens ?? 4096;
       const startedAt = performance.now();
       const imageUrls = opts.images.map((r) => r.src);
       const res = await client.messages.create({
         model,
-        max_tokens: opts.maxTokens ?? 4096,
+        max_tokens: maxTokens,
         temperature: opts.temperature,
         system: withSchemaInstruction(
           "You are a vision analysis assistant.",
@@ -359,6 +377,16 @@ export function createAnthropicAdapter(): Adapter {
         .join("");
       const inTok = res.usage.input_tokens;
       const outTok = res.usage.output_tokens;
+      // See generate() above — same truncation guard applied to the
+      // vision path so the M5 vision stage's JSON output (palette +
+      // composition tags + crop hints) gets a precise truncation
+      // error instead of a downstream parse failure.
+      if (opts.schema && res.stop_reason === "max_tokens") {
+        throw new Error(
+          `anthropic_response_truncated: model=${model} max_tokens=${maxTokens} ` +
+            `output_tokens=${outTok} — raise the stage's maxTokens to receive a complete response.`,
+        );
+      }
       return {
         text: out,
         parsed: opts.schema
