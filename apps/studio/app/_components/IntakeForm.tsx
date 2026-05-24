@@ -29,32 +29,34 @@ import {
  * + navigation without a full page reload. Server actions can't return
  * a runId AND navigate without a hop, so we use fetch+router.replace.
  *
- * # Field set
+ * # Section flow (Phase B5)
  *
- * Mirrors `validateIntake`'s expected shape:
- *   - storeId            (select)
- *   - supplierUrl        (required, universal — any ecommerce URL)
- *   - priceHintMajor     (required, number)
- *   - currency           (select; market-default per storeId)
- *   - operatorNotes      (textarea)
- *   - skipResearch       (checkbox)
+ * Operators move through six logical sections in the order an
+ * e-commerce merchandiser actually thinks:
  *
- * # Phase A4 — universal supplier + currency
+ *   1. Source         — store + supplier URL (+ provider detection)
+ *   2. Audience       — structured targeting + freeform notes
+ *   3. Assets         — drag-drop image uploader
+ *   4. Pricing        — unit-price hint + offer ladder
+ *   5. Internal cost  — cost breakdown + margin notes
+ *   6. Pipeline       — skip-scrape toggle (advanced, collapsed)
  *
- *   • Supplier URL hint reflects the full provider set
- *     (Alibaba/AliExpress/Amazon/Shopify/WooCommerce/Etsy/eBay/
- *     TikTok Shop/Temu/Noon/CJ + generic) instead of the M9
- *     Alibaba-only copy.
- *   • Detected platform is surfaced inline so the operator can
- *     confirm before dispatching — purely informational; the
- *     research stage is provider-agnostic.
- *   • Currency dropdown now lists all GCC currencies (SAR, AED,
- *     KWD, QAR, BHD, OMR) + USD anchor; default is derived from
- *     `marketDefaultCurrency(storeId)`.
+ * A sticky dispatch footer summarises readiness at the bottom and
+ * stays visible while the form scrolls.
  *
- * Uploaded images are intentionally still minimal — Phase B1 swaps
- * the textarea for a drag-drop uploader wired into the existing R2
- * presign infrastructure.
+ * # Phase B1-B4 inputs
+ *
+ *   • <ImageUploader>      — drag-drop multi-image to R2.
+ *   • <TargetingControls>  — 8 structured audience dropdowns.
+ *   • <CostBreakdownCard>  — 5 cost components + live margin.
+ *   • <OfferBuilder>       — explicit pricing ladder + AOV preview.
+ *
+ * All four sub-components are mirror-controlled: parent owns state,
+ * children call `onChange`. Structured values serialise INTO the
+ * legacy `operatorNotes` / `marginNotes` strings at submit time so
+ * downstream stages stay untouched per the Phase B non-regression
+ * constraint. Raw structured objects ALSO flow through via
+ * `intakeMetadata` for future stage consumption.
  */
 export function IntakeForm(props: { defaultStoreId: string }) {
   const router = useRouter();
@@ -100,7 +102,7 @@ export function IntakeForm(props: { defaultStoreId: string }) {
   // controlled state here too.
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown>({});
   const [priceHintMajor, setPriceHintMajor] = useState<string>("");
-  const [currency, setCurrency] = useState<string>("");
+  const [currency, setCurrency] = useState<string>(defaultCurrency);
 
   // Offers (Phase B4). Empty by default — the publisher's
   // existing default-ladder synthesis from priceHint stays the
@@ -195,191 +197,222 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     }
   }
 
+  // ── Readiness checks for the sticky dispatch footer ──
+  // The required-fields are: supplierUrl (non-empty + valid-ish)
+  // and priceHintMajor (positive number). All other fields are
+  // optional. The footer surfaces this so operators see at a
+  // glance whether dispatch will go through.
+  const supplierReady = supplierUrl.trim().length > 0;
+  const priceReady = priceHintNumeric !== null && priceHintNumeric > 0;
+  const canDispatch = supplierReady && priceReady && !busy;
+
+  // Optional-but-noteworthy state counters for the footer pills.
+  const tierCount = offers.length;
+  const targetingCount = Object.keys(targeting).length;
+  const imageCount = uploadedImages.length;
+
   return (
     <form
       onSubmit={onSubmit}
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 16,
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        padding: 20,
+        gap: 18,
+        // Bottom padding leaves room for the sticky footer so the
+        // last section never sits directly under it.
+        paddingBottom: 88,
       }}
     >
-      <Field label="Store" htmlFor="storeId">
-        <select id="storeId" name="storeId" defaultValue={props.defaultStoreId} required>
-          <option value="fanaa">fanaa</option>
-        </select>
-      </Field>
-
-      <Field
-        label="Supplier URL"
-        htmlFor="supplierUrl"
-        hint="Any ecommerce product page (https). Alibaba, AliExpress, Amazon, Shopify, WooCommerce, Etsy, eBay, TikTok Shop, Temu, Noon, CJ Dropshipping — or any generic store."
+      {/* ─── 1. SOURCE ─────────────────────────────────────────── */}
+      <Section
+        eyebrow="01 · Source"
+        title="Where does this product come from?"
+        hint="The dispatcher mints a runId, runs the 11-stage AI pipeline, enforces the per-store cost ceiling, and writes the published bundle."
       >
-        <input
-          id="supplierUrl"
-          name="supplierUrl"
-          type="url"
-          required
-          value={supplierUrl}
-          onChange={(e) => setSupplierUrl(e.target.value)}
-          placeholder="https://store.example.com/products/…"
-        />
-        {supplierUrl.length > 0 && detected.hostname && (
-          <span
-            className="text-faint"
-            style={{ fontSize: 11, marginTop: 2 }}
-          >
-            Detected platform: <strong>{detected.displayName}</strong>
-            {detected.id === "generic" && " (generic extractor)"}
-          </span>
-        )}
-      </Field>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12 }}>
-        <Field label="Unit price hint" htmlFor="priceHintMajor" hint="Per-unit retail price the operator targets. Used by the publisher to derive offer tiers.">
-          <input
-            id="priceHintMajor"
-            name="priceHintMajor"
-            type="number"
-            min="1"
-            step="1"
-            required
-            placeholder="199"
-            value={priceHintMajor}
-            onChange={(e) => setPriceHintMajor(e.target.value)}
-          />
-        </Field>
-        <Field label="Currency" htmlFor="currency">
-          <select
-            id="currency"
-            name="currency"
-            value={currency || defaultCurrency}
-            onChange={(e) => setCurrency(e.target.value)}
-          >
-            {currencyOptions.map(({ meta }) => (
-              <option key={meta.code} value={meta.code}>
-                {meta.code} — {meta.displayName}
-              </option>
-            ))}
+        <Field label="Store" htmlFor="storeId">
+          <select id="storeId" name="storeId" defaultValue={props.defaultStoreId} required>
+            <option value="fanaa">fanaa</option>
           </select>
         </Field>
-      </div>
 
-      <Field
-        label="Product images"
-        htmlFor="uploadedImages"
-        hint="Drag and drop up to 10 supplier images. PNG/JPEG/WebP/GIF/AVIF, ≤ 50 MB each. The first image becomes the primary product photo."
+        <Field
+          label="Supplier URL"
+          htmlFor="supplierUrl"
+          hint="Any ecommerce product page (https). Alibaba, AliExpress, Amazon, Shopify, WooCommerce, Etsy, eBay, TikTok Shop, Temu, Noon, CJ Dropshipping — or any generic store."
+        >
+          <input
+            id="supplierUrl"
+            name="supplierUrl"
+            type="url"
+            required
+            value={supplierUrl}
+            onChange={(e) => setSupplierUrl(e.target.value)}
+            placeholder="https://store.example.com/products/…"
+          />
+          {supplierUrl.length > 0 && detected.hostname && (
+            <span
+              className="text-faint"
+              style={{ fontSize: 11, marginTop: 2 }}
+            >
+              Detected platform: <strong>{detected.displayName}</strong>
+              {detected.id === "generic" && " (generic extractor)"}
+            </span>
+          )}
+        </Field>
+      </Section>
+
+      {/* ─── 2. AUDIENCE & CREATIVE ───────────────────────────── */}
+      <Section
+        eyebrow="02 · Audience"
+        title="Who is this product for?"
+        hint="Structured picks feed the strategy stage's positioning prompt. Every field is optional — pick what you know."
+        accentCount={targetingCount}
+      >
+        <TargetingControls value={targeting} onChange={setTargeting} />
+
+        <Field
+          label="Freeform positioning notes"
+          htmlFor="operatorNotes"
+          hint="Optional. Free-text addendum appended after the structured picks above."
+        >
+          <textarea
+            id="operatorNotes"
+            name="operatorNotes"
+            rows={3}
+            placeholder="e.g. lean into hydration-claim differentiation; competitors over-promise glow."
+          />
+        </Field>
+      </Section>
+
+      {/* ─── 3. ASSETS ────────────────────────────────────────── */}
+      <Section
+        eyebrow="03 · Assets"
+        title="Product photography"
+        hint="Drag and drop supplier images. The first image becomes the primary product photo; reorder with ↑/↓ or set primary with ★."
+        accentCount={imageCount}
       >
         <ImageUploader
           storeId={props.defaultStoreId}
           onChange={setUploadedImages}
         />
-      </Field>
+      </Section>
 
-      <Field
-        label="Audience & creative targeting"
-        htmlFor="targeting-block"
-        hint="Structured picks below are serialised into the strategy stage's prompt — every field is optional."
+      {/* ─── 4. PRICING & OFFERS ──────────────────────────────── */}
+      <Section
+        eyebrow="04 · Pricing"
+        title="Customer-facing offer"
+        hint="The unit price hint anchors the publisher's default ladder. Define explicit tiers below to override it."
+        accentCount={tierCount}
       >
-        <div
-          id="targeting-block"
-          style={{
-            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md, 8px)",
-            padding: 14,
-          }}
-        >
-          <TargetingControls value={targeting} onChange={setTargeting} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12 }}>
+          <Field label="Unit price hint" htmlFor="priceHintMajor" hint="Single-unit retail price you target. Required.">
+            <input
+              id="priceHintMajor"
+              name="priceHintMajor"
+              type="number"
+              min="1"
+              step="1"
+              required
+              placeholder="199"
+              value={priceHintMajor}
+              onChange={(e) => setPriceHintMajor(e.target.value)}
+            />
+          </Field>
+          <Field label="Currency" htmlFor="currency">
+            <select
+              id="currency"
+              name="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {currencyOptions.map(({ meta }) => (
+                <option key={meta.code} value={meta.code}>
+                  {meta.code} — {meta.displayName}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
-      </Field>
 
-      <Field
-        label="Freeform notes"
-        htmlFor="operatorNotes"
-        hint="Optional. Append free-text positioning context to the structured picks above."
+        <Field
+          label="Offer ladder (optional)"
+          htmlFor="offer-builder-block"
+          hint="Define explicit pack tiers — leave empty to fall back to the publisher's default ladder."
+        >
+          <div id="offer-builder-block">
+            <OfferBuilder
+              value={offers}
+              onChange={setOffers}
+              currency={currency}
+              landedCostPerUnit={landedCostPerUnit}
+              priceHintMajor={priceHintNumeric}
+            />
+          </div>
+        </Field>
+      </Section>
+
+      {/* ─── 5. INTERNAL ECONOMICS ────────────────────────────── */}
+      <Section
+        eyebrow="05 · Internal economics"
+        title="Cost breakdown (operator-only)"
+        hint="Never customer-facing. Powers the live landed-cost + realised-margin preview AND feeds the per-tier margin column above."
+        accentCount={Object.keys(costBreakdown).length}
       >
-        <textarea
-          id="operatorNotes"
-          name="operatorNotes"
-          rows={3}
-          placeholder="e.g. lean into hydration-claim differentiation; competitors over-promise glow."
+        <CostBreakdownCard
+          value={costBreakdown}
+          onChange={setCostBreakdown}
+          currency={currency}
+          priceHintMajor={priceHintNumeric}
         />
-      </Field>
 
-      <Field
-        label="Internal cost breakdown"
-        htmlFor="cost-breakdown-block"
-        hint="Operator-internal — never customer-facing. Live landed-cost & realised-margin preview included."
+        <Field
+          label="Internal margin notes"
+          htmlFor="marginNotes"
+          hint="Optional. Free-text addendum to the cost breakdown above."
+        >
+          <input
+            id="marginNotes"
+            name="marginNotes"
+            type="text"
+            placeholder="e.g. supplier quoted in CNY at 30.5; assumed FX 0.38."
+          />
+        </Field>
+      </Section>
+
+      {/* ─── 6. PIPELINE CONTROLS (collapsed) ─────────────────── */}
+      <Section
+        eyebrow="06 · Pipeline"
+        title="Advanced controls"
+        hint="Power-user toggles. Defaults are safe — only flip these if you know what you're doing."
+        collapsible
+        defaultCollapsed
       >
-        <div
-          id="cost-breakdown-block"
+        <label
           style={{
-            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md, 8px)",
-            padding: 14,
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            fontSize: 13,
+            color: "var(--text)",
+            cursor: "pointer",
           }}
         >
-          <CostBreakdownCard
-            value={costBreakdown}
-            onChange={setCostBreakdown}
-            currency={currency || defaultCurrency}
-            priceHintMajor={
-              priceHintMajor === "" || !Number.isFinite(Number(priceHintMajor))
-                ? null
-                : Number(priceHintMajor)
-            }
+          <input
+            id="skipResearch"
+            name="skipResearch"
+            type="checkbox"
+            style={{ width: "auto", marginTop: 3 }}
           />
-        </div>
-      </Field>
+          <span>
+            <strong>Skip supplier-page scrape</strong>
+            <span className="text-faint" style={{ display: "block", fontSize: 11 }}>
+              Bypasses the research stage. Use only when the AI's research output is unhelpful for this URL or when you have full assets already.
+            </span>
+          </span>
+        </label>
+      </Section>
 
-      <Field
-        label="Internal margin notes"
-        htmlFor="marginNotes"
-        hint="Optional. Free-text addendum to the cost breakdown above."
-      >
-        <input
-          id="marginNotes"
-          name="marginNotes"
-          type="text"
-          placeholder="e.g. supplier quoted in CNY at 30.5; assumed FX 0.38."
-        />
-      </Field>
-
-      <Field
-        label="Offer ladder"
-        htmlFor="offer-builder-block"
-        hint="Optional. Define explicit pack tiers — leave empty to fall back to the publisher's default ladder from the unit price hint."
-      >
-        <div
-          id="offer-builder-block"
-          style={{
-            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md, 8px)",
-            padding: 14,
-          }}
-        >
-          <OfferBuilder
-            value={offers}
-            onChange={setOffers}
-            currency={currency || defaultCurrency}
-            landedCostPerUnit={landedCostPerUnit}
-            priceHintMajor={priceHintNumeric}
-          />
-        </div>
-      </Field>
-
-      <label style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, color: "var(--text-dim)" }}>
-        <input id="skipResearch" name="skipResearch" type="checkbox" style={{ width: "auto" }} />
-        Skip supplier-page scrape (research stage)
-      </label>
-
+      {/* ─── Validation errors (above the sticky footer) ─────── */}
       {issues.length > 0 && (
         <div className="empty-card" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
           <strong>Validation failed</strong>
@@ -397,12 +430,236 @@ export function IntakeForm(props: { defaultStoreId: string }) {
         <div style={{ color: "var(--danger)", fontSize: 13 }}>Error: {error}</div>
       )}
 
-      <button type="submit" className="btn btn-accent" disabled={busy} style={{ alignSelf: "flex-start" }}>
-        {busy ? "Dispatching…" : "Dispatch run"}
-      </button>
+      {/* ─── Sticky dispatch footer ──────────────────────────── */}
+      <DispatchFooter
+        busy={busy}
+        canDispatch={canDispatch}
+        supplierReady={supplierReady}
+        priceReady={priceReady}
+        tierCount={tierCount}
+        targetingCount={targetingCount}
+        imageCount={imageCount}
+      />
     </form>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Section primitive
+// ─────────────────────────────────────────────────────────────────────────
+
+function Section(props: {
+  eyebrow: string;
+  title: string;
+  hint?: string;
+  accentCount?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  children: React.ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(
+    props.collapsible ? !!props.defaultCollapsed : false,
+  );
+
+  return (
+    <section
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "18px 20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          cursor: props.collapsible ? "pointer" : "default",
+        }}
+        onClick={
+          props.collapsible ? () => setCollapsed((c) => !c) : undefined
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="section-eyebrow">{props.eyebrow}</span>
+            {typeof props.accentCount === "number" && props.accentCount > 0 && (
+              <span
+                style={{
+                  background: "color-mix(in srgb, var(--accent) 18%, transparent)",
+                  color: "var(--accent)",
+                  fontSize: 10,
+                  padding: "1px 8px",
+                  borderRadius: 999,
+                  fontWeight: 700,
+                }}
+              >
+                {props.accentCount}
+              </span>
+            )}
+          </div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 16,
+              fontWeight: 600,
+              letterSpacing: -0.2,
+              color: "var(--text)",
+            }}
+          >
+            {props.title}
+          </h2>
+          {props.hint && (
+            <p
+              className="text-dim"
+              style={{ margin: 0, fontSize: 12.5, maxWidth: 720, lineHeight: 1.55 }}
+            >
+              {props.hint}
+            </p>
+          )}
+        </div>
+        {props.collapsible && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 11, padding: "4px 10px" }}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? "Show" : "Hide"}
+          </button>
+        )}
+      </header>
+
+      {!collapsed && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {props.children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sticky dispatch footer
+// ─────────────────────────────────────────────────────────────────────────
+
+function DispatchFooter(props: {
+  busy: boolean;
+  canDispatch: boolean;
+  supplierReady: boolean;
+  priceReady: boolean;
+  tierCount: number;
+  targetingCount: number;
+  imageCount: number;
+}) {
+  return (
+    <div
+      style={{
+        position: "sticky",
+        bottom: 12,
+        zIndex: 10,
+        marginTop: 4,
+        background: "var(--surface)",
+        border: `1px solid ${props.canDispatch ? "color-mix(in srgb, var(--accent) 40%, var(--border))" : "var(--border)"}`,
+        borderRadius: "var(--radius-lg)",
+        padding: "12px 16px",
+        boxShadow:
+          "0 8px 28px -10px color-mix(in srgb, var(--text) 18%, transparent), 0 1px 0 var(--border) inset",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 14,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <ReadinessPill
+          label="Supplier URL"
+          ok={props.supplierReady}
+          required
+        />
+        <ReadinessPill label="Price hint" ok={props.priceReady} required />
+        <CounterPill label="Images" count={props.imageCount} />
+        <CounterPill label="Targeting picks" count={props.targetingCount} />
+        <CounterPill label="Offer tiers" count={props.tierCount} />
+      </div>
+      <button
+        type="submit"
+        className="btn btn-accent"
+        disabled={!props.canDispatch}
+        style={{
+          minWidth: 160,
+          fontSize: 13,
+          fontWeight: 600,
+        }}
+      >
+        {props.busy ? "Dispatching…" : "Dispatch run →"}
+      </button>
+    </div>
+  );
+}
+
+function ReadinessPill(props: {
+  label: string;
+  ok: boolean;
+  required?: boolean;
+}) {
+  const color = props.ok
+    ? "var(--accent)"
+    : props.required
+      ? "var(--danger)"
+      : "var(--text-dim)";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: 11,
+        color,
+        fontWeight: 600,
+        padding: "2px 8px",
+        borderRadius: 999,
+        border: `1px solid color-mix(in srgb, ${color} 30%, var(--border))`,
+      }}
+    >
+      <span aria-hidden>{props.ok ? "●" : "○"}</span>
+      {props.label}
+    </span>
+  );
+}
+
+function CounterPill(props: { label: string; count: number }) {
+  if (props.count === 0) return null;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: 11,
+        color: "var(--text-dim)",
+        padding: "2px 8px",
+        borderRadius: 999,
+        border: "1px solid var(--border)",
+      }}
+    >
+      <strong style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+        {props.count}
+      </strong>
+      {props.label}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Field primitive
+// ─────────────────────────────────────────────────────────────────────────
 
 function Field(props: {
   label: string;

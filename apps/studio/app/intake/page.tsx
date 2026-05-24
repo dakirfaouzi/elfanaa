@@ -26,41 +26,47 @@ export default function IntakePage() {
               letterSpacing: -0.4,
             }}
           >
-            Dispatch a new product run
+            New product run
           </h1>
-          <p className="text-dim" style={{ margin: 0, fontSize: 14, maxWidth: 720, lineHeight: 1.55 }}>
-            Paste any ecommerce supplier URL — Alibaba, AliExpress, Amazon,
-            Shopify, WooCommerce, Etsy, eBay, TikTok Shop, Temu, Noon,
-            CJ Dropshipping, or a generic store. The dispatcher mints a
-            runId, runs the 11-stage AI pipeline (Anthropic / fal.ai /
-            Firecrawl), enforces the per-store cost ceiling, and writes
-            the published bundle to{" "}
-            <code className="code">.platform-data/products/</code>.
+          <p className="text-dim" style={{ margin: 0, fontSize: 14, maxWidth: 760, lineHeight: 1.55 }}>
+            Six sections — source, audience, assets, pricing, internal
+            cost, and pipeline controls. Only the supplier URL and a
+            unit price hint are required; everything else sharpens the
+            output. Dispatch mints a runId, executes the 11-stage AI
+            pipeline (Anthropic · fal.ai · Firecrawl), and publishes the
+            bundle to the storefront.
           </p>
         </header>
 
         <IntakeForm defaultStoreId="fanaa" />
 
         <section className="section-card">
-          <span className="section-eyebrow">Notes</span>
+          <span className="section-eyebrow">Operator notes</span>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--text-dim)", lineHeight: 1.65 }}>
             <li>
               Provider keys (<code className="code">ANTHROPIC_API_KEY</code>,{" "}
               <code className="code">FAL_KEY</code>,{" "}
-              <code className="code">FIRECRAWL_API_KEY</code>) must be set on the Studio container — otherwise the run will land in a `failed`
-              state immediately with the reason{" "}
+              <code className="code">FIRECRAWL_API_KEY</code>) must be set on the Studio container — otherwise the run lands in <code className="code">failed</code> immediately with reason{" "}
               <code className="code">providers_unavailable:…</code>.
             </li>
             <li>
-              The cost ceiling defaults to{" "}
-              <code className="code">${process.env.NODE_ENV === "production" ? "5" : "5"}</code> per
-              draft (configured in <code className="code">StoreConfig.costCeilingPerDraftUsd</code>).
-              A run that crosses it is aborted with{" "}
+              Cost ceiling defaults to{" "}
+              <code className="code">$5</code> per draft
+              (<code className="code">StoreConfig.costCeilingPerDraftUsd</code>);
+              runs that cross it abort with{" "}
               <code className="code">cost_exceeded:…</code>.
             </li>
             <li>
-              Live publish to <code className="code">apps/fanaa/data/products.ts</code> via
-              Octokit PR arrives in M10. M9 ships file-backed publish only.
+              Structured targeting + cost breakdown are serialised into the
+              existing strategy-stage prompt at submit time — no downstream
+              changes; the raw objects also flow through via{" "}
+              <code className="code">intakeMetadata</code> for future stages.
+            </li>
+            <li>
+              Intake image uploads land under{" "}
+              <code className="code">studio-intake/&lt;storeId&gt;/</code> in
+              R2. Configure the bucket lifecycle rule to expire that prefix
+              after 1 day to GC uncommitted uploads.
             </li>
           </ul>
         </section>
