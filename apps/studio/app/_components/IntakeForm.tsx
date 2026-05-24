@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
 import { detectProvider } from "@/lib/studio/intake/provider-detect";
 import { marketPresets } from "@/lib/studio/intake/currencies";
-import type { CostBreakdown, Targeting } from "@platform/ingest";
+import type { CostBreakdown, OfferTier, Targeting } from "@platform/ingest";
 import {
   ImageUploader,
   type IntakeImageItem,
 } from "./intake/ImageUploader";
 import { TargetingControls } from "./intake/TargetingControls";
 import { CostBreakdownCard } from "./intake/CostBreakdownCard";
+import { OfferBuilder } from "./intake/OfferBuilder";
 import { renderTargetingAsNotes } from "@/lib/studio/intake/serialize-targeting";
-import { renderCostBreakdownAsNotes } from "@/lib/studio/intake/serialize-cost-breakdown";
+import {
+  computeLandedCost,
+  renderCostBreakdownAsNotes,
+} from "@/lib/studio/intake/serialize-cost-breakdown";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -98,6 +102,20 @@ export function IntakeForm(props: { defaultStoreId: string }) {
   const [priceHintMajor, setPriceHintMajor] = useState<string>("");
   const [currency, setCurrency] = useState<string>("");
 
+  // Offers (Phase B4). Empty by default — the publisher's
+  // existing default-ladder synthesis from priceHint stays the
+  // load-bearing path when offers is empty.
+  const [offers, setOffers] = useState<OfferTier[]>([]);
+
+  // Derive the numeric price hint + landed cost for the offer
+  // builder's live preview. Both nullable; the builder gracefully
+  // shows "—" when either is missing.
+  const priceHintNumeric =
+    priceHintMajor === "" || !Number.isFinite(Number(priceHintMajor))
+      ? null
+      : Number(priceHintMajor);
+  const landedCostPerUnit = computeLandedCost(costBreakdown);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -131,9 +149,11 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     // keep things lean.
     const hasTargetingPicks = Object.keys(targeting).length > 0;
     const hasCostPicks = Object.keys(costBreakdown).length > 0;
+    const hasOfferTiers = offers.length > 0;
     const intakeMetadata: Record<string, unknown> = {};
     if (hasTargetingPicks) intakeMetadata.targeting = targeting;
     if (hasCostPicks) intakeMetadata.costBreakdown = costBreakdown;
+    if (hasOfferTiers) intakeMetadata.offers = offers;
 
     const payload = {
       storeId: String(form.get("storeId") ?? ""),
@@ -329,6 +349,30 @@ export function IntakeForm(props: { defaultStoreId: string }) {
           type="text"
           placeholder="e.g. supplier quoted in CNY at 30.5; assumed FX 0.38."
         />
+      </Field>
+
+      <Field
+        label="Offer ladder"
+        htmlFor="offer-builder-block"
+        hint="Optional. Define explicit pack tiers — leave empty to fall back to the publisher's default ladder from the unit price hint."
+      >
+        <div
+          id="offer-builder-block"
+          style={{
+            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md, 8px)",
+            padding: 14,
+          }}
+        >
+          <OfferBuilder
+            value={offers}
+            onChange={setOffers}
+            currency={currency || defaultCurrency}
+            landedCostPerUnit={landedCostPerUnit}
+            priceHintMajor={priceHintNumeric}
+          />
+        </div>
       </Field>
 
       <label style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, color: "var(--text-dim)" }}>

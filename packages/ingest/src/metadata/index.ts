@@ -36,3 +36,6 @@ export {
 
 export type { CostBreakdown } from "./cost-breakdown";
 export { CostBreakdownSchema } from "./cost-breakdown";
+
+export type { OfferTier, Offers } from "./offers";
+export { OfferTierSchema, OffersSchema } from "./offers";

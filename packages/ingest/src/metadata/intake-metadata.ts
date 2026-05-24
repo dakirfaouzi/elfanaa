@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CostBreakdownSchema } from "./cost-breakdown";
+import { OffersSchema } from "./offers";
 import { TargetingSchema } from "./targeting";
 
 /**
@@ -93,10 +94,20 @@ export const IntakeMetadataSchema = z.object({
    *  flows through for future stages that want richer access. */
   costBreakdown: CostBreakdownSchema.optional(),
 
+  // ── Phase B4 — multi-tier offer / pricing-pack builder ──
+  /** Operator-defined offer ladder (label + quantity + bundle
+   *  price + optional `mostPopular` flag). Captured at intake
+   *  for future plumb-through into the assemble stage's offer
+   *  construction — Phase B intentionally does NOT wire this
+   *  into the AI pipeline yet (worker still derives its offer
+   *  ladder from `priceHint.amount` for backward compat). The
+   *  data is preserved on the run record so a future Phase C
+   *  enhancement can read it without a schema migration. */
+  offers: OffersSchema.optional(),
+
   // ── Future phase scaffolding (intentionally absent today) ──
   //    • Phase A2 → sourceProvider (provider detection result)
   //    • Phase A3 → currencyPreset  (market currency hint)
-  //    • Phase C1 → offers          (multi-tier offer builder)
   //    • Phase D2 → generationMode  ("fast" | "balanced" | "premium")
 });
 
