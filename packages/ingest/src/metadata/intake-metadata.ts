@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CostBreakdownSchema } from "./cost-breakdown";
 import { TargetingSchema } from "./targeting";
 
 /**
@@ -83,10 +84,18 @@ export const IntakeMetadataSchema = z.object({
    *  ignore it and rely on the legacy string today). */
   targeting: TargetingSchema.optional(),
 
+  // ── Phase B3 — structured cost decomposition ──
+  /** Per-unit cost components + target margin %. Operator-internal,
+   *  never customer-facing. Serialised INTO `marginNotes` (string)
+   *  at intake submit time so the assemble stage's
+   *  `UniversalProduct.marginNotes` field is populated identically
+   *  to the M9 free-text path. The raw structured object ALSO
+   *  flows through for future stages that want richer access. */
+  costBreakdown: CostBreakdownSchema.optional(),
+
   // ── Future phase scaffolding (intentionally absent today) ──
   //    • Phase A2 → sourceProvider (provider detection result)
   //    • Phase A3 → currencyPreset  (market currency hint)
-  //    • Phase B3 → costBreakdown   (structured cost decomposition)
   //    • Phase C1 → offers          (multi-tier offer builder)
   //    • Phase D2 → generationMode  ("fast" | "balanced" | "premium")
 });

@@ -23,6 +23,7 @@ export { IngestJobSchema } from "./jobs";
 
 export type {
   AwarenessValue,
+  CostBreakdown,
   EmotionalAngleValue,
   GenderValue,
   IntakeMetadata,
@@ -33,6 +34,7 @@ export type {
 } from "./metadata";
 export {
   AWARENESS_VALUES,
+  CostBreakdownSchema,
   EMOTIONAL_ANGLE_VALUES,
   GENDER_VALUES,
   IntakeMetadataSchema,

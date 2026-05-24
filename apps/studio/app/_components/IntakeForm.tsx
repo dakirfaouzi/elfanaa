@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
 import { detectProvider } from "@/lib/studio/intake/provider-detect";
 import { marketPresets } from "@/lib/studio/intake/currencies";
-import type { Targeting } from "@platform/ingest";
+import type { CostBreakdown, Targeting } from "@platform/ingest";
 import {
   ImageUploader,
   type IntakeImageItem,
 } from "./intake/ImageUploader";
 import { TargetingControls } from "./intake/TargetingControls";
+import { CostBreakdownCard } from "./intake/CostBreakdownCard";
 import { renderTargetingAsNotes } from "@/lib/studio/intake/serialize-targeting";
+import { renderCostBreakdownAsNotes } from "@/lib/studio/intake/serialize-cost-breakdown";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -88,6 +90,14 @@ export function IntakeForm(props: { defaultStoreId: string }) {
   // future stages can read it directly.
   const [targeting, setTargeting] = useState<Targeting>({});
 
+  // CostBreakdown (Phase B3) — same mirror pattern. The live
+  // realised-margin preview on <CostBreakdownCard> needs the
+  // current price hint + currency, so those two inputs become
+  // controlled state here too.
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown>({});
+  const [priceHintMajor, setPriceHintMajor] = useState<string>("");
+  const [currency, setCurrency] = useState<string>("");
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -103,23 +113,39 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     const freeformNotes = String(form.get("operatorNotes") ?? "");
     const serialisedNotes = renderTargetingAsNotes(targeting, freeformNotes);
 
-    // Only attach intakeMetadata.targeting when the operator
-    // actually made structured picks. An empty targeting object
-    // is semantically equivalent to "no preferences" and we omit
-    // it entirely to keep on-disk run records lean.
+    // Serialise structured cost breakdown INTO marginNotes for the
+    // SAME reason — assemble stage stores marginNotes verbatim, no
+    // downstream code changes needed.
+    const submittedCurrency =
+      String(form.get("currency") ?? "") || defaultCurrency;
+    const freeformMargin = String(form.get("marginNotes") ?? "");
+    const serialisedMargin = renderCostBreakdownAsNotes(
+      costBreakdown,
+      submittedCurrency,
+      freeformMargin,
+    );
+
+    // Only attach intakeMetadata sub-fields when the operator
+    // actually made picks. Empty objects are semantically "no
+    // preferences" — omit them from the on-disk run record to
+    // keep things lean.
     const hasTargetingPicks = Object.keys(targeting).length > 0;
+    const hasCostPicks = Object.keys(costBreakdown).length > 0;
+    const intakeMetadata: Record<string, unknown> = {};
+    if (hasTargetingPicks) intakeMetadata.targeting = targeting;
+    if (hasCostPicks) intakeMetadata.costBreakdown = costBreakdown;
 
     const payload = {
       storeId: String(form.get("storeId") ?? ""),
       supplierUrl: String(form.get("supplierUrl") ?? ""),
       priceHintMajor: Number(form.get("priceHintMajor") ?? 0),
-      currency: String(form.get("currency") ?? "SAR"),
+      currency: submittedCurrency,
       operatorNotes: serialisedNotes || undefined,
-      marginNotes: String(form.get("marginNotes") ?? "") || undefined,
+      marginNotes: serialisedMargin || undefined,
       skipResearch: form.get("skipResearch") === "on",
       uploadedImages,
-      ...(hasTargetingPicks
-        ? { intakeMetadata: { targeting } }
+      ...(Object.keys(intakeMetadata).length > 0
+        ? { intakeMetadata }
         : {}),
     };
 
@@ -193,7 +219,7 @@ export function IntakeForm(props: { defaultStoreId: string }) {
         )}
       </Field>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12 }}>
         <Field label="Unit price hint" htmlFor="priceHintMajor" hint="Per-unit retail price the operator targets. Used by the publisher to derive offer tiers.">
           <input
             id="priceHintMajor"
@@ -203,10 +229,17 @@ export function IntakeForm(props: { defaultStoreId: string }) {
             step="1"
             required
             placeholder="199"
+            value={priceHintMajor}
+            onChange={(e) => setPriceHintMajor(e.target.value)}
           />
         </Field>
         <Field label="Currency" htmlFor="currency">
-          <select id="currency" name="currency" defaultValue={defaultCurrency}>
+          <select
+            id="currency"
+            name="currency"
+            value={currency || defaultCurrency}
+            onChange={(e) => setCurrency(e.target.value)}
+          >
             {currencyOptions.map(({ meta }) => (
               <option key={meta.code} value={meta.code}>
                 {meta.code} — {meta.displayName}
@@ -258,8 +291,44 @@ export function IntakeForm(props: { defaultStoreId: string }) {
         />
       </Field>
 
-      <Field label="Margin notes" htmlFor="marginNotes" hint="Operator-internal cost breakdown. Never customer-facing.">
-        <input id="marginNotes" name="marginNotes" type="text" placeholder="supplier $4.20 + ship $1.80" />
+      <Field
+        label="Internal cost breakdown"
+        htmlFor="cost-breakdown-block"
+        hint="Operator-internal — never customer-facing. Live landed-cost & realised-margin preview included."
+      >
+        <div
+          id="cost-breakdown-block"
+          style={{
+            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md, 8px)",
+            padding: 14,
+          }}
+        >
+          <CostBreakdownCard
+            value={costBreakdown}
+            onChange={setCostBreakdown}
+            currency={currency || defaultCurrency}
+            priceHintMajor={
+              priceHintMajor === "" || !Number.isFinite(Number(priceHintMajor))
+                ? null
+                : Number(priceHintMajor)
+            }
+          />
+        </div>
+      </Field>
+
+      <Field
+        label="Internal margin notes"
+        htmlFor="marginNotes"
+        hint="Optional. Free-text addendum to the cost breakdown above."
+      >
+        <input
+          id="marginNotes"
+          name="marginNotes"
+          type="text"
+          placeholder="e.g. supplier quoted in CNY at 30.5; assumed FX 0.38."
+        />
       </Field>
 
       <label style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, color: "var(--text-dim)" }}>

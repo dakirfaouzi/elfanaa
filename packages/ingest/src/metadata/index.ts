@@ -33,3 +33,6 @@ export {
   TONE_STYLE_VALUES,
   TargetingSchema,
 } from "./targeting";
+
+export type { CostBreakdown } from "./cost-breakdown";
+export { CostBreakdownSchema } from "./cost-breakdown";
