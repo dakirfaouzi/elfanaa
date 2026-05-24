@@ -95,7 +95,45 @@ export function CostBreakdownCard({
       : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* ── Input zone header — currency chip lifted out of each
+         input label, so the four cost fields read cleanly without
+         "(SAR)" repeated four times. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--text-faint)",
+            fontWeight: 600,
+          }}
+        >
+          Per-unit costs
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: "var(--text-dim)",
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: 999,
+            border: "1px solid var(--border)",
+            background: "var(--bg-elev)",
+          }}
+        >
+          {currency}
+        </span>
+      </div>
+
       <div
         style={{
           display: "grid",
@@ -105,7 +143,7 @@ export function CostBreakdownCard({
       >
         <NumberField
           id={ids.product}
-          label={`Product cost (${currency})`}
+          label="Product cost"
           value={value.productCost}
           onChange={(n) => update("productCost", n)}
           step={0.01}
@@ -113,7 +151,7 @@ export function CostBreakdownCard({
         />
         <NumberField
           id={ids.shipping}
-          label={`Shipping (${currency})`}
+          label="Shipping"
           value={value.shipping}
           onChange={(n) => update("shipping", n)}
           step={0.01}
@@ -121,7 +159,7 @@ export function CostBreakdownCard({
         />
         <NumberField
           id={ids.cod}
-          label={`COD fee (${currency})`}
+          label="COD fee"
           value={value.codFee}
           onChange={(n) => update("codFee", n)}
           step={0.01}
@@ -130,7 +168,7 @@ export function CostBreakdownCard({
         />
         <NumberField
           id={ids.packaging}
-          label={`Packaging (${currency})`}
+          label="Packaging"
           value={value.packaging}
           onChange={(n) => update("packaging", n)}
           step={0.01}
@@ -181,9 +219,10 @@ function LivePreview(props: {
         className="text-faint"
         style={{
           fontSize: 11,
-          padding: "8px 12px",
+          padding: "10px 14px",
           border: "1px dashed var(--border)",
-          borderRadius: "var(--radius-md, 8px)",
+          borderRadius: "var(--radius)",
+          background: "color-mix(in srgb, var(--surface-2) 40%, transparent)",
         }}
       >
         Fill any cost field above to see landed cost + realised margin.
@@ -191,84 +230,202 @@ function LivePreview(props: {
     );
   }
 
-  // Colour-code the delta — green when at/above target, red below.
-  const deltaColor =
+  // Profitability state drives the headline KPI's tint AND the
+  // delta glyph. Order of precedence:
+  //   1. If target is set + we're at/above → success
+  //   2. If target is set + we're below     → danger (red)
+  //   3. No target set + margin ≥ 30%       → success
+  //   4. No target set + margin < 30%       → neutral (no tint)
+  //   5. Negative margin                    → danger
+  type KpiState = "neutral" | "success" | "warning" | "danger";
+  const realisedState: KpiState = (() => {
+    if (props.realisedMargin === null) return "neutral";
+    if (props.realisedMargin < 0) return "danger";
+    if (props.targetDelta !== null) {
+      return props.targetDelta >= 0 ? "success" : "danger";
+    }
+    if (props.realisedMargin >= 30) return "success";
+    if (props.realisedMargin < 15) return "warning";
+    return "neutral";
+  })();
+  const deltaState: KpiState = (() => {
+    if (props.targetDelta === null) return "neutral";
+    return props.targetDelta >= 0 ? "success" : "danger";
+  })();
+  // ▲ / ▼ glyph for at-a-glance direction on the delta card.
+  const deltaGlyph =
     props.targetDelta === null
-      ? "var(--text-dim)"
+      ? null
       : props.targetDelta >= 0
-        ? "var(--accent)"
-        : "var(--danger)";
+        ? "▲"
+        : "▼";
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 8,
-        padding: 10,
-        background: "color-mix(in srgb, var(--accent) 4%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--accent) 25%, var(--border))",
-        borderRadius: "var(--radius-md, 8px)",
-      }}
-    >
-      <Stat
-        label="Landed cost"
-        value={
-          props.landed !== null
-            ? `${props.landed.toFixed(2)} ${props.currency}`
-            : "—"
-        }
-      />
-      <Stat
-        label="Realised margin"
-        value={
-          props.realisedMargin !== null
-            ? `${props.realisedMargin.toFixed(1)}%`
-            : "—"
-        }
-        hint={
-          props.realisedMargin === null && props.landed !== null
-            ? "Enter a unit price hint above"
-            : undefined
-        }
-      />
-      <Stat
-        label={
-          props.target !== undefined ? `vs target ${props.target}%` : "Target Δ"
-        }
-        value={
-          props.targetDelta !== null
-            ? `${props.targetDelta >= 0 ? "+" : ""}${props.targetDelta.toFixed(1)}%`
-            : "—"
-        }
-        valueColor={deltaColor}
-      />
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--text-faint)",
+          fontWeight: 600,
+        }}
+      >
+        Live profitability
+      </span>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 10,
+        }}
+      >
+        <KpiCard
+          label="Landed cost"
+          value={
+            props.landed !== null
+              ? props.landed.toFixed(2)
+              : "—"
+          }
+          suffix={props.landed !== null ? props.currency : undefined}
+          state="neutral"
+        />
+        <KpiCard
+          label="Realised margin"
+          value={
+            props.realisedMargin !== null
+              ? props.realisedMargin.toFixed(1)
+              : "—"
+          }
+          suffix={props.realisedMargin !== null ? "%" : undefined}
+          state={realisedState}
+          hint={
+            props.realisedMargin === null && props.landed !== null
+              ? "Enter a unit price hint above"
+              : undefined
+          }
+          emphasis
+        />
+        <KpiCard
+          label={
+            props.target !== undefined
+              ? `vs target ${props.target}%`
+              : "Target Δ"
+          }
+          value={
+            props.targetDelta !== null
+              ? `${props.targetDelta >= 0 ? "+" : ""}${props.targetDelta.toFixed(1)}`
+              : "—"
+          }
+          suffix={props.targetDelta !== null ? "%" : undefined}
+          glyph={deltaGlyph}
+          state={deltaState}
+        />
+      </div>
     </div>
   );
 }
 
-function Stat(props: {
+function KpiCard(props: {
   label: string;
   value: string;
+  suffix?: string;
+  /** Optional direction glyph (▲ / ▼) rendered before the value. */
+  glyph?: string | null;
   hint?: string;
-  valueColor?: string;
+  state: "neutral" | "success" | "warning" | "danger";
+  /** When true: bigger numeric (the headline KPI). */
+  emphasis?: boolean;
 }) {
+  // Map state → border-tint + accent-text triple. We deliberately
+  // avoid filling the card background to keep the preview panel
+  // visually quiet when nothing is wrong — the colour reads as
+  // "status", not "alert".
+  const palette = (() => {
+    switch (props.state) {
+      case "success":
+        return {
+          color: "var(--success)",
+          border: "color-mix(in srgb, var(--success) 40%, var(--border))",
+          tint: "color-mix(in srgb, var(--success) 8%, transparent)",
+        };
+      case "warning":
+        return {
+          color: "var(--warning)",
+          border: "color-mix(in srgb, var(--warning) 40%, var(--border))",
+          tint: "color-mix(in srgb, var(--warning) 8%, transparent)",
+        };
+      case "danger":
+        return {
+          color: "var(--danger)",
+          border: "color-mix(in srgb, var(--danger) 40%, var(--border))",
+          tint: "color-mix(in srgb, var(--danger) 8%, transparent)",
+        };
+      default:
+        return {
+          color: "var(--text)",
+          border: "var(--border)",
+          tint: "color-mix(in srgb, var(--surface-2) 50%, transparent)",
+        };
+    }
+  })();
+  const valueSize = props.emphasis ? 22 : 18;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        padding: "10px 12px",
+        background: palette.tint,
+        border: `1px solid ${palette.border}`,
+        borderRadius: "var(--radius)",
+        transition:
+          "border-color var(--transition-medium) var(--ease-out), background var(--transition-medium) var(--ease-out)",
+      }}
+    >
       <span
-        style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 600 }}
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--text-dim)",
+          fontWeight: 600,
+        }}
       >
-        {props.label.toUpperCase()}
+        {props.label}
       </span>
       <span
         style={{
-          fontSize: 15,
-          fontWeight: 600,
-          color: props.valueColor ?? "var(--text)",
+          display: "inline-flex",
+          alignItems: "baseline",
+          gap: 4,
+          fontSize: valueSize,
+          fontWeight: 700,
+          color: palette.color,
           fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.01em",
+          lineHeight: 1.1,
         }}
       >
+        {props.glyph && (
+          <span style={{ fontSize: valueSize * 0.7, lineHeight: 1 }}>
+            {props.glyph}
+          </span>
+        )}
         {props.value}
+        {props.suffix && (
+          <span
+            style={{
+              fontSize: valueSize * 0.55,
+              fontWeight: 600,
+              color: "var(--text-dim)",
+            }}
+          >
+            {props.suffix}
+          </span>
+        )}
       </span>
       {props.hint && (
         <span style={{ fontSize: 10, color: "var(--text-dim)" }}>

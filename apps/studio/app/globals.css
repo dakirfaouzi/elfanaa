@@ -35,6 +35,13 @@
   --info-soft: #1b2a44;
   --radius:   12px;
   --radius-lg: 16px;
+  /* Motion tokens — additive (introduced for the Intake polish pass,
+     reusable site-wide). All transitions are still globally stripped
+     by the `prefers-reduced-motion` rule below, so adopting these is
+     accessibility-safe by default. */
+  --transition-fast:    120ms;
+  --transition-medium:  200ms;
+  --ease-out:           cubic-bezier(0.2, 0.8, 0.2, 1);
   color-scheme: dark;
 }
 

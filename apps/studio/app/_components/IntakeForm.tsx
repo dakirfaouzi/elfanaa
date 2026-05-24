@@ -225,10 +225,10 @@ export function IntakeForm(props: { defaultStoreId: string }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 18,
+        gap: 24,
         // Bottom padding leaves room for the sticky footer so the
         // last section never sits directly under it.
-        paddingBottom: 88,
+        paddingBottom: 96,
       }}
     >
       {/* ─── 1. SOURCE ─────────────────────────────────────────── */}
@@ -475,10 +475,15 @@ function Section(props: {
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-lg)",
-        padding: "18px 20px",
+        padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: 14,
+        gap: 18,
+        // Subtle inner top highlight gives the card edge definition
+        // against the dark page background. Tiny visual lift — the
+        // sort of detail that separates "form" from "console".
+        boxShadow:
+          "inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent)",
       }}
     >
       <header
@@ -493,8 +498,8 @@ function Section(props: {
           props.collapsible ? () => setCollapsed((c) => !c) : undefined
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="section-eyebrow">{props.eyebrow}</span>
             {typeof props.accentCount === "number" && props.accentCount > 0 && (
               <span
@@ -502,9 +507,10 @@ function Section(props: {
                   background: "color-mix(in srgb, var(--accent) 18%, transparent)",
                   color: "var(--accent)",
                   fontSize: 10,
-                  padding: "1px 8px",
+                  padding: "2px 8px",
                   borderRadius: 999,
                   fontWeight: 700,
+                  letterSpacing: "0.04em",
                 }}
               >
                 {props.accentCount}
@@ -514,10 +520,15 @@ function Section(props: {
           <h2
             style={{
               margin: 0,
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 600,
-              letterSpacing: -0.2,
+              letterSpacing: "-0.3px",
               color: "var(--text)",
+              // Match the global `.section-card h2` serif treatment
+              // — gives the form a slightly editorial feel that
+              // reads as "premium SaaS" rather than "admin panel".
+              fontFamily: "ui-serif, Georgia, serif",
+              lineHeight: 1.25,
             }}
           >
             {props.title}
@@ -525,7 +536,12 @@ function Section(props: {
           {props.hint && (
             <p
               className="text-dim"
-              style={{ margin: 0, fontSize: 12.5, maxWidth: 720, lineHeight: 1.55 }}
+              style={{
+                margin: 0,
+                fontSize: 13,
+                maxWidth: 720,
+                lineHeight: 1.6,
+              }}
             >
               {props.hint}
             </p>
@@ -544,7 +560,7 @@ function Section(props: {
       </header>
 
       {!collapsed && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {props.children}
         </div>
       )}
@@ -572,17 +588,27 @@ function DispatchFooter(props: {
         bottom: 12,
         zIndex: 10,
         marginTop: 4,
-        background: "var(--surface)",
-        border: `1px solid ${props.canDispatch ? "color-mix(in srgb, var(--accent) 40%, var(--border))" : "var(--border)"}`,
+        background:
+          "color-mix(in srgb, var(--surface) 92%, var(--bg-elev) 8%)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        border: `1px solid ${
+          props.canDispatch
+            ? "color-mix(in srgb, var(--accent) 45%, var(--border))"
+            : "var(--border)"
+        }`,
         borderRadius: "var(--radius-lg)",
-        padding: "12px 16px",
-        boxShadow:
-          "0 8px 28px -10px color-mix(in srgb, var(--text) 18%, transparent), 0 1px 0 var(--border) inset",
+        padding: "14px 18px",
+        boxShadow: props.canDispatch
+          ? "0 12px 36px -12px color-mix(in srgb, var(--accent) 35%, transparent), 0 1px 0 var(--border) inset"
+          : "0 10px 30px -12px color-mix(in srgb, var(--text) 22%, transparent), 0 1px 0 var(--border) inset",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         gap: 14,
         flexWrap: "wrap",
+        transition:
+          "border-color var(--transition-medium) var(--ease-out), box-shadow var(--transition-medium) var(--ease-out)",
       }}
     >
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -598,15 +624,52 @@ function DispatchFooter(props: {
       </div>
       <button
         type="submit"
-        className="btn btn-accent"
         disabled={!props.canDispatch}
         style={{
-          minWidth: 160,
-          fontSize: 13,
-          fontWeight: 600,
+          appearance: "none",
+          cursor: props.canDispatch ? "pointer" : "not-allowed",
+          minWidth: 180,
+          minHeight: 44,
+          fontSize: 14,
+          fontWeight: 700,
+          padding: "0 22px",
+          borderRadius: 10,
+          letterSpacing: "-0.01em",
+          // Filled accent on the active state — reads as a primary
+          // action, distinct from the tinted `btn-accent` we use
+          // elsewhere for secondary/tertiary accent buttons.
+          background: props.canDispatch
+            ? "var(--accent)"
+            : "var(--bg-elev)",
+          color: props.canDispatch
+            ? "var(--accent-fg, #0b0c10)"
+            : "var(--text-faint)",
+          border: `1px solid ${
+            props.canDispatch ? "var(--accent)" : "var(--border)"
+          }`,
+          boxShadow: props.canDispatch
+            ? "0 4px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent)"
+            : "none",
+          opacity: props.canDispatch ? 1 : 0.7,
+          transition:
+            "background var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out), box-shadow var(--transition-fast) var(--ease-out), transform var(--transition-fast) var(--ease-out)",
+        }}
+        onMouseEnter={(e) => {
+          if (props.canDispatch && !props.busy) {
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow =
+              "0 8px 22px -6px color-mix(in srgb, var(--accent) 65%, transparent)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (props.canDispatch && !props.busy) {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent)";
+          }
         }}
       >
-        {props.busy ? "Dispatching…" : "Dispatch run →"}
+        {props.busy ? "Dispatching…" : "Dispatch run  →"}
       </button>
     </div>
   );
@@ -617,26 +680,40 @@ function ReadinessPill(props: {
   ok: boolean;
   required?: boolean;
 }) {
+  // Required-but-not-ready gets a tinted danger background so the
+  // operator can see at a glance what's blocking dispatch. Ready
+  // pills get an accent fill (filled, not just outlined) for the
+  // same legibility-at-a-glance reason.
   const color = props.ok
-    ? "var(--accent)"
+    ? "var(--success)"
     : props.required
       ? "var(--danger)"
       : "var(--text-dim)";
+  const background = props.ok
+    ? "color-mix(in srgb, var(--success) 14%, transparent)"
+    : props.required
+      ? "color-mix(in srgb, var(--danger) 12%, transparent)"
+      : "transparent";
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 4,
-        fontSize: 11,
+        gap: 5,
+        fontSize: 11.5,
         color,
-        fontWeight: 600,
-        padding: "2px 8px",
+        fontWeight: 700,
+        padding: "4px 10px",
         borderRadius: 999,
-        border: `1px solid color-mix(in srgb, ${color} 30%, var(--border))`,
+        border: `1px solid color-mix(in srgb, ${color} 35%, var(--border))`,
+        background,
+        transition:
+          "color var(--transition-fast) var(--ease-out), background var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out)",
       }}
     >
-      <span aria-hidden>{props.ok ? "●" : "○"}</span>
+      <span aria-hidden style={{ fontSize: 10 }}>
+        {props.ok ? "●" : "○"}
+      </span>
       {props.label}
     </span>
   );
@@ -649,15 +726,22 @@ function CounterPill(props: { label: string; count: number }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 4,
-        fontSize: 11,
+        gap: 5,
+        fontSize: 11.5,
         color: "var(--text-dim)",
-        padding: "2px 8px",
+        padding: "4px 10px",
         borderRadius: 999,
         border: "1px solid var(--border)",
+        background: "var(--bg-elev)",
       }}
     >
-      <strong style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+      <strong
+        style={{
+          color: "var(--text)",
+          fontVariantNumeric: "tabular-nums",
+          fontWeight: 700,
+        }}
+      >
         {props.count}
       </strong>
       {props.label}

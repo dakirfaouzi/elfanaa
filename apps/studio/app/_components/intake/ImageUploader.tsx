@@ -567,16 +567,24 @@ export function ImageUploader({
           }
         }}
         style={{
-          padding: "28px 16px",
+          padding: "36px 20px",
+          // Drag-over zone gets a stronger accent border + soft glow
+          // + subtle scale. We use the motion tokens so reduced-motion
+          // users get the colour change without the animation.
           border: `1.5px dashed ${dragOver ? "var(--accent)" : "var(--border)"}`,
           borderRadius: "var(--radius-lg)",
           background: dragOver
-            ? "color-mix(in srgb, var(--accent) 8%, transparent)"
+            ? "color-mix(in srgb, var(--accent) 10%, transparent)"
             : "color-mix(in srgb, var(--surface) 60%, transparent)",
           textAlign: "center",
           cursor: slotsRemaining > 0 ? "pointer" : "not-allowed",
           opacity: slotsRemaining > 0 ? 1 : 0.5,
-          transition: "background 0.15s, border-color 0.15s",
+          transform: dragOver ? "scale(1.005)" : "scale(1)",
+          boxShadow: dragOver
+            ? "0 6px 26px -10px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent) inset"
+            : "none",
+          transition:
+            "background var(--transition-medium) var(--ease-out), border-color var(--transition-medium) var(--ease-out), transform var(--transition-medium) var(--ease-out), box-shadow var(--transition-medium) var(--ease-out)",
         }}
         aria-disabled={slotsRemaining === 0}
       >
@@ -594,14 +602,50 @@ export function ImageUploader({
           }}
           style={{ display: "none" }}
         />
-        <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500 }}>
+        {/* Subtle inline SVG image-frame glyph. No external icon
+           dependency — keeps the bundle weight identical. Colour is
+           inherited from the surrounding text so dark/light theming
+           is automatic. */}
+        <div
+          aria-hidden
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
+          <UploadGlyph active={dragOver} />
+        </div>
+        <div
+          style={{
+            fontSize: 15,
+            color: "var(--text)",
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+          }}
+        >
           {slotsRemaining > 0
-            ? "Drop images here or click to browse"
+            ? dragOver
+              ? "Drop to upload"
+              : "Drop product photos here"
             : "Limit reached (10 images)"}
         </div>
         <div
+          className="text-dim"
+          style={{ fontSize: 12, marginTop: 6 }}
+        >
+          {slotsRemaining > 0 ? (
+            <>
+              or <span style={{ color: "var(--accent)", fontWeight: 600 }}>click to browse</span>
+            </>
+          ) : (
+            "Remove an image to add more"
+          )}
+        </div>
+        <div
           className="text-faint"
-          style={{ fontSize: 11, marginTop: 4 }}
+          style={{ fontSize: 11, marginTop: 10 }}
         >
           PNG, JPEG, WebP, GIF, AVIF · up to 50 MB each · {slotsRemaining} slot
           {slotsRemaining === 1 ? "" : "s"} left
@@ -618,8 +662,8 @@ export function ImageUploader({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-            gap: 10,
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 12,
           }}
         >
           {completed.map((item, i) => (
@@ -674,12 +718,30 @@ function CompletedTile(props: {
   const tailHint = props.item.src.split("/").pop() ?? "image";
   return (
     <div
+      className="intake-tile"
       style={{
         position: "relative",
         border: `1px solid ${props.isPrimary ? "var(--accent)" : "var(--border)"}`,
-        borderRadius: "var(--radius-md, 8px)",
+        borderRadius: "var(--radius)",
         overflow: "hidden",
         background: "var(--surface)",
+        boxShadow: props.isPrimary
+          ? "0 4px 16px -8px color-mix(in srgb, var(--accent) 50%, transparent)"
+          : "none",
+        transition:
+          "transform var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out), box-shadow var(--transition-fast) var(--ease-out)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        if (!props.isPrimary) {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        if (!props.isPrimary) {
+          e.currentTarget.style.borderColor = "var(--border)";
+        }
       }}
     >
       {props.previewUrl ? (
@@ -727,17 +789,21 @@ function CompletedTile(props: {
         <span
           style={{
             position: "absolute",
-            top: 4,
-            left: 4,
+            top: 8,
+            left: 8,
             background: "var(--accent)",
-            color: "var(--accent-fg, #000)",
+            color: "var(--accent-fg, #0b0c10)",
             fontSize: 10,
-            padding: "2px 6px",
-            borderRadius: 4,
-            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            padding: "3px 8px",
+            borderRadius: 999,
+            fontWeight: 700,
+            boxShadow:
+              "0 2px 8px -2px color-mix(in srgb, var(--accent) 50%, transparent)",
           }}
         >
-          Primary
+          ★ Primary
         </span>
       )}
       <div
@@ -975,8 +1041,91 @@ function PendingTile(props: {
 }
 
 const tileBtnStyle: React.CSSProperties = {
-  fontSize: 11,
-  padding: "2px 6px",
-  minWidth: 24,
+  fontSize: 13,
+  padding: "6px 10px",
+  minWidth: 32,
+  minHeight: 30,
   lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition:
+    "background var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out)",
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Empty-state illustration
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Inline SVG image-frame / upload glyph for the empty drop zone.
+ *
+ * Pure SVG, no dependency. Stroke colour inherits `currentColor`
+ * so dark/light theming works automatically. The `active` prop
+ * (true while a file is being dragged over the zone) bumps the
+ * stroke colour to the accent + subtly intensifies the icon so
+ * the operator gets clear "yes, drop here" feedback.
+ *
+ * Design intent: a generic 4:3 photo frame with a small arrow
+ * pointing in — reads as "upload an image" at any size from 32 to
+ * 96 px square. Keep this self-contained (no external icon set)
+ * so the bundle weight stays at zero net delta.
+ */
+function UploadGlyph({ active }: { active: boolean }) {
+  const stroke = active ? "var(--accent)" : "var(--text-faint)";
+  return (
+    <svg
+      width="56"
+      height="56"
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{
+        color: stroke,
+        transition:
+          "color var(--transition-medium) var(--ease-out), opacity var(--transition-medium) var(--ease-out)",
+        opacity: active ? 1 : 0.85,
+      }}
+    >
+      {/* Outer frame */}
+      <rect
+        x="6"
+        y="10"
+        width="44"
+        height="34"
+        rx="4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      {/* Distant hill */}
+      <path
+        d="M10 36 L20 26 L28 32 L36 22 L46 36"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.65"
+      />
+      {/* Sun */}
+      <circle
+        cx="36"
+        cy="20"
+        r="2.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        opacity="0.7"
+      />
+      {/* Upload arrow */}
+      <g
+        transform="translate(28 36)"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <line x1="0" y1="14" x2="0" y2="2" />
+        <polyline points="-4,6 0,2 4,6" />
+      </g>
+    </svg>
+  );
+}

@@ -136,17 +136,37 @@ export function OfferBuilder({
     [value, onChange],
   );
 
+  // 8-column template reused by header AND every tier subgrid row,
+  // so the table stays perfectly column-aligned while each row gets
+  // independent styling (gradient / scale / ribbon on the popular
+  // tier). CSS `subgrid` is the cleanest tool for this — broadly
+  // supported (Chrome 117+, Safari 16+, Firefox 71+).
+  const columnTemplate =
+    "minmax(140px, 1.4fr) 80px minmax(110px, 1fr) 90px 90px 90px 78px 36px";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* ── KPI promotion: AOV stat lifted from below the table to
+         a primary callout above it. Operators look here first to
+         see what the headline offer is — it deserves prominence. */}
+      <AovStat
+        popularTier={popularTier}
+        currency={currency}
+        baseline={baseline}
+        landedCostPerUnit={landedCostPerUnit}
+      />
+
       {value.length === 0 ? (
         <div
           className="text-faint"
           style={{
             fontSize: 12,
-            padding: "16px 12px",
+            padding: "20px 16px",
             border: "1px dashed var(--border)",
-            borderRadius: "var(--radius-md, 8px)",
+            borderRadius: "var(--radius)",
+            background: "color-mix(in srgb, var(--surface-2) 40%, transparent)",
             textAlign: "center",
+            lineHeight: 1.55,
           }}
         >
           No offer tiers defined — the publisher will fall back to its default
@@ -160,14 +180,14 @@ export function OfferBuilder({
           id={tableId}
           style={{
             display: "grid",
-            gridTemplateColumns:
-              "minmax(140px, 1.4fr) 80px minmax(110px, 1fr) 90px 90px 90px 60px 36px",
-            gap: 6,
+            gridTemplateColumns: columnTemplate,
+            rowGap: 8,
+            columnGap: 6,
             alignItems: "center",
             fontSize: 12,
           }}
         >
-          {/* Header row */}
+          {/* Header row — 8 direct grid children, same column slots. */}
           <HeaderCell>Label</HeaderCell>
           <HeaderCell align="right">Qty</HeaderCell>
           <HeaderCell align="right">Bundle ({currency})</HeaderCell>
@@ -202,7 +222,7 @@ export function OfferBuilder({
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
           alignItems: "center",
           gap: 12,
         }}
@@ -216,13 +236,6 @@ export function OfferBuilder({
         >
           + Add tier {value.length >= 10 ? "(max 10)" : ""}
         </button>
-
-        <AovStat
-          popularTier={popularTier}
-          currency={currency}
-          baseline={baseline}
-          landedCostPerUnit={landedCostPerUnit}
-        />
       </div>
     </div>
   );
@@ -269,8 +282,86 @@ function TierRow(props: {
 }) {
   const isPopular = props.tier.mostPopular === true;
 
+  // Margin-cell background tint — adds a subtle wash beneath the
+  // existing colored text so the operator's eye lands on the
+  // profitability column without reading every number.
+  const marginCellTint = (() => {
+    if (props.marginPercent === null) return undefined;
+    if (props.marginPercent < 0) {
+      return "color-mix(in srgb, var(--danger) 14%, transparent)";
+    }
+    if (props.marginPercent < 20) {
+      return "color-mix(in srgb, var(--warning) 12%, transparent)";
+    }
+    if (props.marginPercent >= 30) {
+      return "color-mix(in srgb, var(--success) 12%, transparent)";
+    }
+    return undefined;
+  })();
+  const marginCellColor =
+    props.marginPercent !== null
+      ? props.marginPercent >= 30
+        ? "var(--success)"
+        : props.marginPercent < 0
+          ? "var(--danger)"
+          : props.marginPercent < 20
+            ? "var(--warning)"
+            : undefined
+      : undefined;
+
+  // Popular-tier row wrapper — uses CSS subgrid so each row gets a
+  // single layout box (for the gradient + ribbon + scale) while
+  // staying perfectly column-aligned with the header row above. The
+  // ribbon is an absolutely-positioned span anchored to the
+  // wrapper's top-left; it overflows the row box deliberately.
   return (
-    <>
+    <div
+      role="row"
+      style={{
+        gridColumn: "1 / -1",
+        display: "grid",
+        gridTemplateColumns: "subgrid",
+        alignItems: "center",
+        position: "relative",
+        padding: isPopular ? "10px 8px 10px 14px" : "4px 0",
+        borderRadius: "var(--radius)",
+        border: isPopular
+          ? "1px solid var(--accent)"
+          : "1px solid transparent",
+        background: isPopular
+          ? "linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent) 0%, color-mix(in srgb, var(--accent) 6%, transparent) 60%, transparent 100%)"
+          : "transparent",
+        boxShadow: isPopular
+          ? "0 4px 18px -8px color-mix(in srgb, var(--accent) 55%, transparent)"
+          : "none",
+        transform: isPopular ? "scale(1.01)" : "scale(1)",
+        transformOrigin: "left center",
+        transition:
+          "transform var(--transition-medium) var(--ease-out), background var(--transition-medium) var(--ease-out), border-color var(--transition-medium) var(--ease-out), box-shadow var(--transition-medium) var(--ease-out)",
+      }}
+    >
+      {isPopular && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -10,
+            left: 8,
+            background: "var(--accent)",
+            color: "var(--accent-fg, #0b0c10)",
+            fontSize: 9,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontWeight: 800,
+            padding: "2px 8px",
+            borderRadius: 999,
+            boxShadow:
+              "0 2px 10px -2px color-mix(in srgb, var(--accent) 60%, transparent)",
+          }}
+        >
+          ★ Most Popular
+        </span>
+      )}
       <input
         type="text"
         value={props.tier.label}
@@ -312,12 +403,12 @@ function TierRow(props: {
       <DerivedCell
         value={
           props.savingsPercent !== null
-            ? `${props.savingsPercent > 0 ? "" : ""}${props.savingsPercent.toFixed(0)}%`
+            ? `${props.savingsPercent.toFixed(0)}%`
             : "—"
         }
         color={
           props.savingsPercent !== null && props.savingsPercent > 0
-            ? "var(--accent)"
+            ? "var(--success)"
             : undefined
         }
       />
@@ -327,15 +418,8 @@ function TierRow(props: {
             ? `${props.marginPercent.toFixed(0)}%`
             : "—"
         }
-        color={
-          props.marginPercent !== null
-            ? props.marginPercent >= 30
-              ? "var(--accent)"
-              : props.marginPercent < 0
-                ? "var(--danger)"
-                : undefined
-            : undefined
-        }
+        color={marginCellColor}
+        backgroundTint={marginCellTint}
       />
       <div style={{ textAlign: "center" }}>
         <button
@@ -345,13 +429,15 @@ function TierRow(props: {
           aria-pressed={isPopular}
           style={{
             background: isPopular ? "var(--accent)" : "transparent",
-            color: isPopular ? "var(--accent-fg, #000)" : "var(--text-dim)",
+            color: isPopular ? "var(--accent-fg, #0b0c10)" : "var(--text-dim)",
             border: `1px solid ${isPopular ? "var(--accent)" : "var(--border)"}`,
             borderRadius: 999,
-            padding: "2px 8px",
+            padding: "3px 10px",
             fontSize: 11,
-            fontWeight: 600,
+            fontWeight: 700,
             cursor: "pointer",
+            transition:
+              "background var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out)",
           }}
         >
           {isPopular ? "★ Popular" : "Set"}
@@ -366,19 +452,29 @@ function TierRow(props: {
       >
         ×
       </button>
-    </>
+    </div>
   );
 }
 
-function DerivedCell(props: { value: string; color?: string }) {
+function DerivedCell(props: {
+  value: string;
+  color?: string;
+  /** Optional background tint that wraps the cell with a soft
+   *  status colour — used on the Margin column to draw the eye. */
+  backgroundTint?: string;
+}) {
   return (
     <div
       style={{
         textAlign: "right",
-        padding: "0 6px",
+        padding: props.backgroundTint ? "4px 8px" : "0 6px",
         fontVariantNumeric: "tabular-nums",
         color: props.color ?? "var(--text)",
         fontWeight: 600,
+        background: props.backgroundTint,
+        borderRadius: props.backgroundTint ? 6 : 0,
+        transition:
+          "background var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out)",
       }}
     >
       {props.value}
@@ -392,48 +488,132 @@ function AovStat(props: {
   baseline: number | null;
   landedCostPerUnit: number | null;
 }) {
+  // Empty / no-popular state: keep a hint visible so the operator
+  // knows the slot exists and what it'll surface once filled.
   if (!props.popularTier) {
     return (
-      <span className="text-faint" style={{ fontSize: 11 }}>
-        Mark a tier as <strong>★ Popular</strong> to set the headline AOV.
-      </span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 14px",
+          border: "1px dashed var(--border)",
+          borderRadius: "var(--radius)",
+          background: "color-mix(in srgb, var(--surface-2) 40%, transparent)",
+          fontSize: 12,
+          color: "var(--text-dim)",
+        }}
+      >
+        <span style={{ fontSize: 16, color: "var(--text-faint)" }}>★</span>
+        <span>
+          Mark a tier as <strong>★ Popular</strong> to set the headline AOV.
+        </span>
+      </div>
     );
   }
+
   const margin = bundleMarginPercent(
     props.popularTier,
     props.landedCostPerUnit,
   );
+  const marginColor =
+    margin === null
+      ? "var(--text-dim)"
+      : margin < 0
+        ? "var(--danger)"
+        : margin >= 30
+          ? "var(--success)"
+          : margin < 20
+            ? "var(--warning)"
+            : "var(--text)";
+
   return (
     <div
       style={{
         display: "flex",
-        gap: 14,
         alignItems: "center",
-        padding: "6px 12px",
-        background: "color-mix(in srgb, var(--accent) 6%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--accent) 30%, var(--border))",
-        borderRadius: 999,
-        fontSize: 12,
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
+        padding: "12px 16px",
+        background:
+          "linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 3%, transparent))",
+        border: "1px solid color-mix(in srgb, var(--accent) 35%, var(--border))",
+        borderRadius: "var(--radius)",
+        transition:
+          "background var(--transition-medium) var(--ease-out), border-color var(--transition-medium) var(--ease-out)",
       }}
     >
-      <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 600 }}>
-        ESTIMATED AOV
-      </span>
-      <span
-        style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
-      >
-        {props.popularTier.bundlePrice.toFixed(2)} {props.currency}
-      </span>
-      {margin !== null && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <span
           style={{
-            color: margin >= 30 ? "var(--accent)" : "var(--text-dim)",
-            fontWeight: 600,
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--text-dim)",
+            fontWeight: 700,
           }}
         >
-          {margin.toFixed(0)}% margin
+          Estimated AOV
         </span>
-      )}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            gap: 6,
+            fontSize: 22,
+            fontWeight: 700,
+            color: "var(--accent)",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.01em",
+            lineHeight: 1.1,
+          }}
+        >
+          {props.popularTier.bundlePrice.toFixed(2)}
+          <span
+            style={{
+              fontSize: 13,
+              color: "var(--text-dim)",
+              fontWeight: 600,
+            }}
+          >
+            {props.currency}
+          </span>
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: 2,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: "var(--text-dim)",
+            fontWeight: 700,
+          }}
+        >
+          Bundle margin
+        </span>
+        <span
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: marginColor,
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 1.1,
+          }}
+        >
+          {margin !== null ? `${margin.toFixed(0)}%` : "—"}
+        </span>
+      </div>
     </div>
   );
 }
