@@ -302,7 +302,37 @@ export function ImageUploader({
           resolve();
         };
         xhr.onerror = () => {
-          markPendingError(localId, "r2_put_network", undefined, serverRequestId);
+          // Two near-indistinguishable failure modes funnel into
+          // `xhr.onerror`:
+          //
+          //   1. CORS preflight rejection — by far the dominant cause
+          //      on a freshly-deployed R2 bucket. R2 ships with NO
+          //      CORS rules, and our PUT carries `Content-Type:
+          //      image/...` which is NOT a CORS-safelisted value
+          //      (only `text/plain`, `application/x-www-form-urlencoded`
+          //      and `multipart/form-data` are safelisted), so the
+          //      browser sends a preflight OPTIONS first. R2 answers
+          //      it (often with 200) but WITHOUT the
+          //      `Access-Control-Allow-Origin: https://elfanaa.com`
+          //      header, so the browser refuses to fire the PUT.
+          //
+          //   2. Actual transport failure — DNS, TCP RST, TLS, network
+          //      partition. Far rarer in practice (everything else in
+          //      the page just worked, so name resolution is fine).
+          //
+          // The browser deliberately hides the distinction from JS
+          // (the CORS error only appears in DevTools console) to avoid
+          // leaking cross-origin response data. We can however use
+          // `xhr.status === 0` to confirm "the response never reached
+          // us" — true for both cases — and surface a CORS-leading
+          // operator message via the dedicated `r2_put_blocked` code.
+          //
+          // When `xhr.status !== 0` (rare — can happen for certain
+          // proxy timeouts that synthesise a status without a body)
+          // we fall back to the more generic `r2_put_network`.
+          const code =
+            xhr.status === 0 ? "r2_put_blocked" : "r2_put_network";
+          markPendingError(localId, code, undefined, serverRequestId);
           resolve();
         };
         xhr.send(file);
@@ -717,8 +747,13 @@ function humaniseUploadError(code: string | undefined): string {
       return "Storage backend rejected the presign request. R2 credentials may be invalid.";
     case "presign_network":
       return "Network error while requesting the upload URL. Check your connection.";
+    case "r2_put_blocked":
+      // Specific to the xhr.status === 0 case — almost always CORS,
+      // occasionally a TLS/DNS issue. Lead with the actionable fix
+      // (CORS policy) and mention the alternative cause briefly.
+      return "Browser blocked the upload (R2 CORS policy is likely missing or doesn't allow this origin). Apply the R2 CORS rule documented in docs/M10-MANUAL-SETUP.md, then retry.";
     case "r2_put_network":
-      return "Network error while uploading to storage. Retry usually works.";
+      return "Transport error while uploading to storage. Retry usually works; if it persists, check R2 status.";
     case "r2_put_403":
       return "Storage rejected the upload (signature mismatch). Most often: R2 credentials were rotated server-side mid-upload.";
     case "r2_put_400":
