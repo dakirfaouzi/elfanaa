@@ -22,6 +22,8 @@ import {
 } from "@platform/publishers/persistence";
 import path from "node:path";
 import { platformDataRoot, runsRoot } from "./paths";
+import { getStudioPersistence, type StudioPersistence } from "./persistence";
+import { persistDraftFromProduct } from "./persist-draft-payload";
 
 /**
  * Studio-local pipeline runner — the e2e glue that turns an
@@ -74,6 +76,11 @@ export interface RunIntakePipelineOptions {
    *  the persistence factory passes through here so dual-write to
    *  Postgres works automatically. */
   runStore?: RunStore;
+  /** Override the persistence snapshot — when set, the runner uses
+   *  it to hydrate the studio_draft payload after assemble succeeds.
+   *  Falls back to `getStudioPersistence()` when omitted; tests may
+   *  inject a stub here to verify draft writes without booting Prisma. */
+  persistence?: StudioPersistence;
 }
 
 /**
@@ -148,6 +155,33 @@ export async function runIntakePipeline(
   // Publisher only fires when the pipeline produced a final product.
   if (!orchestrator.product) {
     return { runId: opts.job.runId, orchestrator };
+  }
+
+  // ── Draft payload hydration (M13 follow-up) ───────────────────────
+  //
+  // Before publisher: write the assembled product into the
+  // studio_draft row that backs this run. Without this step the
+  // operator's `/studio/drafts/<id>` view stays empty even though
+  // every pipeline stage succeeded.
+  //
+  // Wrapped in try/catch — persistence failure here MUST NOT abort
+  // the publish step that follows. The helper internally logs
+  // diagnostics and routes outcomes through a typed PersistDraftResult.
+  try {
+    const persistence =
+      opts.persistence ?? getStudioPersistence({ dataRoot });
+    await persistDraftFromProduct({
+      runId: opts.job.runId,
+      storeId: opts.job.storeId,
+      product: orchestrator.product,
+      persistence,
+      actor: "pipeline",
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[pipeline-runner] persist_draft_payload_threw runId=${opts.job.runId} error=${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   const publishStore = new FilePublishStore({

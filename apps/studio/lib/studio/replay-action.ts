@@ -13,6 +13,7 @@ import {
 } from "@platform/worker";
 import { getStudioPersistence } from "./persistence";
 import { runsRoot } from "./paths";
+import { persistDraftFromProduct } from "./persist-draft-payload";
 
 /**
  * Server-side replay action — invokes the M6 worker's deterministic
@@ -184,6 +185,36 @@ async function runReplayActionInner(
           (!opts.fromStage || s.stage === opts.fromStage),
       )
       .map((s) => s.stage);
+
+    // ── Draft payload hydration after successful replay ────────────
+    //
+    // Mirrors the equivalent step in `pipeline-runner.ts`. Without
+    // this, a replay that fixed a failed stage would leave the draft
+    // empty even though the run record shows `completed` — the
+    // operator would have to manually re-trigger.
+    //
+    // Best-effort: helper logs internally, throws never bubble. The
+    // replay result still says "ok" even when the draft write
+    // returns no_persistence / draft_not_found / conflict — those
+    // are recoverable downstream and shouldn't mark the replay as
+    // failed when the pipeline itself succeeded.
+    if (result.product) {
+      try {
+        const persistence = getStudioPersistence();
+        await persistDraftFromProduct({
+          runId: opts.runId,
+          storeId: prior.storeId,
+          product: result.product,
+          persistence,
+          actor: "replay",
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[replay-action] persist_draft_payload_threw runId=${opts.runId} error=${formatErrorChain(err)}`,
+        );
+      }
+    }
 
     return {
       status: "ok",
