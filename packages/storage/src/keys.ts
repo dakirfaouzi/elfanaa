@@ -167,3 +167,86 @@ export function parseKey(key: string): ParsedKey | null {
     ext: match[4]!,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Intake-time uploads (pre-draft)
+// ─────────────────────────────────────────────────────────────────────────
+
+const STORE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/**
+ * Compose an upload key for an INTAKE-time upload — i.e. one made
+ * BEFORE a `studio_draft` row exists, while the operator is still
+ * filling out the intake form.
+ *
+ *   studio-intake/<storeId>/<ulid>.<ext>
+ *
+ * # Why a separate top-level prefix
+ *
+ *   • Lets the bucket's R2 lifecycle policy auto-expire ONLY these
+ *     keys after 24h without touching draft-attached assets under
+ *     `studio/<draftId>/...`. The standard ops setup is:
+ *
+ *         lifecycle rule: prefix=studio-intake/ expire after 1 day
+ *
+ *     This is the "janitor" referenced in the Phase B audit —
+ *     R2's built-in lifecycle engine, not application code.
+ *   • Makes intake uploads trivially distinguishable in logs / IAM
+ *     audits (everything under `studio-intake/` is uncommitted).
+ *   • Keeps the keyForUpload regex unchanged so existing parsers
+ *     and the asset browser don't accidentally match intake keys.
+ *
+ * # On dispatch
+ *
+ * The operator submits the form; the intake keys flow through to
+ * the worker via `IngestJob.uploadedImages[].src`. The worker treats
+ * them like any other key (research/vision/assemble stages don't
+ * care about the prefix). They remain under `studio-intake/` for
+ * the lifecycle of the run — the lifecycle policy expires them
+ * later, by which time the worker has already pulled the bytes
+ * into derived `studio/<draftId>/...` artefacts.
+ *
+ * # Why no `<source>` segment
+ *
+ * `keyForUpload` carries `<source>` to support IAM rules like
+ * "Studio JWT can only write to upload/". Intake uploads are
+ * ALWAYS the equivalent of `source = "upload"`, so the segment
+ * is redundant and we shorten the key.
+ */
+export function keyForIntakeUpload(opts: {
+  storeId: string;
+  contentType: string;
+  /** Optional ULID override — supplied by tests for determinism. */
+  ulidOverride?: string;
+  /** Now-getter for ULID time component. Tests pin this. */
+  nowMs?: number;
+}): string {
+  if (!STORE_ID_RE.test(opts.storeId)) {
+    throw new Error(`invalid_store_id:${opts.storeId}`);
+  }
+  const ext = extForContentType(opts.contentType);
+  const id = opts.ulidOverride ?? ulid({ nowMs: opts.nowMs });
+  return `studio-intake/${opts.storeId}/${id}.${ext}`;
+}
+
+export interface ParsedIntakeKey {
+  storeId: string;
+  id: string;
+  ext: string;
+}
+
+const INTAKE_KEY_RE =
+  /^studio-intake\/([a-zA-Z0-9_-]{1,64})\/([A-Z0-9]{26})\.([a-z0-9]+)$/;
+
+/** Parse an intake key back into its components. Returns null for
+ *  draft-attached keys (which use the `studio/` prefix) and for any
+ *  string that doesn't match the intake schema. */
+export function parseIntakeKey(key: string): ParsedIntakeKey | null {
+  const match = INTAKE_KEY_RE.exec(key);
+  if (!match) return null;
+  return {
+    storeId: match[1]!,
+    id: match[2]!,
+    ext: match[3]!,
+  };
+}

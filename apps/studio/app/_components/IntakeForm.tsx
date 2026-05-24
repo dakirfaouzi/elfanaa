@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
 import { detectProvider } from "@/lib/studio/intake/provider-detect";
 import { marketPresets } from "@/lib/studio/intake/currencies";
+import {
+  ImageUploader,
+  type IntakeImageItem,
+} from "./intake/ImageUploader";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -66,6 +70,14 @@ export function IntakeForm(props: { defaultStoreId: string }) {
   const defaultCurrency =
     currencyOptions.find((c) => c.isDefault)?.meta.code ?? "SAR";
 
+  // ImageUploader (Phase B1) holds the list of completed uploads
+  // in its own state and pushes the current list up via onChange.
+  // We mirror it here so the form-submit handler picks the latest
+  // snapshot without round-tripping through the DOM.
+  const [uploadedImages, setUploadedImages] = useState<IntakeImageItem[]>(
+    [],
+  );
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -73,11 +85,6 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     setIssues([]);
 
     const form = new FormData(e.currentTarget);
-    const uploadedImages = String(form.get("uploadedImages") ?? "")
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((src) => ({ src }));
 
     const payload = {
       storeId: String(form.get("storeId") ?? ""),
@@ -87,6 +94,9 @@ export function IntakeForm(props: { defaultStoreId: string }) {
       operatorNotes: String(form.get("operatorNotes") ?? "") || undefined,
       marginNotes: String(form.get("marginNotes") ?? "") || undefined,
       skipResearch: form.get("skipResearch") === "on",
+      // From the ImageUploader's controlled state — only uploads
+      // that completed successfully are included. Pending/errored
+      // uploads are filtered out by the component itself.
       uploadedImages,
     };
 
@@ -184,11 +194,14 @@ export function IntakeForm(props: { defaultStoreId: string }) {
       </div>
 
       <Field
-        label="Uploaded images"
+        label="Product images"
         htmlFor="uploadedImages"
-        hint="Optional. One URL or R2 key per line. Drag-and-drop uploader ships in Phase B1."
+        hint="Drag and drop up to 10 supplier images. PNG/JPEG/WebP/GIF/AVIF, ≤ 50 MB each. The first image becomes the primary product photo."
       >
-        <textarea id="uploadedImages" name="uploadedImages" rows={3} placeholder="https://…/photo1.jpg" />
+        <ImageUploader
+          storeId={props.defaultStoreId}
+          onChange={setUploadedImages}
+        />
       </Field>
 
       <Field label="Operator notes" htmlFor="operatorNotes" hint="Positioning hints (passed to the strategy stage).">
