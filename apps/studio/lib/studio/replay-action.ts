@@ -72,6 +72,39 @@ export interface ReplayActionOptions {
 export async function runReplayAction(
   opts: ReplayActionOptions,
 ): Promise<ReplayActionResult> {
+  // Top-level guard: NEVER throw across the wire. The route handler
+  // depends on us returning a discriminated ReplayActionResult so it
+  // can emit JSON every time. Without this catch, a throw from
+  // resolveRunStore / loadPriorRun / rehydrateRunFile would bubble
+  // out of the route, Next.js would render its default HTML error
+  // page, and the client's `res.json()` would fail with the
+  // confusing "non-JSON response" message instead of showing the
+  // actual cause to the operator.
+  //
+  // Also logs the error to stderr (visible in the Studio container
+  // logs) so an operator without browser DevTools can correlate.
+  // Each stage that was previously try/catch-wrapped keeps its
+  // narrower handler so we still distinguish providers_unavailable
+  // vs. replay_failed for accurate UX.
+  try {
+    return await runReplayActionInner(opts);
+  } catch (err) {
+    const cause = formatErrorChain(err);
+    // eslint-disable-next-line no-console
+    console.error(
+      `[replay-action] unexpected throw for run ${opts.runId}: ${cause}`,
+    );
+    return {
+      status: "replay_failed",
+      runId: opts.runId,
+      reason: `unexpected_error: ${cause}`,
+    };
+  }
+}
+
+async function runReplayActionInner(
+  opts: ReplayActionOptions,
+): Promise<ReplayActionResult> {
   // RunStore selection: prefer the dual-write CompositeRunStore from
   // the persistence factory so replayed steps land in BOTH the file
   // and Postgres. Fall back to a fresh FileStore in environments
@@ -104,8 +137,18 @@ export async function runReplayAction(
   //
   // Idempotent: skips if the file already exists. Atomic via
   // tmp+rename so a partial write never leaves a corrupted record on
-  // disk for the run-loader to choke on.
-  await rehydrateRunFile(opts.runId, prior);
+  // disk for the run-loader to choke on. Failure (permission denied,
+  // ENOSPC, …) is converted to a typed `replay_failed` result with
+  // the underlying message instead of an uncaught throw.
+  try {
+    await rehydrateRunFile(opts.runId, prior);
+  } catch (err) {
+    return {
+      status: "replay_failed",
+      runId: opts.runId,
+      reason: `rehydrate_failed: ${formatErrorChain(err)}`,
+    };
+  }
 
   let providers: ResolvedProviders;
   try {
@@ -153,9 +196,38 @@ export async function runReplayAction(
     return {
       status: "replay_failed",
       runId: opts.runId,
-      reason: (err as Error).message,
+      reason: formatErrorChain(err),
     };
   }
+}
+
+/**
+ * Walk `err.cause` chains and produce a single-line summary.
+ *
+ * The orchestrator's `formatErrorCauseChain` (M11) decorates worker
+ * errors with the underlying provider response, but only at the
+ * `stage_failed` log line. Replay surfaces raw Error objects from
+ * a wider set of code paths (fs writes, Prisma init, env validation),
+ * not all of which have a `cause`. Walking the chain ourselves keeps
+ * the UI message useful regardless of the throw site.
+ *
+ * Caps at 4 hops so a pathological circular cause can't hang the
+ * response. Joins with " | cause: " to mirror the orchestrator's
+ * log format for visual consistency.
+ */
+function formatErrorChain(err: unknown, maxDepth = 4): string {
+  const parts: string[] = [];
+  let cur: unknown = err;
+  for (let i = 0; i < maxDepth && cur; i++) {
+    if (cur instanceof Error) {
+      parts.push(cur.message || cur.name || "Error");
+      cur = (cur as Error & { cause?: unknown }).cause;
+    } else {
+      parts.push(String(cur));
+      cur = undefined;
+    }
+  }
+  return parts.join(" | cause: ");
 }
 
 /**
@@ -206,8 +278,20 @@ async function loadPriorRun(
   runId: string,
   store: RunStore,
 ): Promise<RunRecord | null> {
-  const fromStore = await store.getRun(runId);
-  if (fromStore) return fromStore;
+  // Each lookup in the fallback chain is independently try/catch'd
+  // so a throw from one store (e.g. corrupted JSON in the file
+  // mirror, Prisma transient error) doesn't short-circuit the
+  // chain. We log the failure so the operator can see WHY a
+  // particular store was skipped, then move on.
+  try {
+    const fromStore = await store.getRun(runId);
+    if (fromStore) return fromStore;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[replay-action] primary store getRun threw for ${runId}: ${formatErrorChain(err)} — falling through to DB`,
+    );
+  }
   try {
     const persistence = getStudioPersistence();
     const repo = persistence.repositories?.run;
@@ -215,9 +299,11 @@ async function loadPriorRun(
       const fromDb = await repo.loadForReplay(runId);
       if (fromDb) return fromDb;
     }
-  } catch {
-    // Persistence factory threw — nothing more we can do; the
-    // caller will get a not_found response.
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[replay-action] DB repository loadForReplay threw for ${runId}: ${formatErrorChain(err)}`,
+    );
   }
   return null;
 }
