@@ -107,13 +107,29 @@ export function productToDraftDocument(
   // bypass the cleanup in the sections and fail
   // `meta.title.en: Expected string, received null` at the root
   // DraftDocumentSchema parse, knocking out the WHOLE payload.
+  //
+  // Length-clamp BOTH meta locales before validation:
+  //   • title:       z.string().max(200)
+  //   • description: z.string().max(500)
+  // Claude routinely emits descriptions well past 500 chars when
+  // the strategy stage's `description` carries combined emotional +
+  // functional copy; we clamp here so the payload validates and the
+  // operator-edit experience starts from a complete-but-trimmed
+  // baseline rather than an empty fallback.
   const heroSrc = safeStr(product.images[0]?.src);
   return {
     version: 1,
     meta: {
-      title: pickLocale(product.title),
-      slug,
-      description: pickLocale(product.description),
+      title: clampLocale(pickLocale(product.title), 200),
+      // `meta.slug` is the cosmetic SEO slug inside the payload —
+      // distinct from the DB column `studio_draft.slug` which is
+      // the lookup key. The DB slug is whatever the dispatcher
+      // wrote (typically a runId verbatim, which contains
+      // underscores). The payload's slug MUST match SLUG_PATTERN
+      // (lowercase ASCII alphanumerics + hyphens). Normalise here
+      // so the two can diverge without breaking lookups.
+      slug: normaliseDraftSlug(slug),
+      description: clampLocale(pickLocale(product.description), 500),
       // OG image comes from the hero image when present so the
       // publisher's social-card generator has something to render.
       ...(heroSrc ? { ogImage: heroSrc } : {}),
@@ -245,9 +261,15 @@ function makeTestimonials(
     kind: "testimonials",
     enabled: true,
     items: reviews.slice(0, 20).map((r) => {
-      const author =
-        safeStr(r.name.ar) ?? safeStr(r.name.en) ?? "Verified buyer";
-      const city = safeStr(r.city.ar) ?? safeStr(r.city.en);
+      // TestimonialItemSchema caps: author 160, city 80. Real names
+      // never approach these limits; the clamps are defensive against
+      // a model that occasionally emits a full bio in the name field.
+      const author = clamp(
+        safeStr(r.name.ar) ?? safeStr(r.name.en) ?? "Verified buyer",
+        160,
+      );
+      const cityRaw = safeStr(r.city.ar) ?? safeStr(r.city.en);
+      const city = cityRaw ? clamp(cityRaw, 80) : undefined;
       return {
         id: newId(),
         author,
@@ -375,4 +397,76 @@ function pickLocale(
 
 function hasAnyLocale(v: { ar?: string; en?: string }): boolean {
   return Boolean(v.ar || v.en);
+}
+
+/**
+ * Truncate a string to at most `max` UTF-16 code units, appending a
+ * Unicode ellipsis (U+2026) when truncation occurs.
+ *
+ * # Why ellipsis and why one char
+ *
+ * The trailing `…` gives the operator a visual signal that the field
+ * was clamped and edit-time content was lost — important so they
+ * don't accidentally publish a sentence that ends mid-clause without
+ * knowing why. The ellipsis itself is exactly ONE UTF-16 code unit,
+ * so we reserve one char from `max` for it and the final string is
+ * guaranteed `<= max`. `z.string().max(N)` measures the same
+ * underlying JS `.length`, so this matches Zod's semantics exactly.
+ *
+ * `trimEnd()` after slice handles the common case where the cut
+ * point lands inside trailing whitespace from the source text.
+ */
+function clamp(str: string, max: number): string {
+  if (str.length <= max) return str;
+  return str.slice(0, max - 1).trimEnd() + "…";
+}
+
+/** Apply `clamp(value, max)` to every populated locale in a
+ *  `{ar?, en?}` pair. Missing locales stay missing — clamp doesn't
+ *  conjure a value where there wasn't one. */
+function clampLocale(
+  v: { ar?: string; en?: string },
+  max: number,
+): { ar?: string; en?: string } {
+  const out: { ar?: string; en?: string } = {};
+  if (v.ar) out.ar = clamp(v.ar, max);
+  if (v.en) out.en = clamp(v.en, max);
+  return out;
+}
+
+/**
+ * Convert any string into a DraftSlugSchema-compliant slug.
+ *
+ * The builder schema's SLUG_PATTERN is strict:
+ *
+ *     /^[a-z0-9]([a-z0-9-]{0,78}[a-z0-9])?$/
+ *
+ * Production runIds use underscores (`run_mpiptq9l_pligqded`), which
+ * the regex rejects. This normaliser:
+ *
+ *   1. Lowercases.
+ *   2. Replaces every non-alphanumeric run with a single `-`.
+ *      (Underscores, dots, Arabic glyphs, emoji — all flattened.)
+ *   3. Collapses repeated hyphens.
+ *   4. Strips leading/trailing hyphens (the first/last char must be
+ *      alphanumeric per the pattern).
+ *   5. Truncates to 80 chars.
+ *   6. Falls back to `"draft"` if the result is empty (e.g. all-Arabic
+ *      input that became `"-"` after step 2 and then nothing after
+ *      step 4) — `DraftSlugSchema` requires `min(1)`.
+ *
+ * This is the SAME shape as `normaliseSlug` in drafts-service.ts —
+ * duplicated rather than imported to avoid a cyclic dep
+ * (drafts-service imports from product-to-draft would lift if we
+ * shared the helper). The two MUST stay in sync.
+ */
+function normaliseDraftSlug(input: string): string {
+  const cleaned = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return cleaned || "draft";
 }

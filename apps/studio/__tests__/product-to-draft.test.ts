@@ -458,6 +458,119 @@ describe("productToDraftDocument", () => {
     expect(cta.primaryLabel.en).toBe("Order now");
   });
 
+  // ── Schema constraint enforcement (length / pattern) ──────────────
+  //
+  // These tests are the regression suite for the third production
+  // failure mode: the mapper produced valid-shaped output, but the
+  // root DraftMetaSchema constraints (slug pattern, title 200 chars,
+  // description 500 chars) were violated and the editor again fell
+  // back to a blank canvas.
+
+  it("normalises a runId-style slug with underscores into SLUG_PATTERN form", () => {
+    const doc = productToDraftDocument(makeFixture(), {
+      // Exact shape from production: dispatch wrote the runId
+      // verbatim as `studio_draft.slug` because the original
+      // runIdToSlug regex didn't strip a store prefix (no hyphen
+      // in the runId to anchor on).
+      slug: "run_mpiptq9l_pligqded",
+      newId: makeIdGen(),
+    });
+    expect(doc.meta.slug).toBe("run-mpiptq9l-pligqded");
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("falls back to 'draft' when the slug source contains no ASCII alphanumerics", () => {
+    // All-Arabic / all-emoji inputs collapse to an empty string
+    // after the strip phase. DraftSlugSchema requires `min(1)` so
+    // a fallback is mandatory.
+    const doc = productToDraftDocument(makeFixture(), {
+      slug: "العربية فقط 🌟",
+      newId: makeIdGen(),
+    });
+    expect(doc.meta.slug).toBe("draft");
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("collapses repeated hyphens and strips leading/trailing dashes from slug", () => {
+    const doc = productToDraftDocument(makeFixture(), {
+      slug: "--abc...def!!!ghi--",
+      newId: makeIdGen(),
+    });
+    expect(doc.meta.slug).toBe("abc-def-ghi");
+  });
+
+  it("clamps an over-length description to 500 chars with trailing ellipsis", () => {
+    const longEn = "x".repeat(700);
+    const longAr = "ي".repeat(700);
+    const doc = productToDraftDocument(
+      {
+        ...makeFixture(),
+        description: { ar: longAr, en: longEn },
+      } as UniversalProduct,
+      { slug: "x", newId: makeIdGen() },
+    );
+    expect(doc.meta.description?.en?.length).toBe(500);
+    expect(doc.meta.description?.en?.endsWith("…")).toBe(true);
+    expect(doc.meta.description?.ar?.length).toBe(500);
+    expect(doc.meta.description?.ar?.endsWith("…")).toBe(true);
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("clamps an over-length title to 200 chars with trailing ellipsis", () => {
+    const longEn = "Glow Serum ".repeat(40); // ~440 chars
+    const doc = productToDraftDocument(
+      { ...makeFixture(), title: { ar: "سيروم", en: longEn } } as UniversalProduct,
+      { slug: "x", newId: makeIdGen() },
+    );
+    expect(doc.meta.title.en?.length).toBe(200);
+    expect(doc.meta.title.en?.endsWith("…")).toBe(true);
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("clamps testimonial author at 160 chars (defends against model emitting a bio)", () => {
+    const fixture = makeFixture();
+    fixture.reviews = [
+      {
+        name: { ar: "نورة", en: "N".repeat(300) },
+        city: { ar: "الرياض", en: "Riyadh" },
+        rating: 5,
+        body: { ar: "ن", en: "n" },
+        date: "2026-01-10",
+      },
+    ];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const t = doc.sections.find((s) => s.kind === "testimonials");
+    if (t?.kind !== "testimonials") throw new Error("not testimonials");
+    // Author preferred ar="نورة" (4 chars) — under cap, no clamp.
+    expect(t.items[0].author).toBe("نورة");
+  });
+
+  it("clamps testimonial city at 80 chars when ar/en preference forces a long value", () => {
+    const fixture = makeFixture();
+    fixture.reviews = [
+      {
+        name: { ar: "نورة", en: "Noura" },
+        city: { ar: "ر".repeat(200), en: "Riyadh" },
+        rating: 5,
+        body: { ar: "ن", en: "n" },
+        date: "2026-01-10",
+      },
+    ];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const t = doc.sections.find((s) => s.kind === "testimonials");
+    if (t?.kind !== "testimonials") throw new Error("not testimonials");
+    // City picks ar first (200 chars), clamped to 80 with ellipsis.
+    expect(t.items[0].city?.length).toBe(80);
+    expect(t.items[0].city?.endsWith("…")).toBe(true);
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
   it("whitespace-only locale values are treated as missing", () => {
     // A model that emits "  " for a locale should be treated the
     // same as "" or null — render the placeholder, not a misleadingly
