@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { studioPath } from "@/lib/base-path";
 
 /**
@@ -135,6 +135,33 @@ export function ImageUploader({
   // Track all preview blob URLs so we can revoke on cleanup —
   // unrevoked blob URLs leak per-tab until close.
   const previewRegistry = useRef<Set<string>>(new Set());
+  // Lookup map: R2 key -> local blob URL. Populated when a pending
+  // tile promotes to `completed`; lets `CompletedTile` render a
+  // thumbnail straight from the operator's machine without a
+  // round-trip back to R2. A `useRef` (not state) is fine because
+  // every write to this map is immediately followed by a
+  // `setCompleted` call — React's render reads the ref AFTER that
+  // state update commits, so the new entry is always visible on
+  // the next render. Revoked + cleared when the tile is removed
+  // or the uploader unmounts.
+  const previewBySrc = useRef<Map<string, string>>(new Map());
+
+  // Cleanup: revoke every preview blob URL on unmount. Each
+  // outstanding URL pins a reference to its underlying File in
+  // browser memory; without this hook a long intake session
+  // accumulates tens of MB per tab. Safe to run on unmount only —
+  // per-tile removals already revoke their own URL eagerly.
+  useEffect(() => {
+    const registry = previewRegistry.current;
+    const previews = previewBySrc.current;
+    return () => {
+      for (const url of registry) {
+        URL.revokeObjectURL(url);
+      }
+      registry.clear();
+      previews.clear();
+    };
+  }, []);
 
   // ── Helpers ──────────────────────────────────────────────────────
 
@@ -266,15 +293,19 @@ export function ImageUploader({
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            // Promote pending → completed. Revoke the preview URL on
-            // the way out — once the R2 PUT succeeds we don't need
-            // the local blob anymore (a future thumbnail render uses
-            // a presigned GET, not the upload-side preview).
+            // Promote pending → completed. Transfer the preview blob
+            // URL into `previewBySrc` keyed by the just-minted R2
+            // key so the CompletedTile can render an instant
+            // thumbnail without a round-trip to R2. We deliberately
+            // do NOT revoke here — the URL is revoked when the
+            // operator removes the tile (`removeCompleted`) or the
+            // component unmounts (effect above). Memory cost is
+            // bounded by `MAX_FILES * MAX_BYTES` worst case, and is
+            // already held for the in-flight tile anyway.
             setPending((prev) => {
               const dropped = prev.find((p) => p.localId === localId);
               if (dropped) {
-                URL.revokeObjectURL(dropped.previewUrl);
-                previewRegistry.current.delete(dropped.previewUrl);
+                previewBySrc.current.set(presigned.ref.key, dropped.previewUrl);
               }
               return prev.filter((p) => p.localId !== localId);
             });
@@ -483,6 +514,19 @@ export function ImageUploader({
   const removeCompleted = useCallback(
     (index: number) => {
       setCompleted((prev) => {
+        const removed = prev[index];
+        if (removed?.src) {
+          // Revoke the thumbnail blob URL now that the tile is
+          // going away. Skip silently if the entry never had a
+          // local preview (e.g. items rehydrated from `initial`
+          // by the parent form on first mount).
+          const url = previewBySrc.current.get(removed.src);
+          if (url) {
+            URL.revokeObjectURL(url);
+            previewBySrc.current.delete(removed.src);
+            previewRegistry.current.delete(url);
+          }
+        }
         const next = prev.filter((_, i) => i !== index);
         onChange(next);
         return next;
@@ -585,6 +629,7 @@ export function ImageUploader({
               index={i}
               isPrimary={i === 0}
               total={completed.length}
+              previewUrl={previewBySrc.current.get(item.src)}
               onMove={moveItem}
               onSetPrimary={setPrimary}
               onRemove={removeCompleted}
@@ -613,12 +658,19 @@ function CompletedTile(props: {
   index: number;
   isPrimary: boolean;
   total: number;
+  /** Local blob URL the operator's browser holds for the original
+   *  file. When set, renders the actual image preview. When unset
+   *  (e.g. items rehydrated from `initial` on first mount, before a
+   *  presigned-GET thumbnail layer exists), falls back to the
+   *  filename hint so the tile still says something useful. */
+  previewUrl?: string;
   onMove: (index: number, delta: -1 | 1) => void;
   onSetPrimary: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
-  // We render a small filename hint from the R2 key tail so the
-  // operator can correlate tiles back to source files at a glance.
+  // Filename hint derived from the R2 key tail — used as the fallback
+  // body when there's no local preview, and as the `alt` text on the
+  // <img> for accessibility + DevTools inspection.
   const tailHint = props.item.src.split("/").pop() ?? "image";
   return (
     <div
@@ -630,26 +682,47 @@ function CompletedTile(props: {
         background: "var(--surface)",
       }}
     >
-      {/* Image refs are R2 keys (not URLs) so we cannot render the
-          actual image without a presigned GET. For Phase B1 we show
-          a generic placeholder; Phase B5 visual-polish adds the
-          presigned-GET fetch for live thumbnails. */}
-      <div
-        style={{
-          aspectRatio: "1",
-          background: "color-mix(in srgb, var(--text) 8%, transparent)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 11,
-          color: "var(--text-dim)",
-          padding: 8,
-          wordBreak: "break-all",
-          textAlign: "center",
-        }}
-      >
-        {tailHint}
-      </div>
+      {props.previewUrl ? (
+        // Use a real <img> (not a background-image div) so the
+        // browser can decode incrementally, respect the
+        // `aspect-ratio` for layout-stable rendering, and report a
+        // sensible alt to screen readers. `object-fit: cover` mirrors
+        // the cropped-square look of the PendingTile preview so
+        // there's zero visual jump at the promote-to-completed moment.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={props.previewUrl}
+          alt={tailHint}
+          draggable={false}
+          style={{
+            display: "block",
+            width: "100%",
+            aspectRatio: "1",
+            objectFit: "cover",
+            background: "color-mix(in srgb, var(--text) 8%, transparent)",
+          }}
+        />
+      ) : (
+        // Fallback for items without a local blob (rare today,
+        // common once intake drafts persist across reloads — a
+        // future presigned-GET fetch can drop in right here).
+        <div
+          style={{
+            aspectRatio: "1",
+            background: "color-mix(in srgb, var(--text) 8%, transparent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            color: "var(--text-dim)",
+            padding: 8,
+            wordBreak: "break-all",
+            textAlign: "center",
+          }}
+        >
+          {tailHint}
+        </div>
+      )}
       {props.isPrimary && (
         <span
           style={{
