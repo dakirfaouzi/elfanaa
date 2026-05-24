@@ -21,8 +21,26 @@
 export type { IngestJob, IngestImageRef } from "./jobs";
 export { IngestJobSchema } from "./jobs";
 
-export type { IntakeMetadata } from "./metadata";
-export { IntakeMetadataSchema } from "./metadata";
+export type {
+  AwarenessValue,
+  EmotionalAngleValue,
+  GenderValue,
+  IntakeMetadata,
+  PrimaryLanguageValue,
+  SophisticationValue,
+  Targeting,
+  ToneStyleValue,
+} from "./metadata";
+export {
+  AWARENESS_VALUES,
+  EMOTIONAL_ANGLE_VALUES,
+  GENDER_VALUES,
+  IntakeMetadataSchema,
+  PRIMARY_LANGUAGE_VALUES,
+  SOPHISTICATION_VALUES,
+  TONE_STYLE_VALUES,
+  TargetingSchema,
+} from "./metadata";
 
 export type {
   DequeueOptions,

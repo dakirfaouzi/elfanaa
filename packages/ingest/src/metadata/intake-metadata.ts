@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TargetingSchema } from "./targeting";
 
 /**
  * IntakeMetadata — namespaced container for STRUCTURED intake fields
@@ -70,10 +71,21 @@ import { z } from "zod";
  * runtime.
  */
 export const IntakeMetadataSchema = z.object({
-  // ── Empty in Phase A1. Real fields land in:
+  // ── Phase B2 — structured audience & creative targeting ──
+  /** Audience + creative-direction picks the operator made via the
+   *  structured controls. All fields optional; the form may emit
+   *  an empty `targeting: {}` if no picks were made. The strategy
+   *  stage continues to read its inputs primarily from
+   *  `job.operatorNotes` — the IntakeForm serialises the
+   *  structured picks INTO that string at submit time via
+   *  `serialize-targeting.ts`, so this field is opt-in for the
+   *  worker (read it for richer routing once we wire that in;
+   *  ignore it and rely on the legacy string today). */
+  targeting: TargetingSchema.optional(),
+
+  // ── Future phase scaffolding (intentionally absent today) ──
   //    • Phase A2 → sourceProvider (provider detection result)
   //    • Phase A3 → currencyPreset  (market currency hint)
-  //    • Phase B2 → targeting       (structured audience controls)
   //    • Phase B3 → costBreakdown   (structured cost decomposition)
   //    • Phase C1 → offers          (multi-tier offer builder)
   //    • Phase D2 → generationMode  ("fast" | "balanced" | "premium")

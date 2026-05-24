@@ -14,3 +14,22 @@
  */
 export type { IntakeMetadata } from "./intake-metadata";
 export { IntakeMetadataSchema } from "./intake-metadata";
+
+export type {
+  AwarenessValue,
+  EmotionalAngleValue,
+  GenderValue,
+  PrimaryLanguageValue,
+  SophisticationValue,
+  Targeting,
+  ToneStyleValue,
+} from "./targeting";
+export {
+  AWARENESS_VALUES,
+  EMOTIONAL_ANGLE_VALUES,
+  GENDER_VALUES,
+  PRIMARY_LANGUAGE_VALUES,
+  SOPHISTICATION_VALUES,
+  TONE_STYLE_VALUES,
+  TargetingSchema,
+} from "./targeting";

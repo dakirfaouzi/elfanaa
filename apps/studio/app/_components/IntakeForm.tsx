@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
 import { detectProvider } from "@/lib/studio/intake/provider-detect";
 import { marketPresets } from "@/lib/studio/intake/currencies";
+import type { Targeting } from "@platform/ingest";
 import {
   ImageUploader,
   type IntakeImageItem,
 } from "./intake/ImageUploader";
+import { TargetingControls } from "./intake/TargetingControls";
+import { renderTargetingAsNotes } from "@/lib/studio/intake/serialize-targeting";
 
 /**
  * Intake form — submits to `/api/studio/intake` and on 202 navigates
@@ -78,6 +81,13 @@ export function IntakeForm(props: { defaultStoreId: string }) {
     [],
   );
 
+  // Targeting (Phase B2) is mirror-controlled here too. On submit
+  // we serialise it INTO `operatorNotes` (string) so the strategy
+  // stage's existing prompt template picks it up unchanged, AND
+  // we send the raw object via `intakeMetadata.targeting` so
+  // future stages can read it directly.
+  const [targeting, setTargeting] = useState<Targeting>({});
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -86,18 +96,31 @@ export function IntakeForm(props: { defaultStoreId: string }) {
 
     const form = new FormData(e.currentTarget);
 
+    // Serialise structured targeting INTO operatorNotes so the
+    // strategy stage's existing prompt picks it up — strategy
+    // stage code is intentionally untouched per the Phase B
+    // non-regression constraint.
+    const freeformNotes = String(form.get("operatorNotes") ?? "");
+    const serialisedNotes = renderTargetingAsNotes(targeting, freeformNotes);
+
+    // Only attach intakeMetadata.targeting when the operator
+    // actually made structured picks. An empty targeting object
+    // is semantically equivalent to "no preferences" and we omit
+    // it entirely to keep on-disk run records lean.
+    const hasTargetingPicks = Object.keys(targeting).length > 0;
+
     const payload = {
       storeId: String(form.get("storeId") ?? ""),
       supplierUrl: String(form.get("supplierUrl") ?? ""),
       priceHintMajor: Number(form.get("priceHintMajor") ?? 0),
       currency: String(form.get("currency") ?? "SAR"),
-      operatorNotes: String(form.get("operatorNotes") ?? "") || undefined,
+      operatorNotes: serialisedNotes || undefined,
       marginNotes: String(form.get("marginNotes") ?? "") || undefined,
       skipResearch: form.get("skipResearch") === "on",
-      // From the ImageUploader's controlled state — only uploads
-      // that completed successfully are included. Pending/errored
-      // uploads are filtered out by the component itself.
       uploadedImages,
+      ...(hasTargetingPicks
+        ? { intakeMetadata: { targeting } }
+        : {}),
     };
 
     try {
@@ -204,8 +227,35 @@ export function IntakeForm(props: { defaultStoreId: string }) {
         />
       </Field>
 
-      <Field label="Operator notes" htmlFor="operatorNotes" hint="Positioning hints (passed to the strategy stage).">
-        <textarea id="operatorNotes" name="operatorNotes" rows={3} placeholder="Targeting hydration-conscious women aged 25–40 in GCC." />
+      <Field
+        label="Audience & creative targeting"
+        htmlFor="targeting-block"
+        hint="Structured picks below are serialised into the strategy stage's prompt — every field is optional."
+      >
+        <div
+          id="targeting-block"
+          style={{
+            background: "color-mix(in srgb, var(--surface) 60%, transparent)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md, 8px)",
+            padding: 14,
+          }}
+        >
+          <TargetingControls value={targeting} onChange={setTargeting} />
+        </div>
+      </Field>
+
+      <Field
+        label="Freeform notes"
+        htmlFor="operatorNotes"
+        hint="Optional. Append free-text positioning context to the structured picks above."
+      >
+        <textarea
+          id="operatorNotes"
+          name="operatorNotes"
+          rows={3}
+          placeholder="e.g. lean into hydration-claim differentiation; competitors over-promise glow."
+        />
       </Field>
 
       <Field label="Margin notes" htmlFor="marginNotes" hint="Operator-internal cost breakdown. Never customer-facing.">
