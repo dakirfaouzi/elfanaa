@@ -36,6 +36,22 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
+# ─── 0. Build-SHA banner ─────────────────────────────────────────────────────
+#
+# Emits a single greppable line as the first thing the container says
+# on boot. Diagnostic-only — never gates startup. Lets an operator
+# triaging "did my deploy actually land?" answer the question from
+# `docker logs` / EasyPanel's Logs tab without needing to navigate
+# Studio at all. Mirrors the SHA pill in the NavBar and the stamp on
+# the public /login page.
+#
+# Falls back to "dev" if neither STUDIO_BUILD_SHA nor
+# NEXT_PUBLIC_STUDIO_BUILD_SHA was passed at docker build time — a
+# "dev" banner in production logs means the build arg was not
+# threaded through (the symptom we want operators to notice loudly).
+SHA_FOR_BANNER="${STUDIO_BUILD_SHA:-${NEXT_PUBLIC_STUDIO_BUILD_SHA:-dev}}"
+echo "[entrypoint] build sha: ${SHA_FOR_BANNER}"
+
 # ─── 1. Persistent volume sanity check ───────────────────────────────────────
 #
 # apps/studio/lib/studio/run-loader.ts reads, and the M6 worker writes,

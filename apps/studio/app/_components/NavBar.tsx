@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { LogoutButton } from "./LogoutButton";
+import {
+  getBuildShaShort,
+  getBuildShaUrl,
+} from "@/lib/studio/build-info";
 
 /**
  * Top navigation bar shared across every gated Studio page.
@@ -70,9 +74,60 @@ export function NavBar(props: {
           <NavLink href="/runs" label="Runs" active={props.active === "runs"} />
         </nav>
 
+        <BuildShaPill />
         <LogoutButton />
       </div>
     </header>
+  );
+}
+
+/**
+ * Tiny monospace pill showing the deploy's git SHA. Reads at server
+ * render time from `STUDIO_BUILD_SHA` (baked at docker build); falls
+ * back to "dev" when unset. Clicking jumps to the GitHub commit so
+ * operators can verify "is this deploy actually the latest source?"
+ * at a glance — the diagnostic gap that produced the Phase B
+ * stale-deploy investigation.
+ */
+function BuildShaPill() {
+  const short = getBuildShaShort();
+  const url = getBuildShaUrl();
+  const isDev = short === "dev";
+  const pillStyle = {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: 10.5,
+    padding: "3px 8px",
+    borderRadius: 999,
+    border: `1px solid ${isDev ? "color-mix(in oklab, var(--danger) 40%, var(--border))" : "var(--border)"}`,
+    color: isDev ? "var(--danger)" : "var(--text-dim)",
+    background: isDev
+      ? "color-mix(in oklab, var(--danger) 8%, transparent)"
+      : "color-mix(in oklab, var(--surface) 50%, transparent)",
+    letterSpacing: 0.4,
+    textDecoration: "none",
+    fontWeight: 600,
+  } as const;
+  if (isDev || !url) {
+    return (
+      <span
+        title="Build SHA not stamped — STUDIO_BUILD_SHA build-arg missing on this image"
+        style={pillStyle}
+      >
+        {short}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Studio build SHA · click to view commit on GitHub`}
+      style={pillStyle}
+    >
+      {short}
+    </a>
   );
 }
 

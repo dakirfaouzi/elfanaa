@@ -3,6 +3,10 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { studioPath, stripStudioBasePath } from "@/lib/base-path";
+import {
+  getBuildShaShort,
+  getBuildShaUrl,
+} from "@/lib/studio/build-info";
 
 export const dynamic = "force-dynamic";
 
@@ -237,7 +241,47 @@ function LoginForm() {
           Authorised personnel only
         </p>
       </form>
+
+      {/* Build-SHA stamp at the bottom of the public login page.
+          Operators / CI can verify "what's actually deployed" without
+          authenticating, e.g.:
+            curl -s https://elfanaa.com/studio/login | rg 'build:'
+          This is the diagnostic touchpoint that closes the stale-
+          deploy gap surfaced after Phase B. */}
+      <LoginBuildStamp />
     </main>
+  );
+}
+
+function LoginBuildStamp() {
+  const short = getBuildShaShort();
+  const url = getBuildShaUrl();
+  const text = `build: ${short}`;
+  const baseStyle = {
+    position: "absolute" as const,
+    bottom: 12,
+    left: 0,
+    right: 0,
+    textAlign: "center" as const,
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: 10,
+    color: "var(--text-dim)",
+    letterSpacing: 0.4,
+    opacity: 0.6,
+  };
+  if (!url) {
+    return <span style={baseStyle}>{text}</span>;
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ ...baseStyle, textDecoration: "none" }}
+    >
+      {text}
+    </a>
   );
 }
 

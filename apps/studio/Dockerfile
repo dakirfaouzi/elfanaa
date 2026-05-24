@@ -78,6 +78,46 @@ FROM deps AS builder
 ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
 ENV NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
+# ── Build SHA stamping ──────────────────────────────────────────────────────
+# Bakes the source git commit into the image so the running container
+# can self-report which SHA it was built from. Surfaced in the Studio
+# NavBar pill + at the bottom of the public /login page so operators
+# can verify "is this deploy actually the latest source?" without SSH.
+#
+# Two env vars on purpose:
+#   • STUDIO_BUILD_SHA              — server-only (route handlers,
+#                                     server components).
+#   • NEXT_PUBLIC_STUDIO_BUILD_SHA — Next.js inlines NEXT_PUBLIC_* into
+#                                     the client bundle at build time, so
+#                                     the value reaches client components
+#                                     too (e.g. the login page stamp,
+#                                     which is "use client").
+#
+# Both should be set to the SAME 7-40 char hex SHA. lib/studio/build-info.ts
+# falls back to the literal string "dev" when either is missing/malformed —
+# a Studio NavBar showing a red "dev" pill in production means this build
+# arg was not threaded through (which is the symptom we're trying to
+# prevent).
+#
+# Pass at build time, e.g.:
+#   docker build \
+#     --build-arg STUDIO_BUILD_SHA=$(git rev-parse HEAD) \
+#     --build-arg NEXT_PUBLIC_STUDIO_BUILD_SHA=$(git rev-parse HEAD) \
+#     -f apps/studio/Dockerfile -t studio .
+#
+# EasyPanel users: set BOTH args in the Studio service's
+#   Settings → Build → Build Arguments
+# tab. EasyPanel does NOT auto-populate this from the source git
+# checkout — it must be configured explicitly. The recommended value
+# is the literal placeholder string `{{commit_sha}}` if your EasyPanel
+# version supports build-arg variables; otherwise update the static
+# value on each deploy via the EasyPanel API or hand-edit before
+# clicking Deploy.
+ARG STUDIO_BUILD_SHA=""
+ENV STUDIO_BUILD_SHA=$STUDIO_BUILD_SHA
+ARG NEXT_PUBLIC_STUDIO_BUILD_SHA=""
+ENV NEXT_PUBLIC_STUDIO_BUILD_SHA=$NEXT_PUBLIC_STUDIO_BUILD_SHA
+
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Overlay the latest source on top of the deps install. We copy `packages`
@@ -134,11 +174,21 @@ WORKDIR /app
 # the configured prefix.
 ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
 
+# Build-SHA stamp — see the builder-stage section above for the full
+# rationale. Re-declared here because Docker resets ARG scope at every
+# FROM, and the runtime stage needs the value as a process ENV so
+# server components (e.g. NavBar's <BuildShaPill>) can read it at
+# request time.
+ARG STUDIO_BUILD_SHA=""
+ARG NEXT_PUBLIC_STUDIO_BUILD_SHA=""
+
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
+    NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH \
+    STUDIO_BUILD_SHA=$STUDIO_BUILD_SHA \
+    NEXT_PUBLIC_STUDIO_BUILD_SHA=$NEXT_PUBLIC_STUDIO_BUILD_SHA
 
 # Prisma CLI for in-container migrations.
 #
