@@ -106,10 +106,33 @@ function coerceDocument(
 ): DraftDocument {
   const parsed = DraftDocumentSchema.safeParse(raw);
   if (parsed.success) return parsed.data;
-  // Corrupt payload — fall back to a blank, but log it. The route
-  // exposes `hasPayload=false` so the UI knows the operator must
+  // Corrupt payload — fall back to a blank. The route exposes
+  // `hasPayload=false` so the UI knows the operator must
   // re-author. This is the same fail-safe the runs page applied to
   // corrupt run records in M8.
+  //
+  // # Why we log loudly here
+  //
+  // Previously this was silent: the operator saw a blank canvas
+  // with no signal that the payload was rejected. Tracking down
+  // the root cause required intuiting that the schema parse had
+  // failed (the symptom is indistinguishable from "operator hasn't
+  // edited yet"). Emitting the Zod issues to stderr makes the
+  // failure visible in the Studio container logs and shortens the
+  // debug loop dramatically — Zod's `.format()` output names the
+  // offending path and the expected vs actual shape.
+  //
+  // First 5 issues only — Zod can emit dozens of cascading errors
+  // for a single root mismatch, and the operator-facing diagnostic
+  // is hardest to read when buried under noise.
+  const issues = parsed.error.issues
+    .slice(0, 5)
+    .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+    .join(" | ");
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[drafts-service] coerce_document_invalid slug=${fallbackSlug} title=${JSON.stringify(fallbackTitle)} issues=${issues}`,
+  );
   return makeBlankDraft({
     slug: fallbackSlug,
     title: { en: fallbackTitle },

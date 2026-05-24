@@ -292,4 +292,190 @@ describe("productToDraftDocument", () => {
       expect(s.id.startsWith("pin_")).toBe(true);
     }
   });
+
+  // ── Hardening against Claude's realistic output quirks ─────────────
+  //
+  // These tests are derived from the production failure where the
+  // mapper produced a payload that failed `DraftDocumentSchema.safeParse`
+  // and the editor fell back to `makeBlankDraft()`. The root causes
+  // were: (a) Claude emits `null` (not undefined) for missing locale
+  // fields, and (b) `??` chains in the previous mapper let empty
+  // strings through into MediaRef.desktopSrc which then failed
+  // `min(1)` validation.
+  //
+  // Each test below sets up a realistic-but-hostile UniversalProduct
+  // shape, runs the mapper, and asserts the output STILL passes the
+  // schema — i.e. the mapper is robust to the quirk.
+
+  it("survives null locale fields anywhere in the product (Claude quirk)", () => {
+    // Anthropic's structured outputs sometimes serialise a missing
+    // locale as JSON null instead of omitting the key. The builder
+    // schema rejects null for `z.string().optional()` so we MUST
+    // normalise.
+    //
+    // The compile-time `LocalizedString` shape is strict
+    // (`Record<Locale, string>`) — production runtime is looser. We
+    // cast the whole fixture through `unknown` to simulate the
+    // runtime shape; the entire point of this test is that the
+    // mapper survives values that the type system would normally
+    // forbid.
+    const hostile = {
+      ...makeFixture(),
+      title: { ar: "العنوان", en: null },
+      headline: { ar: null, en: "Radiant skin" },
+      subheadline: { ar: null, en: null },
+      benefits: [
+        {
+          icon: "Droplets",
+          title: { ar: "ترطيب", en: null },
+          body: { ar: null, en: null },
+        },
+      ],
+      reviews: [
+        {
+          name: { ar: null, en: "Sarah" },
+          city: { ar: null, en: null },
+          rating: 5,
+          body: { ar: "نص", en: null },
+          date: "2026-01-10",
+        },
+      ],
+    } as unknown as UniversalProduct;
+    const doc = productToDraftDocument(hostile, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const parsed = DraftDocumentSchema.safeParse(doc);
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+        .join("\n");
+      throw new Error(`schema parse failed:\n${issues}`);
+    }
+  });
+
+  it("does not emit a hero MediaRef when image src is empty", () => {
+    // MediaRefSchema requires `desktopSrc.min(1)`. An empty src in
+    // the hero image must result in `media: null`, not a half-built
+    // MediaRef that would fail array validation downstream.
+    const fixture = makeFixture();
+    fixture.images = [{ ...fixture.images[0], src: "" }];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const hero = doc.sections.find((s) => s.kind === "hero");
+    if (hero?.kind !== "hero") throw new Error("not a hero");
+    expect(hero.media).toBeNull();
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("filters gallery items with empty src instead of breaking the section", () => {
+    const fixture = makeFixture();
+    fixture.images = [
+      fixture.images[0],
+      { ...fixture.images[1], src: "" }, // poisoned gallery item
+      { ...fixture.images[1], src: "stores/fanaa/products/up/g2.webp" },
+    ];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const gallery = doc.sections.find((s) => s.kind === "image_gallery");
+    if (gallery?.kind !== "image_gallery") throw new Error("not a gallery");
+    expect(gallery.items).toHaveLength(1);
+    expect(gallery.items[0].desktopSrc).toBe(
+      "stores/fanaa/products/up/g2.webp",
+    );
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("review with missing author name falls back to 'Verified buyer' instead of empty string", () => {
+    // TestimonialItemSchema requires `author: z.string().max(160)` —
+    // empty string is technically valid but renders as a missing
+    // name in the canvas. Fall back to a sensible default.
+    const fixture = {
+      ...makeFixture(),
+      reviews: [
+        {
+          name: { ar: undefined, en: undefined },
+          city: { ar: "الرياض", en: "Riyadh" },
+          rating: 5,
+          body: { ar: "ممتاز", en: "Great" },
+          date: "2026-01-10",
+        },
+      ],
+    } as unknown as UniversalProduct;
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const t = doc.sections.find((s) => s.kind === "testimonials");
+    if (t?.kind !== "testimonials") throw new Error("not testimonials");
+    expect(t.items[0].author).toBe("Verified buyer");
+  });
+
+  it("rating out of bounds is dropped, not emitted as an invalid value", () => {
+    // RatingSchema is z.number().min(1).max(5). A model that emits 0
+    // or 6 must NOT take down the whole DraftDocument parse.
+    const fixture = makeFixture();
+    fixture.reviews = [
+      {
+        name: { ar: "نورة", en: "Noura" },
+        city: { ar: "الرياض", en: "Riyadh" },
+        rating: 0 as unknown as number,
+        body: { ar: "ن", en: "n" },
+        date: "2026-01-10",
+      },
+    ];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const t = doc.sections.find((s) => s.kind === "testimonials");
+    if (t?.kind !== "testimonials") throw new Error("not testimonials");
+    expect(t.items[0].rating).toBeUndefined();
+    expect(DraftDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("CTA never emits empty primaryLabel even when hook.cta is empty", () => {
+    const fixture = makeFixture();
+    fixture.hooks = [
+      {
+        angle: "emotional",
+        body: { ar: "ن", en: "n" },
+        cta: { ar: "", en: "" }, // empty bilingual CTA
+      },
+    ];
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const cta = doc.sections.find((s) => s.kind === "cta");
+    if (cta?.kind !== "cta") throw new Error("not cta");
+    // Falls back to the bilingual defaults, not the empty hook CTA.
+    expect(cta.primaryLabel.ar).toBe("اطلبي الآن");
+    expect(cta.primaryLabel.en).toBe("Order now");
+  });
+
+  it("whitespace-only locale values are treated as missing", () => {
+    // A model that emits "  " for a locale should be treated the
+    // same as "" or null — render the placeholder, not a misleadingly
+    // empty input field that hides the real signal from the operator.
+    const fixture = {
+      ...makeFixture(),
+      headline: { ar: "   ", en: "\t\n" },
+      subheadline: { ar: "ترطيب فعلي", en: "Real hydration" },
+    } as UniversalProduct;
+    const doc = productToDraftDocument(fixture, {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    const hero = doc.sections.find((s) => s.kind === "hero");
+    if (hero?.kind !== "hero") throw new Error("not a hero");
+    // Headline was whitespace-only → fell back to title.
+    expect(hero.title.ar).toBe("سيروم العناية");
+    expect(hero.title.en).toBe("Glow Serum");
+    expect(hero.subtitle?.en).toBe("Real hydration");
+  });
 });

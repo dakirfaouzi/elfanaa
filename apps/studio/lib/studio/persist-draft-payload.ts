@@ -1,4 +1,5 @@
 import type { UniversalProduct } from "@platform/catalog-schema";
+import { DraftDocumentSchema } from "@platform/builder-schema";
 import { PersistenceError } from "@platform/persistence";
 import type { StudioPersistence } from "./persistence";
 import { runIdToSlug } from "./persistence";
@@ -56,6 +57,7 @@ export type PersistDraftResult =
   | { status: "draft_not_found"; reason: string }
   | { status: "no_persistence"; reason: string }
   | { status: "skipped_conflict"; draftId: string }
+  | { status: "invalid_payload"; draftId: string; reason: string }
   | { status: "error"; reason: string };
 
 export interface PersistDraftOptions {
@@ -107,6 +109,36 @@ export async function persistDraftFromProduct(
     `sec_${Date.now().toString(36)}${(++counter).toString(36)}`;
   const document = productToDraftDocument(opts.product, { slug, newId });
   const title = pickPreferredTitle(opts.product);
+
+  // ── Validate payload BEFORE write ────────────────────────────────
+  //
+  // If the mapper produces a payload that doesn't pass
+  // `DraftDocumentSchema`, the GET route's `coerceDocument` would
+  // silently swap it for `makeBlankDraft()` — operator opens the
+  // draft and sees an empty canvas with no indication anything went
+  // wrong. We catch the problem here, write nothing, log the schema
+  // issues, and return a typed result so the caller (pipeline-runner
+  // / replay-action) can decide what to do.
+  //
+  // Status transition is intentionally skipped on invalid payload —
+  // a "ready" badge with empty content is worse than the operator
+  // staying in "intake/generating" until we ship a fixed mapper.
+  const validation = DraftDocumentSchema.safeParse(document);
+  if (!validation.success) {
+    const issues = validation.error.issues
+      .slice(0, 8)
+      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+      .join(" | ");
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[persist-draft-payload] mapper_produced_invalid_payload draftId=${draft.id} runId=${opts.runId} productId=${opts.product.id} issues=${issues}`,
+    );
+    return {
+      status: "invalid_payload",
+      draftId: draft.id,
+      reason: `schema_validation_failed: ${issues}`,
+    };
+  }
 
   // ── Payload write — respects operator edits via optimistic lock ──
   let payloadUpdated = false;

@@ -1,5 +1,6 @@
 import type {
   AdHook,
+  LocalizedString,
   ProductBenefit,
   ProductFaq,
   ProductImage,
@@ -101,21 +102,21 @@ export function productToDraftDocument(
     sections.push(makeStickyCta(product.hooks[0], newId));
   }
 
+  // Meta title MUST go through `pickLocale` too — a null in
+  // `product.title.en` (which Claude does emit) would otherwise
+  // bypass the cleanup in the sections and fail
+  // `meta.title.en: Expected string, received null` at the root
+  // DraftDocumentSchema parse, knocking out the WHOLE payload.
+  const heroSrc = safeStr(product.images[0]?.src);
   return {
     version: 1,
     meta: {
-      title: {
-        ar: product.title.ar,
-        en: product.title.en,
-      },
+      title: pickLocale(product.title),
       slug,
-      description: {
-        ar: product.description.ar,
-        en: product.description.en,
-      },
+      description: pickLocale(product.description),
       // OG image comes from the hero image when present so the
       // publisher's social-card generator has something to render.
-      ...(product.images[0] ? { ogImage: product.images[0].src } : {}),
+      ...(heroSrc ? { ogImage: heroSrc } : {}),
       keywords: [],
     },
     sections,
@@ -127,8 +128,18 @@ export function productToDraftDocument(
 // ─────────────────────────────────────────────────────────────────────────
 
 function makeHero(product: UniversalProduct, newId: () => string): HeroSection {
-  const headline = product.headline ?? product.title;
-  const subheadline = product.subheadline ?? product.description;
+  // Prefer headline (conversion-tuned) over title (catalog-tuned).
+  // `pickLocale` carries through whichever locales are populated and
+  // omits the missing ones — never emits `null` or empty strings that
+  // would survive into the rendered UI as ugly placeholders.
+  const headline = pickLocale(
+    product.headline ?? product.title,
+    product.title,
+  );
+  const subheadline = pickLocale(
+    product.subheadline ?? product.description,
+    product.description,
+  );
   const heroImage = product.images[0];
   // Take the first ad hook's CTA as a label hint when available —
   // ad hooks are tuned for conversion language ("Shop now", "اطلبي").
@@ -137,29 +148,51 @@ function makeHero(product: UniversalProduct, newId: () => string): HeroSection {
     id: newId(),
     kind: "hero",
     enabled: true,
-    title: { ar: headline.ar, en: headline.en },
-    subtitle: { ar: subheadline.ar, en: subheadline.en },
-    ...(ctaHint
+    title: headline,
+    ...(hasAnyLocale(subheadline) ? { subtitle: subheadline } : {}),
+    ...(ctaHint && hasAnyLocale(pickLocale(ctaHint))
       ? {
-          ctaLabel: { ar: ctaHint.ar, en: ctaHint.en },
+          ctaLabel: pickLocale(ctaHint),
           ctaHref: "#order",
         }
       : {}),
-    media: heroImage
-      ? {
-          kind: "image",
-          desktopSrc: heroImage.src,
-          alt:
-            heroImage.alt.en ??
-            heroImage.alt.ar ??
-            product.title.en ??
-            product.title.ar ??
-            "",
-          ...(heroImage.width ? { width: heroImage.width } : {}),
-          ...(heroImage.height ? { height: heroImage.height } : {}),
-        }
-      : null,
+    media: buildHeroMedia(heroImage, product.title),
     align: "center",
+  };
+}
+
+/**
+ * Build a HeroSection-compatible MediaRef from a ProductImage.
+ *
+ * Returns `null` when the image is undefined OR has an empty/missing
+ * `src` — MediaRefSchema requires `desktopSrc.min(1)` and one bad
+ * MediaRef would invalidate the entire enclosing section.
+ *
+ * The `productTitle` fallback is wider than `LocalizedString` because
+ * runtime LLM outputs occasionally substitute `null` for missing
+ * locales (compile-time type says `string`; runtime says
+ * `string | null | undefined`). Accepting the wider shape keeps the
+ * call sites in `makeGallery` simple and matches what we actually
+ * see in production.
+ */
+function buildHeroMedia(
+  img: ProductImage | undefined,
+  productTitle?: { ar?: string | null; en?: string | null },
+): HeroSection["media"] {
+  if (!img) return null;
+  const src = safeStr(img.src);
+  if (!src) return null;
+  const alt =
+    safeStr(img.alt?.en) ??
+    safeStr(img.alt?.ar) ??
+    safeStr(productTitle?.en) ??
+    safeStr(productTitle?.ar);
+  return {
+    kind: "image",
+    desktopSrc: src,
+    ...(alt ? { alt } : {}),
+    ...(img.width ? { width: img.width } : {}),
+    ...(img.height ? { height: img.height } : {}),
   };
 }
 
@@ -173,12 +206,11 @@ function makeBenefits(
     id: newId(),
     kind: "benefits",
     enabled: true,
-    title: { ar: "", en: "" },
     items: benefits.slice(0, 12).map((b) => ({
       id: newId(),
-      icon: b.icon,
-      title: { ar: b.title.ar, en: b.title.en },
-      body: { ar: b.body.ar, en: b.body.en },
+      ...(safeStr(b.icon) ? { icon: safeStr(b.icon)! } : {}),
+      title: pickLocale(b.title),
+      ...(hasAnyLocale(pickLocale(b.body)) ? { body: pickLocale(b.body) } : {}),
     })),
     columns,
   };
@@ -188,18 +220,18 @@ function makeGallery(
   images: ProductImage[],
   newId: () => string,
 ): ImageGallerySection {
+  // Filter out images with empty src — MediaRefSchema requires
+  // `desktopSrc.min(1)` and one bad item would invalidate the
+  // entire section under Zod's array validation.
+  const items = images
+    .slice(0, 24)
+    .map((img) => buildHeroMedia(img))
+    .filter((m): m is NonNullable<typeof m> => m !== null);
   return {
     id: newId(),
     kind: "image_gallery",
     enabled: true,
-    title: { ar: "", en: "" },
-    items: images.slice(0, 24).map((img) => ({
-      kind: "image" as const,
-      desktopSrc: img.src,
-      alt: img.alt.en ?? img.alt.ar ?? "",
-      ...(img.width ? { width: img.width } : {}),
-      ...(img.height ? { height: img.height } : {}),
-    })),
+    items,
     columns: 3,
   };
 }
@@ -212,17 +244,21 @@ function makeTestimonials(
     id: newId(),
     kind: "testimonials",
     enabled: true,
-    title: { ar: "", en: "" },
-    items: reviews.slice(0, 20).map((r) => ({
-      id: newId(),
-      author: r.name.ar ?? r.name.en ?? "",
-      ...(r.city.ar || r.city.en
-        ? { city: r.city.ar ?? r.city.en ?? "" }
-        : {}),
-      rating: r.rating,
-      quote: { ar: r.body.ar, en: r.body.en },
-      avatar: null,
-    })),
+    items: reviews.slice(0, 20).map((r) => {
+      const author =
+        safeStr(r.name.ar) ?? safeStr(r.name.en) ?? "Verified buyer";
+      const city = safeStr(r.city.ar) ?? safeStr(r.city.en);
+      return {
+        id: newId(),
+        author,
+        ...(city ? { city } : {}),
+        ...(typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5
+          ? { rating: r.rating }
+          : {}),
+        quote: pickLocale(r.body),
+        avatar: null,
+      };
+    }),
     display: "grid",
   };
 }
@@ -232,27 +268,32 @@ function makeFaq(faq: ProductFaq[], newId: () => string): FaqSection {
     id: newId(),
     kind: "faq",
     enabled: true,
-    title: { ar: "", en: "" },
     items: faq.slice(0, 30).map((item) => ({
       id: newId(),
-      question: { ar: item.q.ar, en: item.q.en },
-      answer: { ar: item.a.ar, en: item.a.en },
+      question: pickLocale(item.q),
+      answer: pickLocale(item.a),
     })),
   };
 }
 
 function makeCta(product: UniversalProduct, newId: () => string): CtaSection {
   const hookCta = product.hooks[0]?.cta;
-  const headline = product.headline ?? product.title;
+  const headline = pickLocale(
+    product.headline ?? product.title,
+    product.title,
+  );
+  // Fallback labels are intentionally non-empty in both locales so
+  // the CtaSectionSchema (which requires `primaryLabel: LocalisedText`)
+  // never emits an unhelpful blank button.
+  const primaryLabel = hookCta
+    ? pickLocale(hookCta, { ar: "اطلبي الآن", en: "Order now" })
+    : { ar: "اطلبي الآن", en: "Order now" };
   return {
     id: newId(),
     kind: "cta",
     enabled: true,
-    title: { ar: headline.ar, en: headline.en },
-    subtitle: { ar: "", en: "" },
-    primaryLabel: hookCta
-      ? { ar: hookCta.ar, en: hookCta.en }
-      : { ar: "اطلبي الآن", en: "Order now" },
+    title: headline,
+    primaryLabel,
     primaryHref: "#order",
     variant: "solid",
   };
@@ -263,8 +304,75 @@ function makeStickyCta(hook: AdHook, newId: () => string): StickyCtaSection {
     id: newId(),
     kind: "sticky_cta",
     enabled: true,
-    label: { ar: hook.cta.ar, en: hook.cta.en },
+    label: pickLocale(hook.cta, { ar: "اطلبي الآن", en: "Order now" }),
     href: "#order",
     bottomOffsetPx: 0,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Locale-field helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Coerce a value that the model might emit as null, undefined, or an
+ * empty string into a strict `string | undefined`. The builder
+ * schema's `LocalisedTextSchema` uses `z.string().optional()` which
+ * accepts `string | undefined` and REJECTS `null` — Claude's structured
+ * outputs occasionally substitute the latter for "no value" and that
+ * single difference is enough to torpedo `DraftDocumentSchema.safeParse`.
+ *
+ * Returns `undefined` for any falsy input (null, undefined, ""), and
+ * trims whitespace-only strings to undefined too — those render as
+ * empty input boxes in the canvas, which is the same UX bug as an
+ * outright missing value.
+ */
+function safeStr(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
+}
+
+/**
+ * Normalise a `LocalizedString` from a UniversalProduct stage output
+ * into a shape that always passes `LocalisedTextSchema.safeParse`.
+ *
+ * Strategy:
+ *   • Pass through populated `ar`/`en` from `primary`.
+ *   • Fall back to `fallback` for any locale that's null/undefined/blank
+ *     in `primary`.
+ *   • Always returns a plain object — never throws — but the object
+ *     may have both keys missing if neither source had content (then
+ *     `hasAnyLocale` returns false and the caller usually omits the
+ *     field entirely).
+ *
+ * Empty / null / whitespace-only strings are treated as "missing".
+ * That's the right semantic for the canvas: a placeholder input is
+ * better than a misleading empty-string-filled field.
+ *
+ * Compile-time type for `LocalizedString` is `Record<Locale, string>`
+ * (strict), but runtime LLM outputs occasionally substitute `null`
+ * for "no value". The looser parameter type below matches what we
+ * actually see in production, while `safeStr` handles the
+ * normalisation so callers don't have to.
+ */
+type LooseLocale =
+  | LocalizedString
+  | { ar?: string | null; en?: string | null }
+  | undefined;
+
+function pickLocale(
+  primary: LooseLocale,
+  fallback?: LooseLocale,
+): { ar?: string; en?: string } {
+  const out: { ar?: string; en?: string } = {};
+  const ar = safeStr(primary?.ar) ?? safeStr(fallback?.ar);
+  const en = safeStr(primary?.en) ?? safeStr(fallback?.en);
+  if (ar) out.ar = ar;
+  if (en) out.en = en;
+  return out;
+}
+
+function hasAnyLocale(v: { ar?: string; en?: string }): boolean {
+  return Boolean(v.ar || v.en);
 }
