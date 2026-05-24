@@ -32,6 +32,13 @@ const PUBLIC_PATHS = new Set<string>([
   "/login",
   "/api/auth/login",
   "/api/auth/logout",
+  // Public deploy-state probe — returns ONLY non-sensitive build/env
+  // metadata (build SHA, basePath, NODE_ENV). Whitelisted so an
+  // operator can `curl elfanaa.com/studio/api/diag/env` without
+  // authenticating, to triage stale-deploy / basePath-drift issues
+  // from outside the EasyPanel host. See the route file for the
+  // exact response schema; nothing sensitive is exposed.
+  "/api/diag/env",
 ]);
 
 export async function middleware(req: NextRequest) {
