@@ -8,6 +8,7 @@ import {
   STAGE_LABELS,
   type PipelineStage,
 } from "@/lib/studio/pipeline-stages";
+import { studioPath } from "@/lib/base-path";
 import type { RunRecord, RunStatus, StepRecord } from "@platform/ingest";
 
 /**
@@ -45,7 +46,41 @@ import type { RunRecord, RunStatus, StepRecord } from "@platform/ingest";
  * "Open draft" bridge appear without the operator needing to F5. The
  * refresh is cheap (no full reload, no remount of this client tree)
  * and idempotent on a terminal run.
+ *
+ * # Polling fallback (C1.1 stabilisation)
+ *
+ * Production observation: an SSE channel that wedges after the initial
+ * snapshot (proxy idle-timeout, transient 401 on JWT-cookie refresh,
+ * intermediary buffering — many root causes share this failure mode)
+ * leaves the page frozen at "Waiting for first stage…" even though the
+ * pipeline finished successfully in Postgres. The browser does retry
+ * `EventSource`, but the reconnect can silently fail in ways that
+ * keep firing `error` instead of converging.
+ *
+ * To make the page eventually-consistent regardless of SSE liveness,
+ * a parallel polling effect fetches `/api/studio/runs/<runId>` every
+ * `POLL_INTERVAL_MS`. SSE remains the fast path (sub-second updates).
+ * Polling is the safety net — if SSE works, polling re-states the same
+ * data and React bails out; if SSE wedges, polling drives the page to
+ * the correct terminal state within one poll cycle.
+ *
+ * Both paths converge through the shared `refreshedRef` guard, so
+ * `router.refresh()` fires exactly once on terminal regardless of
+ * which path observed it first.
  */
+
+const TERMINAL_STATUSES: ReadonlySet<RunStatus> = new Set([
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+/** How often the fallback polls `/api/studio/runs/<runId>` when SSE
+ *  may have wedged. 5s is conservative enough to be polite to the
+ *  database (one indexed `findByRunId` per poll) and fast enough
+ *  that a stuck page self-heals well inside the operator's
+ *  attention span. */
+const POLL_INTERVAL_MS = 5_000;
 export function LiveStepTimeline(props: {
   runId: string;
   initialRun: RunRecord;
@@ -71,8 +106,15 @@ export function LiveStepTimeline(props: {
 
   useEffect(() => {
     if (props.terminal) return;
-    const url = `/api/studio/runs/${encodeURIComponent(props.runId)}/stream`;
+    const url = studioPath(
+      `/api/studio/runs/${encodeURIComponent(props.runId)}/stream`,
+    );
     const src = new EventSource(url, { withCredentials: true });
+
+    // Any successful payload from the server means the SSE channel is
+    // healthy — clear a stale "disconnected" banner that was set by
+    // an earlier `error` event during a reconnect storm.
+    const clearStaleError = () => setStreamError(null);
 
     const onStep = (e: MessageEvent<string>) => {
       const ev = safeParse(e.data);
@@ -81,6 +123,7 @@ export function LiveStepTimeline(props: {
         if (ev.seq <= lastSeqRef.current) return;
         lastSeqRef.current = ev.seq;
       }
+      clearStaleError();
       if (ev.step) {
         setSteps((prev) => [...prev, ev.step as StepRecord]);
       }
@@ -93,6 +136,7 @@ export function LiveStepTimeline(props: {
     const onSnapshot = (e: MessageEvent<string>) => {
       const ev = safeParse(e.data);
       if (!ev) return;
+      clearStaleError();
       if (ev.run) {
         setSteps((ev.run as RunRecord).steps ?? []);
         setStatus((ev.run as RunRecord).status);
@@ -112,7 +156,8 @@ export function LiveStepTimeline(props: {
       src.close();
       // Surface the new draftId / finalProduct in the server-rendered
       // header without a hard reload. Guarded so a duplicate terminal
-      // event doesn't double-refresh.
+      // event doesn't double-refresh (and so the polling fallback's
+      // terminal observation doesn't refresh again).
       if (!refreshedRef.current) {
         refreshedRef.current = true;
         router.refresh();
@@ -132,11 +177,91 @@ export function LiveStepTimeline(props: {
       src.close();
     });
     src.addEventListener("error", () => {
-      setStreamError("stream disconnected — browser will retry");
+      // The polling fallback (below) covers convergence — surface a
+      // soft note rather than the alarming "stream disconnected"
+      // text. Cleared the moment any fresh SSE payload lands via
+      // `clearStaleError`.
+      setStreamError("live updates paused — checking for changes every 5s");
     });
 
     return () => {
       src.close();
+    };
+  }, [props.runId, props.terminal, router]);
+
+  /* ── Polling fallback ──────────────────────────────────────────────
+     Runs in parallel with SSE. Fetches the run snapshot every 5s and
+     drives the same state setters / refresh path the SSE handlers do.
+     When the run is healthy and SSE is delivering, this is redundant
+     but harmless (React bails out on equal state). When SSE is wedged,
+     this is the path that gets the page to its terminal state.
+
+     The effect mounts once on a live run and tears down either when
+     the parent passes `terminal: true` (already-completed permalink)
+     or when the component unmounts. Once the polled snapshot reports
+     a terminal status, the interval is cleared and `router.refresh()`
+     is fired (guarded by `refreshedRef`).
+  */
+  useEffect(() => {
+    if (props.terminal) return;
+
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    async function pollOnce() {
+      if (cancelled) return;
+      try {
+        const res = await fetch(
+          studioPath(`/api/studio/runs/${encodeURIComponent(props.runId)}`),
+          {
+            credentials: "same-origin",
+            // Always read the freshest server snapshot — never serve
+            // from the bfcache / disk cache. Studio routes are also
+            // `force-dynamic` so this is belt-and-braces.
+            cache: "no-store",
+          },
+        );
+        if (cancelled || !res.ok) return;
+
+        const body = (await res.json()) as { run?: RunRecord };
+        const run = body.run;
+        if (cancelled || !run) return;
+
+        // Replace local state with the authoritative server snapshot.
+        // `setSteps` is REPLACED (not appended) — the server is the
+        // source of truth, and an SSE-missed step would otherwise
+        // never land in the timeline.
+        setSteps(run.steps);
+        setStatus(run.status);
+        setTotalCostUsd(run.totalCostUsd);
+        if (run.errorMessage) setErrorMessage(run.errorMessage);
+
+        if (TERMINAL_STATUSES.has(run.status)) {
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+          if (!refreshedRef.current) {
+            refreshedRef.current = true;
+            router.refresh();
+          }
+        }
+      } catch {
+        // Network blip — swallow and let the next interval try again.
+        // We deliberately don't surface a polling-side error to the
+        // operator; if BOTH SSE and polling are failing, the SSE
+        // `error` listener has already set `streamError`.
+      }
+    }
+
+    // Kick off an immediate poll so a long-since-disconnected operator
+    // recovers within ms of mount instead of waiting a full interval.
+    void pollOnce();
+    interval = setInterval(pollOnce, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
     };
   }, [props.runId, props.terminal, router]);
 
@@ -158,8 +283,15 @@ export function LiveStepTimeline(props: {
       <RunProgress steps={steps} status={status} />
 
       {streamError && (
-        <div style={{ fontSize: 12, color: "var(--warning)" }}>
-          SSE: {streamError}
+        <div
+          className="text-faint"
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.02em",
+            fontStyle: "italic",
+          }}
+        >
+          {streamError}
         </div>
       )}
 
