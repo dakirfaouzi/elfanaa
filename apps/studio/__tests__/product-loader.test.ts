@@ -217,62 +217,47 @@ describe("product-loader", () => {
       expect(extractHeroImage([])).toBeNull();
     });
 
-    it("returns the first image with src, alt, and a placeholder flag", () => {
-      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
-      delete process.env.STUDIO_ASSETS_CDN_BASE;
-      try {
-        const hero = extractHeroImage([
-          {
-            src: "stores/fanaa/p/a.webp",
-            alt: { ar: "أ", en: "A" },
-            width: 1200,
-            height: 1500,
-          },
-          {
-            src: "stores/fanaa/p/b.webp",
-            alt: { ar: "ب", en: "B" },
-            width: 1200,
-            height: 1500,
-          },
-        ]);
-        expect(hero).not.toBeNull();
-        expect(hero!.src).toBe("stores/fanaa/p/a.webp");
-        expect(hero!.alt.en).toBe("A");
-        // No CDN → resolveImageUrl() returns a placeholder:// token.
-        expect(hero!.placeholder).toBe(true);
-        expect(hero!.resolvedSrc.startsWith("placeholder://")).toBe(true);
-      } finally {
-        if (prevCdn === undefined) {
-          delete process.env.STUDIO_ASSETS_CDN_BASE;
-        } else {
-          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
-        }
-      }
+    it("returns the first image with src, alt, and a fetchable resolved URL", () => {
+      // C3.1 follow-up: resolveAssetUrl always returns a fetchable URL
+      // (the asset proxy is the universal fallback), so the placeholder
+      // flag is only true for empty inputs.
+      const hero = extractHeroImage([
+        {
+          src: "stores/fanaa/p/a.webp",
+          alt: { ar: "أ", en: "A" },
+          width: 1200,
+          height: 1500,
+        },
+        {
+          src: "stores/fanaa/p/b.webp",
+          alt: { ar: "ب", en: "B" },
+          width: 1200,
+          height: 1500,
+        },
+      ]);
+      expect(hero).not.toBeNull();
+      expect(hero!.src).toBe("stores/fanaa/p/a.webp");
+      expect(hero!.alt.en).toBe("A");
+      expect(hero!.placeholder).toBe(false);
+      // R2 key → asset-proxy URL (basePath-aware).
+      expect(hero!.resolvedSrc).toMatch(
+        /\/api\/studio\/media\/stores\/fanaa\/p\/a\.webp$/,
+      );
     });
 
-    it("uses the CDN base when configured (placeholder=false)", () => {
-      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
-      process.env.STUDIO_ASSETS_CDN_BASE = "https://cdn.example.com";
-      try {
-        const hero = extractHeroImage([
-          {
-            src: "stores/fanaa/p/a.webp",
-            alt: { ar: "أ", en: "A" },
-            width: 1200,
-            height: 1500,
-          },
-        ]);
-        expect(hero!.placeholder).toBe(false);
-        expect(hero!.resolvedSrc).toBe(
-          "https://cdn.example.com/stores/fanaa/p/a.webp",
-        );
-      } finally {
-        if (prevCdn === undefined) {
-          delete process.env.STUDIO_ASSETS_CDN_BASE;
-        } else {
-          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
-        }
-      }
+    it("passes absolute URLs through unchanged", () => {
+      const hero = extractHeroImage([
+        {
+          src: "https://cdn.example.com/stores/fanaa/p/a.webp",
+          alt: { ar: "أ", en: "A" },
+          width: 1200,
+          height: 1500,
+        },
+      ]);
+      expect(hero!.placeholder).toBe(false);
+      expect(hero!.resolvedSrc).toBe(
+        "https://cdn.example.com/stores/fanaa/p/a.webp",
+      );
     });
   });
 
@@ -353,33 +338,28 @@ describe("product-loader", () => {
     });
 
     it("picks meta.ogImage as the hero thumbnail when present", () => {
-      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
-      delete process.env.STUDIO_ASSETS_CDN_BASE;
-      try {
-        const summary = mapPublishedToSummary(
-          makeItem({
-            document: {
-              version: 1 as const,
-              meta: {
-                title: { en: "X" },
-                slug: "x",
-                ogImage: "stores/fanaa/p/x-og.webp",
-                keywords: [],
-              },
-              sections: [],
+      const summary = mapPublishedToSummary(
+        makeItem({
+          document: {
+            version: 1 as const,
+            meta: {
+              title: { en: "X" },
+              slug: "x",
+              ogImage: "stores/fanaa/p/x-og.webp",
+              keywords: [],
             },
-          }),
-          "beauty_wellness",
-        );
-        expect(summary.heroImage?.src).toBe("stores/fanaa/p/x-og.webp");
-        expect(summary.heroImage?.placeholder).toBe(true);
-      } finally {
-        if (prevCdn === undefined) {
-          delete process.env.STUDIO_ASSETS_CDN_BASE;
-        } else {
-          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
-        }
-      }
+            sections: [],
+          },
+        }),
+        "beauty_wellness",
+      );
+      // C3.1 follow-up: ogImage now flows through the asset proxy so
+      // the card actually renders a thumbnail.
+      expect(summary.heroImage?.src).toBe("stores/fanaa/p/x-og.webp");
+      expect(summary.heroImage?.placeholder).toBe(false);
+      expect(summary.heroImage?.resolvedSrc).toMatch(
+        /\/api\/studio\/media\/stores\/fanaa\/p\/x-og\.webp$/,
+      );
     });
 
     it("falls back to the first hero section's desktop media", () => {

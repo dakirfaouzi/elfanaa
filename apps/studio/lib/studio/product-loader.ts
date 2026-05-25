@@ -11,7 +11,7 @@ import type { PublishedProductBundle } from "@platform/publishers";
 import type { DraftDocument } from "@platform/builder-schema";
 import { listStores, getStore } from "@platform/stores";
 import { productsRoot } from "./paths";
-import { resolveImageUrl } from "./preview-props";
+import { resolveAssetUrl, isFetchableAssetUrl } from "./asset-url";
 import { listPublishedProducts, type PublishedListItem } from "./drafts-service";
 
 /**
@@ -79,14 +79,15 @@ export interface ProductSummaryHero {
   /** Original `images[0].src` — the on-disk key. Surfaced so the UI
    *  can show it as a forensic label when the asset host is offline. */
   src: string;
-  /** `resolveImageUrl(src)` — already CDN-prefixed when one is set,
-   *  or a `placeholder://...` token otherwise. Pass straight to the
-   *  existing `<PreviewImage>` component. */
+  /** `resolveAssetUrl(src)` — an absolute URL, a data:/blob: URL, or a
+   *  proxied `/api/studio/media/<key>` URL the browser can fetch
+   *  directly. Pass straight to the existing `<PreviewImage>`
+   *  component. Empty string when the source had no resolvable URL. */
   resolvedSrc: string;
   /** Original bilingual alt text from the bundle. */
   alt: { ar: string; en: string };
-  /** True when `resolvedSrc` is a `placeholder://` token — the UI
-   *  uses this to switch to the styled "asset pending" fallback. */
+  /** True when `resolvedSrc` is empty / not browser-fetchable — the
+   *  UI uses this to switch to the styled "asset pending" fallback. */
   placeholder: boolean;
 }
 
@@ -382,12 +383,17 @@ function extractHeroFromDocument(
 ): ProductSummaryHero | null {
   const src = pickDocumentHeroSrc(doc);
   if (!src) return null;
-  const resolved = resolveImageUrl(src);
+  // C3.1 follow-up: DB-published documents carry R2 keys in
+  // `desktopSrc` (and in `meta.ogImage` for operator overrides).
+  // Route them through the asset proxy so the catalog card actually
+  // renders a thumbnail instead of falling through to the legacy
+  // `placeholder://` sentinel.
+  const resolved = resolveAssetUrl(src);
   return {
     src,
     resolvedSrc: resolved,
     alt: { ar: "", en: doc.meta.title.en ?? "" },
-    placeholder: resolved.startsWith("placeholder://"),
+    placeholder: !isFetchableAssetUrl(resolved),
   };
 }
 
@@ -414,10 +420,10 @@ function pickDocumentHeroSrc(doc: DraftDocument): string | null {
  *
  * # Why a separate helper (and not inline in listProducts)
  *
- * The placeholder semantics — `resolveImageUrl()` may return a
- * `placeholder://...` token when the CDN isn't configured — need to
- * be threaded through to the UI so the products card can render the
- * styled "asset pending" placeholder instead of a broken `<img>`.
+ * The placeholder semantics — `resolveAssetUrl()` may return an empty
+ * string when no fetchable URL can be constructed — need to be threaded
+ * through to the UI so the products card can render the styled
+ * "asset pending" placeholder instead of a broken `<img>`.
  * Encapsulating the extraction in one function keeps that logic
  * close to the schema and lets a future caller (e.g. a search-by-
  * image surface) reuse it without copying.
@@ -427,12 +433,16 @@ export function extractHeroImage(
 ): ProductSummaryHero | null {
   if (!images || images.length === 0) return null;
   const hero = images[0]!;
-  const resolved = resolveImageUrl(hero.src);
+  // C3.1 follow-up: FS-backed bundles store the same R2 key shape the
+  // intake uploader emits. Route them through the asset proxy so the
+  // catalog card always renders a real thumbnail (no more "ASSET
+  // PENDING" for any source).
+  const resolved = resolveAssetUrl(hero.src);
   return {
     src: hero.src,
     resolvedSrc: resolved,
     alt: hero.alt,
-    placeholder: resolved.startsWith("placeholder://"),
+    placeholder: !isFetchableAssetUrl(resolved),
   };
 }
 

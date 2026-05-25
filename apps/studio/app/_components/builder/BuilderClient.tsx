@@ -25,6 +25,7 @@ import { SectionEditor, sectionKindLabel } from "./editors";
 import { RelativeTime } from "../RelativeTime";
 import { studioPath } from "@/lib/base-path";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
+import { resolveDocumentSrcs } from "@/lib/studio/resolve-document-srcs";
 
 /**
  * BuilderClient — the top-level client component the
@@ -717,10 +718,20 @@ function PublishIssuesList(props: { issues: PublishIssue[] }) {
 // ─────────────────────────────────────────────────────────────────────────
 
 function PreviewPane(props: { document: DraftDocument; primary: "ar" | "en" }) {
+  // Resolve R2 keys → asset-proxy URLs before rendering so the preview
+  // pane mirrors what the storefront serves. Memoised on the document
+  // reference so the walker only re-runs when the operator actually
+  // edits a section (every keystroke produces a new doc reference via
+  // the reducer's immutable updates, but the walk is O(sections) and
+  // negligible for typical 10-section drafts).
+  const resolved = useMemo(
+    () => resolveDocumentSrcs(props.document),
+    [props.document],
+  );
   return (
     <div style={{ position: "sticky", top: 60, alignSelf: "start" }}>
       <div className="preview-frame">
-        <DraftRenderer document={props.document} primary={props.primary} />
+        <DraftRenderer document={resolved} primary={props.primary} />
       </div>
     </div>
   );

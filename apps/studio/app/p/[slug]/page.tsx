@@ -7,6 +7,7 @@ import {
   getDraft,
 } from "@/lib/studio/drafts-service";
 import { fanaaStore } from "@platform/stores";
+import { resolveDocumentSrcs } from "@/lib/studio/resolve-document-srcs";
 
 /**
  * /p/[slug] — Studio storefront runtime renderer.
@@ -58,7 +59,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const resolved = await resolveDocument({ slug, preview: !!sp.preview, draftId: sp.draftId });
   if (!resolved) return { robots: { index: false, follow: false } };
 
-  const md = buildPageMetadata(resolved.document, { primary });
+  // Resolve media srcs (notably `meta.ogImage` / first hero media) so
+  // the OG card surfaces a real URL instead of a raw R2 key.
+  const md = buildPageMetadata(resolveDocumentSrcs(resolved.document), {
+    primary,
+  });
   return {
     title: md.title || slug,
     description: md.description,
@@ -105,7 +110,13 @@ export default async function PSlugPage(props: PageProps) {
           Preview mode — this is a DRAFT (not yet published).
         </div>
       ) : null}
-      <DraftRenderer document={resolved.document} primary={primary} />
+      {/* C3.1 follow-up: route media srcs through the asset proxy so
+          R2-keyed `desktopSrc` values resolve to real, fetchable URLs.
+          See `apps/studio/lib/studio/asset-url.ts` for the rationale. */}
+      <DraftRenderer
+        document={resolveDocumentSrcs(resolved.document)}
+        primary={primary}
+      />
     </article>
   );
 }
