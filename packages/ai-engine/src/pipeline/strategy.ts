@@ -49,7 +49,19 @@ export async function strategy(
     storeId: opts.storeConfig.id,
     runId: opts.runId,
     temperature: 0.7,
-    maxTokens: 2_500,
+    // Sized for the worst-case schema: heroPromise + persona +
+    // 3–8 bilingual benefit angles (title + body) + 2–7 bilingual
+    // objections + 3–8 ad angles. Empirical truncation observed in
+    // `run_mplsmk2g_h0x4h8i0`: 2_500 cap was insufficient on a rich
+    // amazon.com supplement page — the model hit `stop_reason =
+    // max_tokens` mid-JSON, surfacing as `anthropic_response_truncated`.
+    // Mirrors the same fix social-proof received after its own
+    // truncation incident: Arabic glyphs cost 2-4 tokens each in
+    // Claude's BPE, so 6_000 tokens ≈ 4_000-6_000 Arabic chars +
+    // structural overhead, giving ~2x headroom over the observed
+    // truncation point while staying well under Sonnet 4.6's 8K
+    // output ceiling.
+    maxTokens: 6_000,
   });
 }
 

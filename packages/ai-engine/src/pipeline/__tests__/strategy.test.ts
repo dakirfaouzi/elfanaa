@@ -134,4 +134,25 @@ describe("strategy (stage 04)", () => {
     expect(t.calls[0].prompt).toContain("emotional_transformation");
     expect(t.calls[0].prompt).toContain("ingredient_authority");
   });
+
+  it("uses a maxTokens cap large enough for the worst-case bilingual schema", async () => {
+    // Regression guard for the 2026-05-25 truncation in
+    // `run_mplsmk2g_h0x4h8i0` (anthropic_response_truncated, model=
+    // claude-sonnet-4-6, output_tokens=2500). The previous 2_500 cap
+    // was insufficient for rich amazon.com supplement strategies once
+    // Arabic glyphs (2-4 tokens each in Claude's BPE) populated every
+    // bilingual field. Raising the cap mirrors the social-proof
+    // stage's earlier fix; this test locks the value so it can't drift
+    // back down without a deliberate change + comment update.
+    const t = mockText({ responses: [textResult(goodStrategy)] });
+
+    await strategy({
+      input: { supplierUrl: "https://supplier.example/p/1" },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_strategy_5",
+    });
+
+    expect(t.calls[0].maxTokens).toBe(6_000);
+  });
 });
