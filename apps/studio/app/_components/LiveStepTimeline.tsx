@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { StepStatusBadge, RunStatusBadge } from "./StatusBadge";
+import { RunProgress } from "./RunProgress";
+import {
+  STAGE_LABELS,
+  type PipelineStage,
+} from "@/lib/studio/pipeline-stages";
 import type { RunRecord, RunStatus, StepRecord } from "@platform/ingest";
 
 /**
@@ -30,6 +36,15 @@ import type { RunRecord, RunStatus, StepRecord } from "@platform/ingest";
  * (we don't set one, so the browser's default ~3000ms applies). Our
  * server-side watcher is idempotent — duplicate steps are deduped by
  * comparing `seq` against `lastSeq`.
+ *
+ * # Terminal → router.refresh (C1)
+ *
+ * When the SSE channel emits `terminal`, we close the EventSource AND
+ * trigger `router.refresh()`. The server-rendered header re-runs and
+ * picks up the persisted `draftId` from `readRun`, which lets the
+ * "Open draft" bridge appear without the operator needing to F5. The
+ * refresh is cheap (no full reload, no remount of this client tree)
+ * and idempotent on a terminal run.
  */
 export function LiveStepTimeline(props: {
   runId: string;
@@ -38,6 +53,7 @@ export function LiveStepTimeline(props: {
    *  an HTTP roundtrip on permalinked completed runs. */
   terminal: boolean;
 }) {
+  const router = useRouter();
   const [steps, setSteps] = useState<StepRecord[]>(props.initialRun.steps);
   const [status, setStatus] = useState<RunStatus>(props.initialRun.status);
   const [errorMessage, setErrorMessage] = useState<string | undefined>(
@@ -48,6 +64,10 @@ export function LiveStepTimeline(props: {
   );
   const [streamError, setStreamError] = useState<string | null>(null);
   const lastSeqRef = useRef<number>(-1);
+  // Guard against running `router.refresh()` more than once per
+  // mount — `terminal` events should be one-shot but a wedged SSE
+  // server (or a manual replay POST mid-stream) could fire two.
+  const refreshedRef = useRef(false);
 
   useEffect(() => {
     if (props.terminal) return;
@@ -90,6 +110,13 @@ export function LiveStepTimeline(props: {
         setErrorMessage(run.errorMessage);
       }
       src.close();
+      // Surface the new draftId / finalProduct in the server-rendered
+      // header without a hard reload. Guarded so a duplicate terminal
+      // event doesn't double-refresh.
+      if (!refreshedRef.current) {
+        refreshedRef.current = true;
+        router.refresh();
+      }
     };
 
     src.addEventListener("snapshot", onSnapshot as EventListener);
@@ -111,19 +138,24 @@ export function LiveStepTimeline(props: {
     return () => {
       src.close();
     };
-  }, [props.runId, props.terminal]);
+  }, [props.runId, props.terminal, router]);
 
   return (
     <section className="section-card">
       <header style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <span className="section-eyebrow">Live timeline</span>
           <RunStatusBadge status={status} />
         </div>
-        <span className="text-faint" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+        <span
+          className="text-faint"
+          style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}
+        >
           {steps.length} step{steps.length === 1 ? "" : "s"} · ${totalCostUsd.toFixed(4)}
         </span>
       </header>
+
+      <RunProgress steps={steps} status={status} />
 
       {streamError && (
         <div style={{ fontSize: 12, color: "var(--warning)" }}>
@@ -133,36 +165,12 @@ export function LiveStepTimeline(props: {
 
       <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
         {steps.length === 0 && (
-          <li className="text-dim" style={{ fontSize: 13 }}>
+          <li className="text-dim" style={{ fontSize: 13, fontStyle: "italic" }}>
             Waiting for the first stage to complete…
           </li>
         )}
         {steps.map((s, i) => (
-          <li
-            key={`${s.stage}-${i}-${s.finishedAt}`}
-            style={{
-              background: "var(--bg-elev)",
-              border: "1px solid var(--border)",
-              borderRadius: 10,
-              padding: 12,
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}
-          >
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <StepStatusBadge status={s.status} />
-              <strong>{s.stage}</strong>
-              <span className="text-faint" style={{ fontSize: 12 }}>
-                {s.durationMs}ms · attempts {s.attempts} · ${s.costUsd.toFixed(4)}
-              </span>
-            </div>
-            {s.errorMessage && (
-              <div style={{ fontSize: 12, color: "var(--danger)" }}>
-                [{s.errorKind ?? "error"}] {s.errorMessage}
-              </div>
-            )}
-          </li>
+          <LiveStepRow key={`${s.stage}-${i}-${s.finishedAt}`} step={s} />
         ))}
       </ol>
 
@@ -181,6 +189,51 @@ export function LiveStepTimeline(props: {
       )}
     </section>
   );
+}
+
+function LiveStepRow({ step }: { step: StepRecord }) {
+  const label = isKnownStage(step.stage)
+    ? STAGE_LABELS[step.stage]
+    : step.stage;
+  return (
+    <li
+      style={{
+        background: "var(--bg-elev)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        padding: "10px 12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        transition: "border-color var(--transition-fast) var(--ease-out)",
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <StepStatusBadge status={step.status} />
+        <strong style={{ fontSize: 13, letterSpacing: "-0.01em" }}>{label}</strong>
+        <span
+          className="text-faint"
+          style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
+        >
+          {step.durationMs}ms · attempts {step.attempts} · ${step.costUsd.toFixed(4)}
+        </span>
+        {label !== step.stage && (
+          <code className="code" style={{ fontSize: 10, color: "var(--text-faint)" }}>
+            {step.stage}
+          </code>
+        )}
+      </div>
+      {step.errorMessage && (
+        <div style={{ fontSize: 12, color: "var(--danger)" }}>
+          [{step.errorKind ?? "error"}] {step.errorMessage}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function isKnownStage(stage: string): stage is PipelineStage {
+  return stage in STAGE_LABELS;
 }
 
 function safeParse(raw: unknown): Record<string, unknown> | null {

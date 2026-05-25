@@ -93,6 +93,17 @@ select:focus {
 
 ::selection { background: color-mix(in oklab, var(--accent) 35%, transparent); }
 
+/* C1 — used by `<RunProgress />` to mark the currently-running pipeline
+   stage. The blanket `prefers-reduced-motion` rule below already kills
+   this for accessibility-sensitive users, so the keyframe is safe to
+   author without a media-query gate. Keeps the visual lift subtle —
+   opacity + 1px scale so the pip glows but never jumps the layout. */
+@keyframes intake-stage-pulse {
+  0%   { opacity: 1;    transform: scaleY(1);    }
+  50%  { opacity: 0.55; transform: scaleY(1.05); }
+  100% { opacity: 1;    transform: scaleY(1);    }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

@@ -107,7 +107,27 @@ const RunRecordSchema: z.ZodType<RunRecord> = z.object({
 /* ─── Result types — unchanged from M9 ───────────────────────────────── */
 
 export type RunLoadResult =
-  | { status: "ok"; run: RunRecord; filePath: string }
+  | {
+      status: "ok";
+      run: RunRecord;
+      filePath: string;
+      /**
+       * Owning draft's ID, when persistence is DB-backed and the run
+       * row carries it. Optional + nullable so:
+       *   • Filesystem-only runs (pre-M13) read `undefined`.
+       *   • Future runs that pre-date the draft-seeding flow read
+       *     `undefined`.
+       *   • The UI uses `typeof draftId === "string"` to decide
+       *     whether to render the "Open draft" bridge — absence is
+       *     not an error.
+       *
+       * Additive field — every existing caller ignores it without
+       * change. Introduced in C1 (run-detail polish) so the run page
+       * can deep-link the operator straight into the builder once
+       * the pipeline completes.
+       */
+      draftId?: string | null;
+    }
   | { status: "not_found"; runId: string }
   | {
       status: "corrupted";
@@ -208,7 +228,14 @@ async function readRunFromDb(runId: string): Promise<RunLoadResult | null> {
   }
   if (!row) return null;
   const record = runRowToRecord(row);
-  return { status: "ok", run: record, filePath: dbFilePathLabel(runId) };
+  // Surface the persisted draftId so the page can render an "Open
+  // draft" bridge. Filesystem-only fallback runs leave it undefined.
+  return {
+    status: "ok",
+    run: record,
+    filePath: dbFilePathLabel(runId),
+    draftId: row.draftId ?? null,
+  };
 }
 
 /**

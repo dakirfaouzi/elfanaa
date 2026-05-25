@@ -105,19 +105,28 @@ export function ReplayRunButton({ runId }: { runId: string }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={onClick}
           disabled={busy}
           className="btn btn-accent"
-          style={{ cursor: busy ? "wait" : "pointer" }}
+          style={{
+            cursor: busy ? "wait" : "pointer",
+            minHeight: 38,
+            fontWeight: 600,
+          }}
         >
           {busy ? "Replaying…" : "Replay run"}
         </button>
-        <span className="text-faint" style={{ fontSize: 12 }}>
-          POST /api/studio/runs/{runId}/replay (programmatic API also available)
-        </span>
+        {busy && (
+          <span
+            className="text-faint"
+            style={{ fontSize: 12, fontStyle: "italic" }}
+          >
+            Re-running the pipeline — this can take a minute or two…
+          </span>
+        )}
       </div>
 
       {result && <ReplayResultPanel result={result} />}
@@ -175,9 +184,9 @@ function ReplayResultPanel({ result }: { result: ReplayResult }) {
           fontSize: 13,
         }}
       >
-        <strong>Provider keys missing.</strong> {result.reason}
+        <strong>Provider credentials missing.</strong> {result.reason}
         <div className="text-faint" style={{ marginTop: 6, fontSize: 12 }}>
-          Set the required env vars on the elfanaa_studio service and redeploy.
+          Add the required keys in the Studio environment configuration, then redeploy.
         </div>
       </div>
     );
