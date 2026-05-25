@@ -5,8 +5,10 @@ import {
   extractHeroImage,
   listProducts,
   listPublishedStores,
+  mapPublishedToSummary,
   readProduct,
 } from "../lib/studio/product-loader";
+import type { PublishedListItem } from "../lib/studio/drafts-service";
 import {
   makeTempPlatformData,
   fixturePublishedBundle,
@@ -47,19 +49,33 @@ describe("product-loader", () => {
   });
 
   describe("listPublishedStores", () => {
-    it("returns [] when .platform-data/products/ does not exist", async () => {
-      // We're using a fresh temp; the helper made the dirs but we
-      // delete `products/` here so the loader sees ENOENT explicitly.
+    // C3.1 — listPublishedStores now UNIONS FS dirs with the
+    // `@platform/stores` registry's `live` stores. The registry
+    // shipped today contains only "fanaa". When the FS root is
+    // missing entirely the registry still contributes "fanaa" so
+    // the catalog enumerates the store even before its first
+    // FS-backed publish.
+    it("returns the registry's live stores when no FS root exists", async () => {
       await fs.rm(temp.productsRoot, { recursive: true, force: true });
       const stores = await listPublishedStores();
-      expect(stores).toEqual([]);
+      expect(stores).toContain("fanaa");
     });
 
-    it("lists every immediate subdirectory under products/", async () => {
+    it("unions FS subdirectories with the registry live stores", async () => {
       await fs.mkdir(path.join(temp.productsRoot, "fanaa"), { recursive: true });
-      await fs.mkdir(path.join(temp.productsRoot, "trendora"), { recursive: true });
+      await fs.mkdir(path.join(temp.productsRoot, "trendora"), {
+        recursive: true,
+      });
       const stores = await listPublishedStores();
+      // Sorted, deduped union.
       expect(stores).toEqual(["fanaa", "trendora"]);
+    });
+
+    it("dedupes when a registry store is also present on disk", async () => {
+      await fs.mkdir(path.join(temp.productsRoot, "fanaa"), { recursive: true });
+      const stores = await listPublishedStores();
+      // No duplicate "fanaa".
+      expect(stores.filter((s) => s === "fanaa")).toHaveLength(1);
     });
   });
 
@@ -257,6 +273,172 @@ describe("product-loader", () => {
           process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
         }
       }
+    });
+  });
+
+  /*
+   * C3.1 — `mapPublishedToSummary` is the adapter that turns a
+   * DB-backed published row + parsed DraftDocument into the
+   * `ProductSummary` shape the products card consumes.
+   *
+   * The function is pure, so we test it directly without any DB
+   * plumbing.
+   */
+  describe("mapPublishedToSummary", () => {
+    function makeItem(over: Partial<PublishedListItem> = {}): PublishedListItem {
+      const baseRow = {
+        id: "pp_abc",
+        draftId: "draft_xyz",
+        storeId: "fanaa",
+        slug: "glow-care-serum",
+        version: 1,
+        isCurrent: true,
+        document: { version: 1, meta: {}, sections: [] },
+        publishedBy: "studio_ui",
+        publishedAt: new Date("2026-05-25T10:00:00Z"),
+      };
+      const baseDocument = {
+        version: 1 as const,
+        meta: {
+          title: { ar: "سيروم", en: "Glow serum" },
+          slug: "glow-care-serum",
+          keywords: [] as string[],
+        },
+        sections: [],
+      };
+      return {
+        row: { ...baseRow, ...(over.row ?? {}) },
+        document: over.document === undefined ? baseDocument : over.document,
+        documentInvalid: over.documentInvalid ?? false,
+      };
+    }
+
+    it("stamps source='db' and uses the row id as productId", () => {
+      const summary = mapPublishedToSummary(makeItem(), "beauty_wellness");
+      expect(summary.source).toBe("db");
+      // The card click destination has to be derivable from
+      // productId in legacy contexts, but for DB rows we link by
+      // slug instead — productId still carries the row id so the
+      // UI can show it for forensics.
+      expect(summary.productId).toBe("pp_abc");
+      expect(summary.storeId).toBe("fanaa");
+      expect(summary.slug).toBe("glow-care-serum");
+      expect(summary.niche).toBe("beauty_wellness");
+    });
+
+    it("extracts the bilingual title from document.meta.title", () => {
+      const summary = mapPublishedToSummary(makeItem(), "beauty_wellness");
+      expect(summary.title.en).toBe("Glow serum");
+      expect(summary.title.ar).toBe("سيروم");
+    });
+
+    it("publishedAt is serialised as an ISO-8601 string", () => {
+      const summary = mapPublishedToSummary(makeItem(), "beauty_wellness");
+      expect(summary.publishedAt).toBe("2026-05-25T10:00:00.000Z");
+    });
+
+    it("returns a corrupted card when documentInvalid is true", () => {
+      const summary = mapPublishedToSummary(
+        makeItem({ document: null, documentInvalid: true }),
+        "beauty_wellness",
+      );
+      expect(summary.corrupted?.reason).toBe("document_schema_invalid");
+      expect(summary.heroImage).toBeNull();
+      expect(summary.title.en).toBe(summary.slug);
+    });
+
+    it("falls back to a 'no image' result when the document has no media", () => {
+      const summary = mapPublishedToSummary(makeItem(), "beauty_wellness");
+      expect(summary.heroImage).toBeNull();
+    });
+
+    it("picks meta.ogImage as the hero thumbnail when present", () => {
+      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
+      delete process.env.STUDIO_ASSETS_CDN_BASE;
+      try {
+        const summary = mapPublishedToSummary(
+          makeItem({
+            document: {
+              version: 1 as const,
+              meta: {
+                title: { en: "X" },
+                slug: "x",
+                ogImage: "stores/fanaa/p/x-og.webp",
+                keywords: [],
+              },
+              sections: [],
+            },
+          }),
+          "beauty_wellness",
+        );
+        expect(summary.heroImage?.src).toBe("stores/fanaa/p/x-og.webp");
+        expect(summary.heroImage?.placeholder).toBe(true);
+      } finally {
+        if (prevCdn === undefined) {
+          delete process.env.STUDIO_ASSETS_CDN_BASE;
+        } else {
+          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
+        }
+      }
+    });
+
+    it("falls back to the first hero section's desktop media", () => {
+      const summary = mapPublishedToSummary(
+        makeItem({
+          document: {
+            version: 1 as const,
+            meta: {
+              title: { en: "X" },
+              slug: "x",
+              keywords: [],
+            },
+            sections: [
+              {
+                id: "sec_1",
+                kind: "hero",
+                enabled: true,
+                title: { en: "Hero" },
+                media: {
+                  kind: "image",
+                  desktopSrc: "stores/fanaa/p/hero.webp",
+                  alt: "",
+                },
+                align: "center",
+              },
+            ],
+          },
+        }),
+        "beauty_wellness",
+      );
+      expect(summary.heroImage?.src).toBe("stores/fanaa/p/hero.webp");
+    });
+
+    it("falls back to the first gallery item when no hero media exists", () => {
+      const summary = mapPublishedToSummary(
+        makeItem({
+          document: {
+            version: 1 as const,
+            meta: { title: { en: "X" }, slug: "x", keywords: [] },
+            sections: [
+              {
+                id: "sec_g",
+                kind: "image_gallery",
+                enabled: true,
+                items: [
+                  {
+                    kind: "image",
+                    desktopSrc: "stores/fanaa/p/g1.webp",
+                    alt: "",
+                  },
+                ],
+                columns: 3,
+              },
+            ],
+          },
+        }),
+        "beauty_wellness",
+      );
+      expect(summary.heroImage?.src).toBe("stores/fanaa/p/g1.webp");
     });
   });
 });

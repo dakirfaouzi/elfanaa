@@ -242,7 +242,17 @@ function StoreSection(props: { storeId: string; products: ProductSummary[] }) {
 
 function ProductCard({ product }: { product: ProductSummary }) {
   const isCorrupted = Boolean(product.corrupted);
-  const href = `/products/${encodeURIComponent(product.storeId)}/${encodeURIComponent(product.productId)}`;
+  // C3.1 — the legacy detail page (/products/[storeId]/[productId])
+  // only knows how to read FS-backed bundles. DB-published products
+  // (M11 publish-from-builder flow) live in `studio_published_product`
+  // and don't have a detail-page reader, so we link them directly to
+  // the storefront route (`/p/<slug>`) on the Studio domain. Next.js
+  // auto-prefixes basePath on <Link>, so under /studio this resolves
+  // to /studio/p/<slug> without any extra wiring.
+  const isDbSourced = product.source === "db";
+  const href = isDbSourced
+    ? `/p/${encodeURIComponent(product.slug)}`
+    : `/products/${encodeURIComponent(product.storeId)}/${encodeURIComponent(product.productId)}`;
   const displayTitle =
     product.title.en || product.title.ar || product.slug || product.productId;
   const arabicTitle =

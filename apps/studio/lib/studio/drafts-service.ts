@@ -465,3 +465,73 @@ export async function findCurrentPublished(args: {
   }
   return { ok: true, value: { row, document: parsed.data } };
 }
+
+/**
+ * Shape returned to the products-list catalog browser. One entry per
+ * `isCurrent=true` `studio_published_product` row for the store.
+ *
+ * `document` is the parsed `DraftDocument` (already schema-validated
+ * here) so callers can pull the title, ogImage, and any section
+ * details without re-running `DraftDocumentSchema.safeParse()`.
+ *
+ * `documentInvalid` is set when the on-row JSON failed the Zod
+ * schema. We still surface the row so it doesn't silently disappear
+ * from the operator's catalog — the loader maps it to a "corrupted"
+ * card the same way the legacy filesystem path does.
+ */
+export interface PublishedListItem {
+  row: StudioPublishedProductRow;
+  document: DraftDocument | null;
+  documentInvalid: boolean;
+}
+
+/**
+ * List every current published row for a store, parsed for catalog
+ * display.
+ *
+ * # Why this exists
+ *
+ * C3 polished the `/products` surface but the page was reading
+ * `.platform-data/products/<storeId>/*.json` — the legacy M7
+ * `FanaaPublisher` CLI artifact path. The M11 publish flow writes to
+ * `studio_published_product` (DB) instead, which left every newly-
+ * published product invisible to the catalog. This helper is the
+ * DB side of the C3.1 UNION-read fix.
+ *
+ * # Degradation
+ *
+ *   • File-only mode → returns `mode_unavailable`. The product-loader
+ *     treats that as "no DB rows" and falls back to the FS-only path.
+ *   • DB exception → propagated so the caller surfaces it in
+ *     diagnostics instead of silently hiding products.
+ */
+export async function listPublishedProducts(args: {
+  storeId: string;
+  take?: number;
+}): Promise<DraftServiceResult<PublishedListItem[]>> {
+  const persistence = getStudioPersistence();
+  if (!persistence.repositories) {
+    return { ok: false, code: "mode_unavailable" };
+  }
+  let rows: StudioPublishedProductRow[];
+  try {
+    rows = await persistence.repositories.published.listCurrent(args);
+  } catch (err) {
+    return {
+      ok: false,
+      code: "internal",
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const items: PublishedListItem[] = rows.map((row) => {
+    const parsed = DraftDocumentSchema.safeParse(row.document);
+    if (parsed.success) {
+      return { row, document: parsed.data, documentInvalid: false };
+    }
+    // Surface schema-invalid rows so the catalog flags them rather
+    // than hiding them. The product-loader maps `documentInvalid`
+    // onto a "corrupted" card.
+    return { row, document: null, documentInvalid: true };
+  });
+  return { ok: true, value: items };
+}

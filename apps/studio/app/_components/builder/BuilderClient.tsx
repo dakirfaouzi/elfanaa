@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import Link from "next/link";
 import {
   SECTION_LABELS,
   makeBlankSection,
@@ -346,14 +347,21 @@ function Toolbar(props: {
         <option value="ar">عربي</option>
         <option value="en">English</option>
       </select>
-      <a
+      {/*
+       * Next.js Link is required here — raw <a href="/p/<slug>"> is
+       * NOT prefixed with the Studio basePath, so on deployments
+       * mounted under "/studio" the browser opens "/p/<slug>" at the
+       * domain root and 404s. Same class of bug as the C1.1 SSE wedge.
+       * `<Link>` auto-prefixes basePath; `target="_blank"` still works.
+       */}
+      <Link
         className="btn btn-small"
         href={`/p/${encodeURIComponent(props.slug)}`}
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
       >
         Open preview ↗
-      </a>
+      </Link>
       <button
         type="button"
         className="btn btn-accent"

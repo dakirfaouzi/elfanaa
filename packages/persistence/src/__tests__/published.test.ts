@@ -100,4 +100,61 @@ describe("StudioPublishedProductRepository", () => {
       }),
     ).rejects.toMatchObject({ kind: "conflict" });
   });
+
+  // C3.1 — listCurrent powers /products by surfacing every isCurrent
+  // row for a store. The query MUST: (a) filter on isCurrent=true so
+  // dethroned versions stay hidden, (b) sort by publishedAt DESC so
+  // the catalog reads "newest first", (c) clamp `take` to a sane
+  // ceiling to keep a runaway list bounded.
+  it("listCurrent returns isCurrent rows ordered by publishedAt desc", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    const rows = [
+      makeRow({
+        id: "pp_2",
+        slug: "newer",
+        publishedAt: new Date("2026-05-25T10:00:00Z"),
+      }),
+      makeRow({
+        id: "pp_1",
+        slug: "older",
+        publishedAt: new Date("2026-05-22T10:00:00Z"),
+      }),
+    ];
+    spies.studioPublishedProduct.findMany.mockResolvedValueOnce(rows);
+    const repo = new StudioPublishedProductRepository({ prisma });
+    const result = await repo.listCurrent({ storeId: "fanaa" });
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.slug).toBe("newer");
+    const callArgs = spies.studioPublishedProduct.findMany.mock.calls[0][0] as {
+      where: { storeId: string; isCurrent: boolean };
+      orderBy: { publishedAt: string };
+      take: number;
+    };
+    expect(callArgs.where).toEqual({ storeId: "fanaa", isCurrent: true });
+    expect(callArgs.orderBy).toEqual({ publishedAt: "desc" });
+    expect(callArgs.take).toBe(200);
+  });
+
+  it("listCurrent clamps `take` to 500", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.studioPublishedProduct.findMany.mockResolvedValueOnce([]);
+    const repo = new StudioPublishedProductRepository({ prisma });
+    await repo.listCurrent({ storeId: "fanaa", take: 5_000 });
+    const callArgs = spies.studioPublishedProduct.findMany.mock.calls[0][0] as {
+      take: number;
+    };
+    expect(callArgs.take).toBe(500);
+  });
+
+  it("listCurrent maps DB errors to PersistenceError{unknown}", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.studioPublishedProduct.findMany.mockRejectedValueOnce(
+      new Error("conn lost"),
+    );
+    const repo = new StudioPublishedProductRepository({ prisma });
+    await expect(repo.listCurrent({ storeId: "fanaa" })).rejects.toMatchObject({
+      kind: "unknown",
+    });
+  });
 });

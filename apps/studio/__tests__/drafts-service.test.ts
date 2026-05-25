@@ -7,6 +7,7 @@ import {
   createDraft,
   getDraft,
   listDrafts,
+  listPublishedProducts,
   normaliseSlug,
   publishDraft,
   rowToListItem,
@@ -349,6 +350,39 @@ describe("drafts-service", () => {
     if (result.ok) {
       expect(result.value.record.version).toBe(1);
     }
+  });
+
+  // C3.1 — listPublishedProducts surfaces the DB-published catalog
+  // to the products list. Before this fix the products page only
+  // read FS-backed bundles, so every M11 publish was invisible.
+  it("listPublishedProducts returns mode_unavailable in file-only mode", async () => {
+    // No bootstrap → no Prisma client → no repositories.
+    const result = await listPublishedProducts({ storeId: "fanaa" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("mode_unavailable");
+    }
+  });
+
+  it("listPublishedProducts returns the rows persisted by publishDraft", async () => {
+    bootstrapPersistence();
+    const created = await createDraft({ slug: "zz", title: "ZZ" });
+    if (!created.ok) throw new Error("setup_failed");
+    await updateDraftDocument({
+      draftId: created.value.id,
+      document: createValidDocument(),
+    });
+    const publishResult = await publishDraft({ draftId: created.value.id });
+    expect(publishResult.ok).toBe(true);
+
+    const listed = await listPublishedProducts({ storeId: "fanaa" });
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    const slugs = listed.value.map((i) => i.row.slug);
+    expect(slugs).toContain("zz");
+    const item = listed.value.find((i) => i.row.slug === "zz");
+    expect(item?.documentInvalid).toBe(false);
+    expect(item?.document).not.toBeNull();
   });
 });
 

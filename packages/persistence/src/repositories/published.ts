@@ -147,6 +147,42 @@ export class StudioPublishedProductRepository {
     }
   }
 
+  /**
+   * List every current (`isCurrent=true`) published row for a store.
+   *
+   * # Why this exists
+   *
+   * The Studio products list (`/products`) needs to surface the
+   * catalog of LIVE published products. Until C3.1 the only listing
+   * came from the legacy `.platform-data/products/<storeId>/*.json`
+   * filesystem snapshots written by the M7 publisher CLI — but the
+   * M11 publish flow lands rows in this table instead. Without this
+   * method, `/products` could never see anything an operator
+   * actually published from the builder.
+   *
+   * Returns rows ordered by `publishedAt DESC` so the catalog is
+   * "newest publish first" without any post-sort on the caller side.
+   *
+   * `take` defaults to 200 (clamped to 500) — far above the
+   * single-operator scale we ship today, but bounded to keep a
+   * runaway query from materialising a multi-MB result set.
+   */
+  async listCurrent(args: {
+    storeId: string;
+    take?: number;
+  }): Promise<StudioPublishedProductRow[]> {
+    const take = Math.min(args.take ?? 200, 500);
+    try {
+      return await this.prisma.studioPublishedProduct.findMany({
+        where: { storeId: args.storeId, isCurrent: true },
+        orderBy: { publishedAt: "desc" },
+        take,
+      });
+    } catch (err) {
+      throw wrapDbError(err, "list_current_published");
+    }
+  }
+
   async findById(id: string): Promise<StudioPublishedProductRow | null> {
     try {
       return await this.prisma.studioPublishedProduct.findUnique({
