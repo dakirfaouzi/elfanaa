@@ -3,6 +3,7 @@ import Link from "next/link";
 import "@platform/runtime-renderer/css";
 import { NavBar } from "../../_components/NavBar";
 import { BuilderClient } from "../../_components/builder/BuilderClient";
+import { MetaChip } from "../../_components/MetaChip";
 import { getDraft } from "@/lib/studio/drafts-service";
 import {
   statusLabel,
@@ -182,37 +183,5 @@ export default async function DraftBuilderPage(
         />
       </main>
     </div>
-  );
-}
-
-function MetaChip({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "baseline",
-        gap: 6,
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 10,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "var(--text-faint)",
-          fontWeight: 600,
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </span>
   );
 }

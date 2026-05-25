@@ -160,6 +160,43 @@ select:focus {
   gap: 16px;
 }
 
+/* C3 — products-list card hover. Matches the rhythm we use for
+   drafts rows: subtle lift + accent-tinted border so operators get
+   immediate feedback when scanning a long list. The thumbnail picks
+   up a soft brightness bump via the nested rule below; the entire
+   card animates together (transform + border + shadow) so the
+   interaction reads as a single object, not three. */
+.product-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast) var(--ease-out),
+    transform var(--transition-fast) var(--ease-out),
+    box-shadow var(--transition-fast) var(--ease-out);
+}
+.product-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.product-card:hover .image-frame {
+  filter: brightness(1.04);
+}
+.product-card .image-frame {
+  transition: filter var(--transition-fast) var(--ease-out);
+}
+.product-card.is-corrupted:hover {
+  border-color: color-mix(in srgb, var(--danger, #c44) 35%, var(--border));
+  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--danger, #c44) 28%, transparent);
+}
+
 .kv-grid {
   display: grid;
   grid-template-columns: minmax(140px, max-content) 1fr;

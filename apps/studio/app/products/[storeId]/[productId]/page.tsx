@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { NavBar } from "@/app/_components/NavBar";
 import { CorruptedBadge, PublishedBadge } from "@/app/_components/StatusBadge";
+import { MetaChip } from "@/app/_components/MetaChip";
+import { RelativeTime } from "@/app/_components/RelativeTime";
 import { readProduct } from "@/lib/studio/product-loader";
 import {
   buildHeroProps,
@@ -131,39 +133,131 @@ function DetailHeader(props: {
   productId: string;
   bundle: NonNullable<Awaited<ReturnType<typeof readProduct>> & { status: "ok" }>["bundle"];
 }) {
+  const product = props.bundle.universalProduct;
+  const titleEn = product.title.en;
+  const titleAr = product.title.ar;
   return (
     <header
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 12,
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-lg)",
-        padding: 18,
+        padding: "22px 24px",
+        boxShadow:
+          "inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span className="text-faint" style={{ fontSize: 11 }}>
-          <Link href="/products" style={{ color: "var(--text-faint)" }}>
-            ← Products
-          </Link>
-        </span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <Link
+          href="/products"
+          style={{
+            color: "var(--text-faint)",
+            fontSize: 12,
+            transition: "color var(--transition-fast) var(--ease-out)",
+          }}
+        >
+          ← Products
+        </Link>
         <PublishedBadge />
-        <span className="tag">{props.bundle.publisher}</span>
         <span className="tag tag-accent">{props.storeId}</span>
+        <span className="tag">{props.bundle.publisher}</span>
         <span className="tag tag-info">v{props.bundle.bundleVersion}</span>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <h1 style={{ margin: 0, fontFamily: "ui-serif, Georgia, serif", fontSize: 26 }}>
-            {props.bundle.universalProduct.title.en || props.bundle.universalProduct.title.ar}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            minWidth: 0,
+            flex: "1 1 360px",
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: "ui-serif, Georgia, serif",
+              fontSize: 26,
+              letterSpacing: "-0.4px",
+              lineHeight: 1.15,
+              wordBreak: "break-word",
+            }}
+          >
+            {titleEn || titleAr || product.slug}
           </h1>
-          <code className="code" style={{ fontSize: 12 }}>
-            {props.bundle.universalProduct.id}
-          </code>
+          {titleEn && titleAr && (
+            <span
+              dir="rtl"
+              className="text-dim"
+              style={{ fontSize: 14, lineHeight: 1.35 }}
+            >
+              {titleAr}
+            </span>
+          )}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px 14px",
+              alignItems: "baseline",
+              fontSize: 12,
+              color: "var(--text-dim)",
+              marginTop: 2,
+            }}
+          >
+            <MetaChip label="Slug">
+              <code className="code" style={{ fontSize: 11 }}>
+                /p/{product.slug}
+              </code>
+            </MetaChip>
+            <MetaChip label="Id">
+              <code className="code" style={{ fontSize: 11 }}>
+                {product.id}
+              </code>
+            </MetaChip>
+            {product.niche && (
+              <MetaChip label="Niche">
+                <span style={{ fontSize: 12 }}>
+                  {product.niche.replace(/_/g, " ")}
+                </span>
+              </MetaChip>
+            )}
+            {props.bundle.publishedAt && (
+              <MetaChip label="Published">
+                <RelativeTime
+                  value={props.bundle.publishedAt}
+                  style={{ fontSize: 12 }}
+                />
+              </MetaChip>
+            )}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
           <Link
             href={`/products/${encodeURIComponent(props.storeId)}/${encodeURIComponent(props.productId)}/preview`}
             className="btn btn-accent"

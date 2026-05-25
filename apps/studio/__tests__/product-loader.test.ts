@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  extractHeroImage,
   listProducts,
   listPublishedStores,
   readProduct,
@@ -154,6 +155,108 @@ describe("product-loader", () => {
       const corrupted = list.find((p) => p.productId === "broken");
       expect(corrupted).toBeDefined();
       expect(corrupted?.corrupted?.reason).toBe("invalid_json");
+    });
+
+    // C3 — products-list card needs a thumbnail-ready snapshot of the
+    // first bundle image. The summary must carry the original `src`
+    // alongside the resolved URL, bilingual alt, and a placeholder
+    // flag so the card can render the existing PreviewImage component
+    // straight from the list without re-reading the full bundle.
+    it("populates heroImage from the first bundle image on listProducts", async () => {
+      const bundle = fixturePublishedBundle();
+      await writeFixtureBundle(temp, bundle);
+
+      const list = await listProducts("fanaa");
+      const summary = list.find(
+        (p) => p.productId === bundle.universalProduct.id,
+      );
+      expect(summary).toBeDefined();
+      expect(summary?.heroImage).toBeTruthy();
+      expect(summary?.heroImage?.src).toBe(
+        "stores/fanaa/products/up_test_001/hero.webp",
+      );
+      expect(summary?.heroImage?.alt.en).toBe("Glow Care Serum bottle");
+      expect(typeof summary?.heroImage?.placeholder).toBe("boolean");
+      expect(typeof summary?.heroImage?.resolvedSrc).toBe("string");
+    });
+
+    it("sets heroImage to null on corrupted bundles", async () => {
+      const dir = path.join(temp.productsRoot, "fanaa");
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, "broken.json"), "not json", "utf8");
+
+      const list = await listProducts("fanaa");
+      const corrupted = list.find((p) => p.productId === "broken");
+      expect(corrupted).toBeDefined();
+      expect(corrupted?.heroImage).toBeNull();
+    });
+  });
+
+  describe("extractHeroImage", () => {
+    it("returns null when images is undefined", () => {
+      expect(extractHeroImage(undefined)).toBeNull();
+    });
+
+    it("returns null when images is empty", () => {
+      expect(extractHeroImage([])).toBeNull();
+    });
+
+    it("returns the first image with src, alt, and a placeholder flag", () => {
+      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
+      delete process.env.STUDIO_ASSETS_CDN_BASE;
+      try {
+        const hero = extractHeroImage([
+          {
+            src: "stores/fanaa/p/a.webp",
+            alt: { ar: "أ", en: "A" },
+            width: 1200,
+            height: 1500,
+          },
+          {
+            src: "stores/fanaa/p/b.webp",
+            alt: { ar: "ب", en: "B" },
+            width: 1200,
+            height: 1500,
+          },
+        ]);
+        expect(hero).not.toBeNull();
+        expect(hero!.src).toBe("stores/fanaa/p/a.webp");
+        expect(hero!.alt.en).toBe("A");
+        // No CDN → resolveImageUrl() returns a placeholder:// token.
+        expect(hero!.placeholder).toBe(true);
+        expect(hero!.resolvedSrc.startsWith("placeholder://")).toBe(true);
+      } finally {
+        if (prevCdn === undefined) {
+          delete process.env.STUDIO_ASSETS_CDN_BASE;
+        } else {
+          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
+        }
+      }
+    });
+
+    it("uses the CDN base when configured (placeholder=false)", () => {
+      const prevCdn = process.env.STUDIO_ASSETS_CDN_BASE;
+      process.env.STUDIO_ASSETS_CDN_BASE = "https://cdn.example.com";
+      try {
+        const hero = extractHeroImage([
+          {
+            src: "stores/fanaa/p/a.webp",
+            alt: { ar: "أ", en: "A" },
+            width: 1200,
+            height: 1500,
+          },
+        ]);
+        expect(hero!.placeholder).toBe(false);
+        expect(hero!.resolvedSrc).toBe(
+          "https://cdn.example.com/stores/fanaa/p/a.webp",
+        );
+      } finally {
+        if (prevCdn === undefined) {
+          delete process.env.STUDIO_ASSETS_CDN_BASE;
+        } else {
+          process.env.STUDIO_ASSETS_CDN_BASE = prevCdn;
+        }
+      }
     });
   });
 });

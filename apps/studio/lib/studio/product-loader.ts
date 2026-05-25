@@ -6,8 +6,10 @@ import {
   FanaaProductExtensionSchema,
   BeautyWellnessExtensionSchema,
 } from "@platform/catalog-schema/schemas";
+import type { ProductImage } from "@platform/catalog-schema";
 import type { PublishedProductBundle } from "@platform/publishers";
 import { productsRoot } from "./paths";
+import { resolveImageUrl } from "./preview-props";
 
 /**
  * Read M7 publisher artefacts from `.platform-data/products/<storeId>/<id>.json`.
@@ -68,6 +70,23 @@ export type ProductLoadResult =
       details?: string;
     };
 
+/** Compact hero-image snapshot surfaced on the products LIST so each
+ *  card can render a thumbnail without re-reading the full bundle. */
+export interface ProductSummaryHero {
+  /** Original `images[0].src` — the on-disk key. Surfaced so the UI
+   *  can show it as a forensic label when the asset host is offline. */
+  src: string;
+  /** `resolveImageUrl(src)` — already CDN-prefixed when one is set,
+   *  or a `placeholder://...` token otherwise. Pass straight to the
+   *  existing `<PreviewImage>` component. */
+  resolvedSrc: string;
+  /** Original bilingual alt text from the bundle. */
+  alt: { ar: string; en: string };
+  /** True when `resolvedSrc` is a `placeholder://` token — the UI
+   *  uses this to switch to the styled "asset pending" fallback. */
+  placeholder: boolean;
+}
+
 export interface ProductSummary {
   storeId: string;
   productId: string;
@@ -77,6 +96,16 @@ export interface ProductSummary {
   runId: string;
   publishedAt: string;
   hasFanaaExtension: boolean;
+  /**
+   * First image from the bundle, ready to drop into the products-
+   * list thumbnail. `null` when:
+   *   • the bundle has no images at all (defensive — schema allows it),
+   *   • the bundle is corrupted (no `images[0]` to read).
+   *
+   * Additive — introduced in C3 for the products-list card overhaul.
+   * Older callers ignore it without recompilation.
+   */
+  heroImage?: ProductSummaryHero | null;
   /** Set when the bundle file exists but failed validation. */
   corrupted?: { reason: string };
 }
@@ -139,6 +168,7 @@ export async function listProducts(
         runId: result.bundle.runId,
         publishedAt: result.bundle.publishedAt,
         hasFanaaExtension: Boolean(result.bundle.fanaaExtension),
+        heroImage: extractHeroImage(result.bundle.universalProduct.images),
       });
     } else if (result.status === "corrupted") {
       summaries.push({
@@ -150,6 +180,7 @@ export async function listProducts(
         runId: "",
         publishedAt: "",
         hasFanaaExtension: false,
+        heroImage: null,
         corrupted: { reason: result.reason },
       });
     }
@@ -157,6 +188,34 @@ export async function listProducts(
 
   summaries.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return summaries;
+}
+
+/**
+ * Pull a thumbnail-ready hero snapshot from a UniversalProduct's
+ * `images[]`. Returns `null` when the bundle has no images at all.
+ *
+ * # Why a separate helper (and not inline in listProducts)
+ *
+ * The placeholder semantics — `resolveImageUrl()` may return a
+ * `placeholder://...` token when the CDN isn't configured — need to
+ * be threaded through to the UI so the products card can render the
+ * styled "asset pending" placeholder instead of a broken `<img>`.
+ * Encapsulating the extraction in one function keeps that logic
+ * close to the schema and lets a future caller (e.g. a search-by-
+ * image surface) reuse it without copying.
+ */
+export function extractHeroImage(
+  images: ReadonlyArray<ProductImage> | undefined,
+): ProductSummaryHero | null {
+  if (!images || images.length === 0) return null;
+  const hero = images[0]!;
+  const resolved = resolveImageUrl(hero.src);
+  return {
+    src: hero.src,
+    resolvedSrc: resolved,
+    alt: hero.alt,
+    placeholder: resolved.startsWith("placeholder://"),
+  };
 }
 
 /**
