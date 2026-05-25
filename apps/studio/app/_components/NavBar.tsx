@@ -67,6 +67,11 @@ export function NavBar(props: {
             flex: 1,
           }}
         >
+          {/* C4 — Home tab routes to `/`, which now serves the operator
+              dashboard (previously a redirect to /drafts). The brand
+              link in the header also points to `/` so operators have
+              two affordances back to the overview. */}
+          <NavLink href="/" label="Home" active={props.active === "home"} />
           <NavLink href="/intake" label="Intake" active={props.active === "intake"} />
           <NavLink href="/drafts" label="Drafts" active={props.active === "drafts"} />
           <NavLink href="/assets" label="Assets" active={props.active === "assets"} />

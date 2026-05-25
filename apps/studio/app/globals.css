@@ -379,6 +379,18 @@ select:focus {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* C4 — dashboard list row hover. Used by Recent runs + Drafts needing
+   attention. Mirrors the .drafts-row rhythm but with a faint border
+   tint instead of a left-edge accent so the row reads as a card-list
+   element rather than a table row.
+   `!important` because each row is a <Link> with `border: 1px solid
+   transparent` set inline (higher specificity than any selector). */
+.dashboard-row:hover,
+.dashboard-row:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border)) !important;
+  background: color-mix(in oklab, var(--surface-2) 35%, transparent) !important;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    M11 — builder, asset browser, runtime preview shared classes.
    ───────────────────────────────────────────────────────────────────── */
