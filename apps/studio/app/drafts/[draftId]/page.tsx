@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import "@platform/runtime-renderer/css";
 import { NavBar } from "../../_components/NavBar";
 import { BuilderClient } from "../../_components/builder/BuilderClient";
 import { getDraft } from "@/lib/studio/drafts-service";
+import {
+  statusLabel,
+  statusTagClass,
+} from "@/lib/studio/draft-status-options";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +30,16 @@ export const dynamic = "force-dynamic";
  *   • `mode_unavailable` → render a banner explaining how to enable
  *     dual-write. The builder still renders read-only so operators
  *     can verify what they would see.
+ *
+ * # C2 header polish
+ *
+ *   • Eyebrow / serif h1 / code chips / status tag — mirrors the
+ *     run-detail rhythm from C1 so the operator flow reads as one
+ *     coherent surface.
+ *   • "← Drafts" back link sits inside the header card (same place
+ *     "← Runs" sits in `runs/[runId]/page.tsx`).
+ *   • Operator-facing status label via the shared mapping (no raw
+ *     `intake` / `ready` enum names).
  */
 export default async function DraftBuilderPage(
   props: { params: Promise<{ draftId: string }> },
@@ -65,17 +80,96 @@ export default async function DraftBuilderPage(
     <div className="shell">
       <NavBar active="drafts" />
       <main className="shell-main">
-        <header style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ margin: 0, fontFamily: "ui-serif, Georgia, serif" }}>
-              {draft.title}
-            </h1>
-            <div className="text-faint" style={{ fontSize: 12, marginTop: 4 }}>
-              <code className="code">{draft.id}</code> ·
-              {" "}
-              <code className="code">{draft.slug}</code> ·
-              {" "}
-              <span className={`tag tag-${tagForStatus(draft.status)}`}>{draft.status}</span>
+        <header
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "22px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            boxShadow:
+              "inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href="/drafts"
+              style={{
+                color: "var(--text-faint)",
+                fontSize: 12,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                transition: "color var(--transition-fast) var(--ease-out)",
+              }}
+            >
+              ← Drafts
+            </Link>
+            <span className={statusTagClass(draft.status)}>
+              {statusLabel(draft.status)}
+            </span>
+            <span className="tag tag-accent">{draft.storeId}</span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+              alignItems: "flex-end",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                minWidth: 0,
+                flex: "1 1 320px",
+              }}
+            >
+              <h1
+                style={{
+                  margin: 0,
+                  fontFamily: "ui-serif, Georgia, serif",
+                  fontSize: 26,
+                  letterSpacing: "-0.4px",
+                  lineHeight: 1.15,
+                  wordBreak: "break-word",
+                }}
+              >
+                {draft.title}
+              </h1>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "6px 14px",
+                  alignItems: "baseline",
+                  fontSize: 12,
+                  color: "var(--text-dim)",
+                }}
+              >
+                <MetaChip label="Slug">
+                  <code className="code" style={{ fontSize: 11 }}>
+                    /p/{draft.slug}
+                  </code>
+                </MetaChip>
+                <MetaChip label="Id">
+                  <code className="code" style={{ fontSize: 11 }}>
+                    {draft.id}
+                  </code>
+                </MetaChip>
+              </div>
             </div>
           </div>
         </header>
@@ -91,18 +185,34 @@ export default async function DraftBuilderPage(
   );
 }
 
-function tagForStatus(status: string): string {
-  switch (status) {
-    case "published":
-      return "success";
-    case "failed":
-      return "danger";
-    case "generating":
-    case "publishing":
-      return "info";
-    case "archived":
-      return "warning";
-    default:
-      return "accent";
-  }
+function MetaChip({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: 6,
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--text-faint)",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </span>
+      {children}
+    </span>
+  );
 }

@@ -328,6 +328,20 @@ select:focus {
   border: 1px solid var(--border);
 }
 
+/* C2 — drafts list row hover. Subtle background tint + faint accent
+   on the row's left edge to draw the eye without shouting. Whole-row
+   click isn't wired (the "Open" CTA does the navigation), so the
+   hover serves as a "you're scanning this row" affordance only. */
+.drafts-row {
+  transition: background var(--transition-fast) var(--ease-out);
+}
+.drafts-row:hover {
+  background: color-mix(in oklab, var(--surface-2) 50%, transparent);
+}
+.drafts-row:hover td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    M11 — builder, asset browser, runtime preview shared classes.
    ───────────────────────────────────────────────────────────────────── */
@@ -405,7 +419,41 @@ select:focus {
   padding-bottom: 12px;
 }
 .section-block[data-disabled="true"] {
-  opacity: 0.55;
+  opacity: 0.6;
+  border-style: dashed;
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+
+/* C2 — subtle hover lift on section blocks. The transition is wired
+   to the same motion tokens used across the Studio so a global motion
+   change cascades. Hover state is suppressed when the block is being
+   dragged or disabled to keep the cue meaningful. */
+.section-block {
+  transition:
+    border-color var(--transition-fast) var(--ease-out),
+    box-shadow var(--transition-fast) var(--ease-out);
+}
+.section-block:hover {
+  border-color: var(--border-strong);
+}
+
+/* Move cluster — visually-tight pair of ↑/↓ chips inside the section
+   action row. Removes the gap between the two icon buttons so they
+   read as a single control. */
+.section-block-head .actions .section-block-move-cluster {
+  display: inline-flex;
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.section-block-head .actions .section-block-move-cluster .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.section-block-head .actions .section-block-move-cluster .btn:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left-width: 0;
 }
 
 .section-block-head {
