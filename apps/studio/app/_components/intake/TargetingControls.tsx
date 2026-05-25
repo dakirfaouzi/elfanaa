@@ -40,13 +40,17 @@ import {
   togglePreset,
   type TargetingPreset,
 } from "@/lib/studio/intake/targeting-presets";
+import {
+  TargetingSelect,
+  type TargetingSelectOption,
+} from "./TargetingSelect";
 
 /**
  * Structured audience-targeting controls (Phase B2).
  *
  * # What this component does
  *
- * Renders an 8-field grid of dropdowns + range inputs that
+ * Renders an 8-field grid of custom dropdowns + range inputs that
  * populate the `Targeting` object on `IngestJob.intakeMetadata`.
  * Every field is OPTIONAL — operators may pick zero, some, or
  * all.
@@ -57,16 +61,18 @@ import {
  * mirror it into the submit payload). This component never
  * mutates state internally; every change goes through `onChange`.
  *
- * # Why explicit "—" (none) options on every select
+ * # Why a custom <TargetingSelect> instead of native <select>
  *
- * The schema treats `undefined` as "no preference". A `<select>`
- * with no empty option would force the operator into a pick on
- * every dropdown. The "— No preference —" option maps to
- * `undefined` in the emitted object, which becomes the
- * "do-nothing" semantics the rest of the system expects.
+ * Native `<select>` option lists are styled by the OS, not the
+ * page — `<option>` padding / hover / typography are not
+ * authorable. The Audience polish pass demanded taller option
+ * rows, clearer hover state, contextual placeholders and a clear-
+ * selection affordance, none of which are reachable with a native
+ * select. See `TargetingSelect.tsx` for the contract; the
+ * value-mapping here is straightforward — `undefined` from the
+ * select means "clear this key", everything else is a typed enum
+ * value cast to the matching schema field.
  */
-
-const NONE_VALUE = "__none__";
 
 interface TargetingControlsProps {
   value: Targeting;
@@ -113,14 +119,42 @@ export function TargetingControls({ value, onChange }: TargetingControlsProps) {
     [value, onChange],
   );
 
+  // Pre-build option lists once per render — cheap (tiny arrays) and
+  // keeps the JSX block below readable.
+  const genderOptions: TargetingSelectOption[] = GENDER_VALUES.map((v) => ({
+    value: v,
+    label: GENDER_LABELS[v],
+  }));
+  const marketOptions: TargetingSelectOption[] = Object.entries(
+    MARKET_LABELS,
+  ).map(([code, label]) => ({ value: code, label: `${code} — ${label}` }));
+  const langOptions: TargetingSelectOption[] = PRIMARY_LANGUAGE_VALUES.map(
+    (v) => ({ value: v, label: PRIMARY_LANGUAGE_LABELS[v] }),
+  );
+  const awarenessOptions: TargetingSelectOption[] = AWARENESS_VALUES.map(
+    (v) => ({ value: v, label: AWARENESS_LABELS[v] }),
+  );
+  const sophisticationOptions: TargetingSelectOption[] =
+    SOPHISTICATION_VALUES.map((v) => ({
+      value: v,
+      label: SOPHISTICATION_LABELS[v],
+    }));
+  const angleOptions: TargetingSelectOption[] = EMOTIONAL_ANGLE_VALUES.map(
+    (v) => ({ value: v, label: EMOTIONAL_ANGLE_LABELS[v] }),
+  );
+  const toneOptions: TargetingSelectOption[] = TONE_STYLE_VALUES.map((v) => ({
+    value: v,
+    label: TONE_STYLE_LABELS[v],
+  }));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* ── Preset chips row ──────────────────────────────────────
          Six one-click bundles for the highest-frequency operator
          archetypes. Composable (clicking two chips merges both
-         pick sets); active chips read as filled accent pills.
-         Clicking an active chip clears exactly the keys it set
-         (see `togglePreset`). */}
+         pick sets); active chips read as filled accent pills with
+         a soft glow. Clicking an active chip clears exactly the
+         keys it set (see `togglePreset`). */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span
           style={{
@@ -133,41 +167,15 @@ export function TargetingControls({ value, onChange }: TargetingControlsProps) {
         >
           Quick presets
         </span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {TARGETING_PRESETS.map((p) => {
-            const active = isPresetActive(value, p);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onTogglePreset(p)}
-                title={p.description ?? p.label}
-                aria-pressed={active}
-                style={{
-                  appearance: "none",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: "5px 12px",
-                  borderRadius: 999,
-                  border: `1px solid ${
-                    active
-                      ? "var(--accent)"
-                      : "color-mix(in srgb, var(--border-strong) 80%, var(--border))"
-                  }`,
-                  background: active
-                    ? "color-mix(in srgb, var(--accent) 18%, transparent)"
-                    : "var(--bg-elev)",
-                  color: active ? "var(--accent)" : "var(--text-dim)",
-                  transition:
-                    "background var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out)",
-                }}
-              >
-                {active ? "✓ " : ""}
-                {p.label}
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {TARGETING_PRESETS.map((p) => (
+            <PresetChip
+              key={p.id}
+              preset={p}
+              active={isPresetActive(value, p)}
+              onToggle={onTogglePreset}
+            />
+          ))}
         </div>
       </div>
 
@@ -183,45 +191,40 @@ export function TargetingControls({ value, onChange }: TargetingControlsProps) {
             gap: 14,
           }}
         >
-          <SelectField
-            id={ids.gender}
-            label="Gender"
-            value={value.gender ?? NONE_VALUE}
-            options={GENDER_VALUES.map((v) => ({
-              value: v,
-              label: GENDER_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update("gender", v === NONE_VALUE ? undefined : (v as GenderValue))
-            }
-          />
+          <FieldShell id={ids.gender} label="Gender">
+            <TargetingSelect
+              id={ids.gender}
+              value={value.gender}
+              placeholder="Select gender"
+              options={genderOptions}
+              onChange={(v) => update("gender", v as GenderValue | undefined)}
+            />
+          </FieldShell>
 
-          <SelectField
-            id={ids.market}
-            label="Market"
-            value={value.market ?? NONE_VALUE}
-            options={Object.entries(MARKET_LABELS).map(([code, label]) => ({
-              value: code,
-              label: `${code} — ${label}`,
-            }))}
-            onChange={(v) => update("market", v === NONE_VALUE ? undefined : v)}
-          />
+          <FieldShell id={ids.market} label="Market">
+            <TargetingSelect
+              id={ids.market}
+              value={value.market}
+              placeholder="Select market"
+              options={marketOptions}
+              onChange={(v) => update("market", v)}
+            />
+          </FieldShell>
 
-          <SelectField
-            id={ids.lang}
-            label="Primary language"
-            value={value.primaryLanguage ?? NONE_VALUE}
-            options={PRIMARY_LANGUAGE_VALUES.map((v) => ({
-              value: v,
-              label: PRIMARY_LANGUAGE_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update(
-                "primaryLanguage",
-                v === NONE_VALUE ? undefined : (v as PrimaryLanguageValue),
-              )
-            }
-          />
+          <FieldShell id={ids.lang} label="Primary language">
+            <TargetingSelect
+              id={ids.lang}
+              value={value.primaryLanguage}
+              placeholder="Select primary language"
+              options={langOptions}
+              onChange={(v) =>
+                update(
+                  "primaryLanguage",
+                  v as PrimaryLanguageValue | undefined,
+                )
+              }
+            />
+          </FieldShell>
 
           <div
             style={{
@@ -263,72 +266,161 @@ export function TargetingControls({ value, onChange }: TargetingControlsProps) {
             gap: 14,
           }}
         >
-          <SelectField
-            id={ids.awareness}
-            label="Awareness level"
-            value={value.awarenessLevel ?? NONE_VALUE}
-            options={AWARENESS_VALUES.map((v) => ({
-              value: v,
-              label: AWARENESS_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update(
-                "awarenessLevel",
-                v === NONE_VALUE ? undefined : (v as AwarenessValue),
-              )
-            }
-          />
+          <FieldShell id={ids.awareness} label="Awareness stage">
+            <TargetingSelect
+              id={ids.awareness}
+              value={value.awarenessLevel}
+              placeholder="Select awareness stage"
+              options={awarenessOptions}
+              onChange={(v) =>
+                update("awarenessLevel", v as AwarenessValue | undefined)
+              }
+            />
+          </FieldShell>
 
-          <SelectField
-            id={ids.sophistication}
-            label="Sophistication"
-            value={value.sophisticationLevel ?? NONE_VALUE}
-            options={SOPHISTICATION_VALUES.map((v) => ({
-              value: v,
-              label: SOPHISTICATION_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update(
-                "sophisticationLevel",
-                v === NONE_VALUE ? undefined : (v as SophisticationValue),
-              )
-            }
-          />
+          <FieldShell id={ids.sophistication} label="Sophistication level">
+            <TargetingSelect
+              id={ids.sophistication}
+              value={value.sophisticationLevel}
+              placeholder="Select sophistication level"
+              options={sophisticationOptions}
+              onChange={(v) =>
+                update(
+                  "sophisticationLevel",
+                  v as SophisticationValue | undefined,
+                )
+              }
+            />
+          </FieldShell>
 
-          <SelectField
-            id={ids.angle}
-            label="Emotional angle"
-            value={value.emotionalAngle ?? NONE_VALUE}
-            options={EMOTIONAL_ANGLE_VALUES.map((v) => ({
-              value: v,
-              label: EMOTIONAL_ANGLE_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update(
-                "emotionalAngle",
-                v === NONE_VALUE ? undefined : (v as EmotionalAngleValue),
-              )
-            }
-          />
+          <FieldShell id={ids.angle} label="Emotional angle">
+            <TargetingSelect
+              id={ids.angle}
+              value={value.emotionalAngle}
+              placeholder="Select emotional angle"
+              options={angleOptions}
+              onChange={(v) =>
+                update("emotionalAngle", v as EmotionalAngleValue | undefined)
+              }
+            />
+          </FieldShell>
 
-          <SelectField
-            id={ids.tone}
-            label="Tone style"
-            value={value.toneStyle ?? NONE_VALUE}
-            options={TONE_STYLE_VALUES.map((v) => ({
-              value: v,
-              label: TONE_STYLE_LABELS[v],
-            }))}
-            onChange={(v) =>
-              update(
-                "toneStyle",
-                v === NONE_VALUE ? undefined : (v as ToneStyleValue),
-              )
-            }
-          />
+          <FieldShell id={ids.tone} label="Tone style">
+            <TargetingSelect
+              id={ids.tone}
+              value={value.toneStyle}
+              placeholder="Select tone style"
+              options={toneOptions}
+              onChange={(v) =>
+                update("toneStyle", v as ToneStyleValue | undefined)
+              }
+            />
+          </FieldShell>
         </div>
       </FieldGroup>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Preset chip — extracted from inline so the hover-state ref logic
+// stays scoped and the parent JSX reads cleanly. Minimal-premium
+// aesthetic: subtle border ramp on hover, filled accent + soft glow
+// when active, NO loud gradients.
+// ─────────────────────────────────────────────────────────────────────────
+
+function PresetChip(props: {
+  preset: TargetingPreset;
+  active: boolean;
+  onToggle: (preset: TargetingPreset) => void;
+}) {
+  const { preset, active, onToggle } = props;
+
+  // Active palette → restrained-gold tinted fill, accent text, accent
+  // border, soft outer glow. Reads as "selected" without yelling.
+  const activeStyle: React.CSSProperties = active
+    ? {
+        background:
+          "linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 14%, transparent))",
+        borderColor: "var(--accent)",
+        color: "var(--accent)",
+        boxShadow:
+          "0 4px 16px -6px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent)",
+      }
+    : {
+        background: "var(--bg-elev)",
+        borderColor: "var(--border)",
+        color: "var(--text-dim)",
+        boxShadow: "none",
+      };
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(preset)}
+      title={preset.description ?? preset.label}
+      aria-pressed={active}
+      style={{
+        appearance: "none",
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 600,
+        padding: "6px 13px",
+        borderRadius: 999,
+        border: "1px solid",
+        letterSpacing: "0.005em",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        transition:
+          "background var(--transition-fast) var(--ease-out), border-color var(--transition-fast) var(--ease-out), color var(--transition-fast) var(--ease-out), box-shadow var(--transition-fast) var(--ease-out), transform var(--transition-fast) var(--ease-out)",
+        ...activeStyle,
+      }}
+      onMouseEnter={(e) => {
+        if (active) {
+          // Active hover: lift the chip slightly + intensify the glow.
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.boxShadow =
+            "0 8px 22px -6px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent)";
+        } else {
+          // Inactive hover: brighten border + text, soft surface lift.
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.background = "var(--surface-2)";
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.color = "var(--text)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        if (active) {
+          e.currentTarget.style.boxShadow =
+            "0 4px 16px -6px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent)";
+        } else {
+          e.currentTarget.style.background = "var(--bg-elev)";
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.color = "var(--text-dim)";
+        }
+      }}
+    >
+      {active && (
+        <span
+          aria-hidden
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 12,
+            height: 12,
+            fontSize: 11,
+            fontWeight: 800,
+            lineHeight: 1,
+          }}
+        >
+          ✓
+        </span>
+      )}
+      {preset.label}
+    </button>
   );
 }
 
@@ -358,12 +450,13 @@ function FieldGroup(props: { label: string; children: React.ReactNode }) {
 // Field primitives
 // ─────────────────────────────────────────────────────────────────────────
 
-function SelectField(props: {
+// Thin label+control wrapper used by every dropdown row. Same shape
+// as the equivalent block in `IntakeForm.tsx`'s `Field` primitive,
+// kept local so this component remains self-contained.
+function FieldShell(props: {
   id: string;
   label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (next: string) => void;
+  children: React.ReactNode;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -373,18 +466,7 @@ function SelectField(props: {
       >
         {props.label}
       </label>
-      <select
-        id={props.id}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-      >
-        <option value={NONE_VALUE}>— No preference —</option>
-        {props.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {props.children}
     </div>
   );
 }

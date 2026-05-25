@@ -76,6 +76,12 @@ export const TONE_STYLE_LABELS: Record<ToneStyleValue, string> = {
  * Curated GCC + adjacent markets the Fanaa operator audience
  * actually targets. Free-text fallback supported by the schema
  * — this is just the dropdown shortlist.
+ *
+ * Order is geographic-by-relevance: the six GCC member states
+ * first (SA → AE → KW → QA → BH → OM), then Iraq as the next
+ * regionally adjacent market, then Morocco, then the global
+ * fallback (US). Operators scan top-down so the most-used markets
+ * sit highest.
  */
 export const MARKET_LABELS: Record<string, string> = {
   SA: "Saudi Arabia",
@@ -84,8 +90,7 @@ export const MARKET_LABELS: Record<string, string> = {
   QA: "Qatar",
   BH: "Bahrain",
   OM: "Oman",
-  EG: "Egypt",
-  JO: "Jordan",
+  IQ: "Iraq",
   MA: "Morocco",
   US: "United States",
 };
