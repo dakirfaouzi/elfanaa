@@ -57,7 +57,34 @@ COPY packages ./packages
 # `--filter studio...` (note the trailing `...`) pulls every workspace
 # package that studio depends on transitively. `--frozen-lockfile` ensures
 # CI cannot drift from the committed lockfile.
-RUN pnpm install --frozen-lockfile --filter studio...
+#
+# # Why the explicit `--filter @platform/db`
+#
+# `@platform/db` is the schema-host package. It owns the Prisma schema
+# at `packages/db/prisma/schema.prisma` and lists `prisma` (the CLI)
+# in its `devDependencies`. Both the deps-stage postinstall hook AND
+# the builder-stage explicit `prisma generate` invoke the CLI against
+# that schema, which is located inside `packages/db/`.
+#
+# Prisma 6.x walks UP from the schema file to find the nearest
+# `package.json` (i.e. `packages/db/package.json`) and verifies the
+# Prisma CLI is installed within THAT package's node_modules. If not,
+# it spawns `pnpm add prisma@<version> -D --silent` to self-install,
+# which then fails under `--frozen-lockfile`.
+#
+# Pre-M12, `@platform/db` was in `@platform/persistence`'s dependency
+# closure, so `--filter studio...` (via persistence) pulled it in
+# transitively and the Prisma CLI ended up in `packages/db/node_modules`.
+# M12's cyclic-dependency cleanup (commit ddbf9d0) removed `@platform/db`
+# from `@platform/persistence`'s deps to fix a pnpm warning — that was
+# correct architecturally, but it knocked `@platform/db` out of studio's
+# install closure, breaking the `prisma generate` step inside Docker.
+#
+# Adding `--filter @platform/db` explicitly here restores the pre-M12
+# install behavior without reintroducing the workspace cycle. The
+# additional install cost is one extra workspace package (the schema
+# files + prisma CLI), which were already being installed before.
+RUN pnpm install --frozen-lockfile --filter studio... --filter @platform/db
 
 
 # ── 2. Builder ───────────────────────────────────────────────────────────────
