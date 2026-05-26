@@ -45,12 +45,45 @@ set -e
 # Studio at all. Mirrors the SHA pill in the NavBar and the stamp on
 # the public /login page.
 #
-# Falls back to "dev" if neither STUDIO_BUILD_SHA nor
-# NEXT_PUBLIC_STUDIO_BUILD_SHA was passed at docker build time — a
-# "dev" banner in production logs means the build arg was not
-# threaded through (the symptom we want operators to notice loudly).
-SHA_FOR_BANNER="${STUDIO_BUILD_SHA:-${NEXT_PUBLIC_STUDIO_BUILD_SHA:-dev}}"
-echo "[entrypoint] build sha: ${SHA_FOR_BANNER}"
+# # Source-of-truth: the baked BUILD_SHA file
+#
+# The builder stage (apps/studio/Dockerfile) derives the SHA from
+# .git/HEAD at build time and writes it to
+# `/app/apps/studio/BUILD_SHA` inside the standalone bundle. Reading
+# from this file at runtime means the SHA always matches the source
+# that was actually built — no EasyPanel build-arg config required,
+# no chance of a stale operator-typed value misrepresenting the
+# deployed code.
+#
+# We OVERRIDE the env var here (rather than falling back to it)
+# because the file is the canonical post-M12-pipeline-fix source of
+# truth. Any STUDIO_BUILD_SHA env var passed by the operator (e.g.
+# leftover from the legacy EasyPanel build-arg flow) gets superseded.
+#
+# Fallback order:
+#   1. /app/apps/studio/BUILD_SHA (the bake file).
+#   2. STUDIO_BUILD_SHA env (legacy EasyPanel build-arg path).
+#   3. NEXT_PUBLIC_STUDIO_BUILD_SHA env (defense in depth).
+#   4. "dev" — only reached if all three above are empty/missing,
+#      which would indicate a botched build. The NavBar pill renders
+#      a red "dev" badge so operators notice immediately.
+BUILD_SHA_FILE="/app/apps/studio/BUILD_SHA"
+if [ -f "${BUILD_SHA_FILE}" ]; then
+  RESOLVED_SHA=$(cat "${BUILD_SHA_FILE}" | tr -d '[:space:]')
+  if [ -n "${RESOLVED_SHA}" ]; then
+    # Override the env explicitly. Persists for the exec'd Node
+    # process below because we `export` rather than just assign.
+    export STUDIO_BUILD_SHA="${RESOLVED_SHA}"
+    export NEXT_PUBLIC_STUDIO_BUILD_SHA="${RESOLVED_SHA}"
+    echo "[entrypoint] build sha: ${RESOLVED_SHA} (source: BUILD_SHA file)"
+  else
+    SHA_FOR_BANNER="${STUDIO_BUILD_SHA:-${NEXT_PUBLIC_STUDIO_BUILD_SHA:-dev}}"
+    echo "[entrypoint] build sha: ${SHA_FOR_BANNER} (source: env fallback — BUILD_SHA file empty)"
+  fi
+else
+  SHA_FOR_BANNER="${STUDIO_BUILD_SHA:-${NEXT_PUBLIC_STUDIO_BUILD_SHA:-dev}}"
+  echo "[entrypoint] build sha: ${SHA_FOR_BANNER} (source: env fallback — BUILD_SHA file absent)"
+fi
 
 # ─── 1. Persistent volume sanity check ───────────────────────────────────────
 #

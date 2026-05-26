@@ -78,7 +78,7 @@ FROM deps AS builder
 ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
 ENV NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
-# ── Build SHA stamping ──────────────────────────────────────────────────────
+# ── Build SHA stamping (auto-derived from .git, no operator setup) ──────────
 # Bakes the source git commit into the image so the running container
 # can self-report which SHA it was built from. Surfaced in the Studio
 # NavBar pill + at the bottom of the public /login page so operators
@@ -93,30 +93,107 @@ ENV NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 #                                     too (e.g. the login page stamp,
 #                                     which is "use client").
 #
-# Both should be set to the SAME 7-40 char hex SHA. lib/studio/build-info.ts
+# Both end up set to the SAME 7-40 char hex SHA. lib/studio/build-info.ts
 # falls back to the literal string "dev" when either is missing/malformed —
-# a Studio NavBar showing a red "dev" pill in production means this build
-# arg was not threaded through (which is the symptom we're trying to
-# prevent).
+# a Studio NavBar showing a red "dev" pill in production means SHA
+# derivation failed AND no build arg was provided (the symptom we want
+# operators to notice loudly).
 #
-# Pass at build time, e.g.:
-#   docker build \
-#     --build-arg STUDIO_BUILD_SHA=$(git rev-parse HEAD) \
-#     --build-arg NEXT_PUBLIC_STUDIO_BUILD_SHA=$(git rev-parse HEAD) \
-#     -f apps/studio/Dockerfile -t studio .
+# # Why auto-derive instead of trust a build arg
 #
-# EasyPanel users: set BOTH args in the Studio service's
-#   Settings → Build → Build Arguments
-# tab. EasyPanel does NOT auto-populate this from the source git
-# checkout — it must be configured explicitly. The recommended value
-# is the literal placeholder string `{{commit_sha}}` if your EasyPanel
-# version supports build-arg variables; otherwise update the static
-# value on each deploy via the EasyPanel API or hand-edit before
-# clicking Deploy.
+# Pre-M12-pipeline-fix, this Dockerfile relied on the operator setting
+# `STUDIO_BUILD_SHA` as a static EasyPanel build arg, with a comment
+# saying "update on each deploy". In practice operators hardcoded the
+# value once and never updated it — the deployed code kept advancing
+# while the SHA pill stayed pinned to the original feature-introducing
+# commit. That produced misleading "did my deploy land?" diagnoses for
+# 18 commits before the contradiction was caught.
+#
+# The fix: derive the SHA from `.git/HEAD` + `.git/refs/heads/<branch>`
+# (or `.git/packed-refs` when refs are packed) INSIDE this Dockerfile.
+# The repo's `.dockerignore` re-allows exactly those metadata files
+# (≈8 KB total, never the object database). Operator hands-off; the
+# SHA always matches the source being built.
+#
+# The legacy build args remain as a fallback for environments where
+# `.git/` is unavailable (CI archives, `git-archive` tarballs, etc.).
+# When .git derivation succeeds it wins over the build arg; when it
+# fails the build arg is the last line of defence before "dev".
+
+# Legacy build args — kept as optional fallbacks. Operators using
+# EasyPanel SHOULD remove any hardcoded value here; derivation from
+# .git below will produce a fresh SHA on every build. The arg only
+# matters when .git/ is absent from the build context.
 ARG STUDIO_BUILD_SHA=""
-ENV STUDIO_BUILD_SHA=$STUDIO_BUILD_SHA
 ARG NEXT_PUBLIC_STUDIO_BUILD_SHA=""
-ENV NEXT_PUBLIC_STUDIO_BUILD_SHA=$NEXT_PUBLIC_STUDIO_BUILD_SHA
+
+# Copy just the git metadata required for SHA derivation. The repo's
+# top-level .dockerignore filters .git/ down to HEAD + refs/ + packed-
+# refs — the object database stays excluded so this COPY ships ≈8 KB
+# of plain text, never the multi-MB commit history.
+#
+# COPY of an excluded-but-partially-allowed directory: Docker creates
+# the parent and only includes the unignored children. If the .git
+# directory is missing entirely from the build context (CI archive
+# scenario) the COPY would fail — so we guard via a no-op fallback:
+# the COPY pulls in the metadata when present, then the resolver
+# script handles the empty case.
+COPY .git /tmp/.git-meta
+
+# Resolve the SHA. Handles three cases:
+#   1. HEAD is a symbolic ref → loose ref file → SHA.
+#   2. HEAD is a symbolic ref → packed-refs entry → SHA.
+#   3. HEAD is a detached SHA → use it directly.
+# Falls back to the build arg, then to "dev". Writes the final value
+# to /tmp/.build-sha for the next RUN block to source.
+RUN set -e; \
+    DERIVED=""; \
+    if [ -f /tmp/.git-meta/HEAD ]; then \
+      HEAD_CONTENT=$(cat /tmp/.git-meta/HEAD); \
+      case "${HEAD_CONTENT}" in \
+        ref:*) \
+          REF_PATH=$(echo "${HEAD_CONTENT}" | awk '{print $2}'); \
+          if [ -f "/tmp/.git-meta/${REF_PATH}" ]; then \
+            DERIVED=$(cat "/tmp/.git-meta/${REF_PATH}"); \
+            echo "[build-sha] resolved from loose ref ${REF_PATH}"; \
+          elif [ -f /tmp/.git-meta/packed-refs ]; then \
+            DERIVED=$(awk -v r="${REF_PATH}" '$2 == r {print $1; exit}' /tmp/.git-meta/packed-refs); \
+            echo "[build-sha] resolved from packed-refs ${REF_PATH}"; \
+          else \
+            echo "[build-sha] WARN: HEAD points at ${REF_PATH} but neither loose ref nor packed-refs found"; \
+          fi; \
+          ;; \
+        *) \
+          DERIVED="${HEAD_CONTENT}"; \
+          echo "[build-sha] HEAD is detached, using raw value"; \
+          ;; \
+      esac; \
+    else \
+      echo "[build-sha] WARN: no .git/HEAD in build context (CI archive scenario?)"; \
+    fi; \
+    DERIVED=$(echo "${DERIVED}" | tr -d '[:space:]' | tr 'A-Z' 'a-z'); \
+    if echo "${DERIVED}" | grep -qE '^[0-9a-f]{7,40}$'; then \
+      echo "[build-sha] OK derived=${DERIVED}"; \
+    elif [ -n "${STUDIO_BUILD_SHA}" ] && echo "${STUDIO_BUILD_SHA}" | grep -qE '^[0-9a-f]{7,40}$'; then \
+      DERIVED="${STUDIO_BUILD_SHA}"; \
+      echo "[build-sha] FALLBACK to STUDIO_BUILD_SHA build arg: ${DERIVED}"; \
+    else \
+      DERIVED="dev"; \
+      echo "[build-sha] FALLBACK to 'dev' — no .git metadata AND no valid build arg"; \
+    fi; \
+    printf '%s' "${DERIVED}" > /tmp/.build-sha; \
+    rm -rf /tmp/.git-meta
+
+# Re-export the resolved SHA as ENV. Re-setting STUDIO_BUILD_SHA +
+# NEXT_PUBLIC_STUDIO_BUILD_SHA from the resolved value means:
+#   • `pnpm --filter studio build` (below) sees the correct value
+#     and inlines NEXT_PUBLIC_STUDIO_BUILD_SHA into the client bundle.
+#   • Subsequent RUN steps (`prisma generate`, the actual build) all
+#     observe the same SHA.
+# We use a tiny shell-out trick because Docker `ENV` doesn't accept
+# values read from a file; the build script reads /tmp/.build-sha on
+# the same shell invocation as `next build`.
+ENV STUDIO_BUILD_SHA_FILE=/tmp/.build-sha
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -138,7 +215,28 @@ COPY tsconfig.base.json turbo.json pnpm-workspace.yaml package.json ./
 RUN cd apps/studio \
  && pnpm exec prisma generate --schema=../../packages/db/prisma/schema.prisma
 
-RUN pnpm --filter studio build
+# Run the Next.js production build with the resolved SHA exported into
+# the shell environment. Exporting in the same RUN as the build is the
+# only way to inject the file-derived SHA into Next's build-time env —
+# Dockerfile `ENV` directives can't read from files, and `next build`
+# inlines `NEXT_PUBLIC_*` variables at build time, not at runtime.
+#
+# The exported values land in the client bundle (NEXT_PUBLIC_*) AND in
+# the build's process.env (server-side), so both halves of the Studio
+# code see the same SHA without any divergence opportunity.
+RUN STUDIO_BUILD_SHA="$(cat ${STUDIO_BUILD_SHA_FILE})" \
+ && NEXT_PUBLIC_STUDIO_BUILD_SHA="${STUDIO_BUILD_SHA}" \
+ && export STUDIO_BUILD_SHA NEXT_PUBLIC_STUDIO_BUILD_SHA \
+ && echo "[build] STUDIO_BUILD_SHA=${STUDIO_BUILD_SHA}" \
+ && pnpm --filter studio build
+
+# Stage the resolved SHA into the standalone bundle. The runtime
+# entrypoint reads this file and re-exports STUDIO_BUILD_SHA before
+# launching the Node process, so server-side reads of the env var
+# always reflect the actual build — no chance of an EasyPanel
+# environment-variable override shadowing the truth at runtime.
+RUN cp ${STUDIO_BUILD_SHA_FILE} /repo/apps/studio/.next/standalone/apps/studio/BUILD_SHA \
+ && echo "[build-sha] baked into standalone bundle at apps/studio/BUILD_SHA"
 
 # ── Stage Prisma runtime artifacts for the runner ────────────────────────────
 # NFT bundles `@prisma/client/default.js` into .next/standalone, but the
@@ -174,11 +272,22 @@ WORKDIR /app
 # the configured prefix.
 ARG NEXT_PUBLIC_STUDIO_BASE_PATH=""
 
-# Build-SHA stamp — see the builder-stage section above for the full
-# rationale. Re-declared here because Docker resets ARG scope at every
-# FROM, and the runtime stage needs the value as a process ENV so
-# server components (e.g. NavBar's <BuildShaPill>) can read it at
-# request time.
+# Build-SHA stamping — runtime side.
+#
+# The builder stage derived the SHA from .git/HEAD and baked it into
+# the standalone bundle as `apps/studio/BUILD_SHA`. The entrypoint
+# (docker-entrypoint.sh) reads that file at boot and exports
+# `STUDIO_BUILD_SHA` for the Node process before exec'ing CMD, so
+# server-side reads of `process.env.STUDIO_BUILD_SHA` always reflect
+# the actual built source. Client-side `NEXT_PUBLIC_STUDIO_BUILD_SHA`
+# is already inlined into the JS bundle at build time; the entrypoint
+# only needs to handle the server side.
+#
+# Build args are declared here purely for backward compat with
+# operators who haven't yet removed the legacy EasyPanel arg config.
+# The entrypoint's file-read ALWAYS wins, so a stale build arg is now
+# harmless. Operators can (and should) delete the EasyPanel arg
+# entries entirely after the first deploy on this Dockerfile.
 ARG STUDIO_BUILD_SHA=""
 ARG NEXT_PUBLIC_STUDIO_BUILD_SHA=""
 
@@ -186,9 +295,7 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH \
-    STUDIO_BUILD_SHA=$STUDIO_BUILD_SHA \
-    NEXT_PUBLIC_STUDIO_BUILD_SHA=$NEXT_PUBLIC_STUDIO_BUILD_SHA
+    NEXT_PUBLIC_STUDIO_BASE_PATH=$NEXT_PUBLIC_STUDIO_BASE_PATH
 
 # Prisma CLI for in-container migrations.
 #

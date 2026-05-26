@@ -29,6 +29,22 @@ out
 .vscode
 .cursor
 
+# ── BUT keep the git metadata required for build-time SHA derivation ────────
+# `apps/studio/Dockerfile` (post-M12-deployment-pipeline-fix) reads
+# `.git/HEAD` + `.git/refs/heads/<branch>` (loose) or `.git/packed-refs`
+# (packed) to stamp the build SHA without relying on a hand-typed
+# `STUDIO_BUILD_SHA` build arg in EasyPanel. The object database
+# (objects/, pack/, hooks/, config, index) stays excluded — we ship
+# only ≈8 KB of refs metadata, not the entire git history.
+#
+# DO NOT remove these exceptions without also reverting the auto-SHA
+# block in apps/studio/Dockerfile. The build would silently regress
+# to the literal string "dev" on every deploy.
+!.git/HEAD
+!.git/refs
+!.git/refs/**
+!.git/packed-refs
+
 # Logs + caches.
 *.log
 npm-debug.log*
