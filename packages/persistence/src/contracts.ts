@@ -69,6 +69,17 @@ export type StudioAssetSourceValue = "upload" | "scraped" | "generated";
 /** Mirror of the StudioStoreStatus Prisma enum. */
 export type StudioStoreStatusValue = "live" | "incubating" | "archived";
 
+/**
+ * Mirror of the ProductSourceKind Prisma enum (M12 / Step 2).
+ *
+ *   • `curated`      — hand-tuned product, lives in
+ *                      `apps/fanaa/data/products.ts` for CRO content;
+ *                      catalog row holds the commerce metadata.
+ *   • `ai_generated` — published from the Studio builder; paired to a
+ *                      `StudioPublishedProductRow` via `publishedProductId`.
+ */
+export type ProductSourceValue = "curated" | "ai_generated";
+
 /** Shape returned by `prisma.studioRun.findUnique` etc. Mirrors the
  *  Prisma model with steps eagerly joined. */
 export interface StudioRunRow {
@@ -172,6 +183,61 @@ export interface StudioStoreRow {
   updatedAt: Date;
 }
 
+/**
+ * Mirror of the `storefront_catalog_product` Prisma row (M12 / Step 2).
+ *
+ * # Why this lives next to `StudioPublishedProductRow`
+ *
+ * They cover orthogonal concerns:
+ *   • `StudioPublishedProductRow.document` carries the *page* (sections).
+ *   • `StorefrontCatalogProductRow` carries the *commerce metadata*
+ *     (price, SKU, collection, badges, target, problems, upsells).
+ *
+ * A curated product has a catalog row but NO published-product row.
+ * An AI-generated product MAY have both — the catalog row is what
+ * makes it discoverable on the storefront shop / collections / etc.
+ *
+ * # Field-by-field semantics
+ *
+ *   • `priceMinor`      — integer minor units (halalas for SAR…). Avoids
+ *                          float drift; matches the OrderMirror pattern.
+ *   • `offerTiers`      — opaque Json, validated by callers via Zod.
+ *                          Shape lives in `@platform/builder-schema`.
+ *   • `problems`        — Postgres TEXT[]; lets shop filters do
+ *                          `WHERE ? = ANY(problems)` without a JOIN.
+ *   • `upsellIds`       — TEXT[] of slugs; cross-store references resolve
+ *                          lazily on the loader side (no FK).
+ *   • `publishedProductId` — loose string (no FK) so publish-snapshot
+ *                            rotation never cascades into the catalog.
+ *   • `isLive`          — soft-disable. Hides the row from the shop
+ *                          without deleting; an `isLive=false` row is
+ *                          still usable for analytics joins.
+ */
+export interface StorefrontCatalogProductRow {
+  id: string;
+  storeId: string;
+  slug: string;
+  source: ProductSourceValue;
+  publishedProductId: string | null;
+  sku: string | null;
+  priceMinor: number;
+  priceCurrency: string;
+  offerTiers: unknown;
+  collection: string | null;
+  productType: string | null;
+  target: string | null;
+  problems: string[];
+  badges: unknown;
+  rating: unknown;
+  stockLeft: number | null;
+  recentBuyers: number | null;
+  upsellIds: string[];
+  landingPath: string | null;
+  isLive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Prisma-client minimal interface
 // ─────────────────────────────────────────────────────────────────────────
@@ -187,6 +253,8 @@ export interface PrismaLike {
   studioPublishedProduct: PrismaModelDelegate<StudioPublishedProductRow>;
   /** M11 — versioned generation artifacts (used by publish flow + future regenerate). */
   studioArtifact: PrismaModelDelegate<StudioArtifactRow>;
+  /** M12 / Step 2 — DB-backed storefront catalog rows. */
+  storefrontCatalogProduct: PrismaModelDelegate<StorefrontCatalogProductRow>;
   $transaction<T>(fn: (tx: PrismaLike) => Promise<T>): Promise<T>;
 }
 

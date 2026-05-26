@@ -22,6 +22,8 @@ export {
   type PrismaLike,
   type PrismaModelDelegate,
   type PrismaRunStoreOptions,
+  type ProductSourceValue,
+  type StorefrontCatalogProductRow,
   type StudioArtifactRow,
   type StudioAssetRow,
   type StudioAssetSourceValue,
@@ -51,6 +53,7 @@ export {
 } from "./mappers";
 
 export {
+  StorefrontCatalogProductRepository,
   StudioAssetRepository,
   StudioDraftRepository,
   StudioEventRepository,

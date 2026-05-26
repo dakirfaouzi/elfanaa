@@ -13,7 +13,7 @@
 //     visitor/session joins.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // `native` keeps local dev fast (Windows / macOS).
   // `linux-musl-openssl-3.0.x` is required by the production Docker image
   // (node:22-alpine ships musl libc + OpenSSL 3). Without it, the runtime
@@ -29,19 +29,19 @@ datasource db {
 
 /// Long-lived visitor (1y cookie). One visitor → many sessions.
 model Visitor {
-  id              String    @id @db.VarChar(36)
-  firstSeen       DateTime  @default(now()) @map("first_seen")
-  lastSeen        DateTime  @default(now()) @map("last_seen")
-  totalSessions   Int       @default(1) @map("total_sessions")
-  totalOrders     Int       @default(0) @map("total_orders")
-  totalRevenue    BigInt    @default(0) @map("total_revenue")
-  country         String?   @db.VarChar(2)
-  city            String?   @db.VarChar(80)
-  firstSource     String?   @map("first_source") @db.VarChar(40)
-  firstLanding    String?   @map("first_landing") @db.VarChar(255)
-  sessions        Session[]
-  events          Event[]
-  orders          OrderMirror[]
+  id            String        @id @db.VarChar(36)
+  firstSeen     DateTime      @default(now()) @map("first_seen")
+  lastSeen      DateTime      @default(now()) @map("last_seen")
+  totalSessions Int           @default(1) @map("total_sessions")
+  totalOrders   Int           @default(0) @map("total_orders")
+  totalRevenue  BigInt        @default(0) @map("total_revenue")
+  country       String?       @db.VarChar(2)
+  city          String?       @db.VarChar(80)
+  firstSource   String?       @map("first_source") @db.VarChar(40)
+  firstLanding  String?       @map("first_landing") @db.VarChar(255)
+  sessions      Session[]
+  events        Event[]
+  orders        OrderMirror[]
 
   @@index([lastSeen])
   @@index([country])
@@ -50,37 +50,37 @@ model Visitor {
 
 /// 30-min sliding session. Captures landing, device, traffic quality.
 model Session {
-  id              String           @id @db.VarChar(36)
-  visitorId       String           @map("visitor_id") @db.VarChar(36)
-  visitor         Visitor          @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  startedAt       DateTime         @default(now()) @map("started_at")
-  lastSeen        DateTime         @default(now()) @map("last_seen")
-  endedAt         DateTime?        @map("ended_at")
-  landingPath     String?          @map("landing_path") @db.VarChar(255)
-  referrer        String?          @db.VarChar(500)
-  utmSource       String?          @map("utm_source") @db.VarChar(80)
-  utmMedium       String?          @map("utm_medium") @db.VarChar(80)
-  utmCampaign     String?          @map("utm_campaign") @db.VarChar(120)
-  device          String?          @db.VarChar(20) // mobile | tablet | desktop
-  browser         String?          @db.VarChar(40)
-  os              String?          @db.VarChar(40)
-  countryCode     String?          @map("country_code") @db.VarChar(2)
-  region          String?          @db.VarChar(80)
-  city            String?          @db.VarChar(80)
-  isp             String?          @db.VarChar(120)
-  ipHash          String?          @map("ip_hash") @db.VarChar(64)
-  uaHash          String?          @map("ua_hash") @db.VarChar(64)
-  isBot           Boolean          @default(false) @map("is_bot")
-  isVpn           Boolean          @default(false) @map("is_vpn")
-  isProxy         Boolean          @default(false) @map("is_proxy")
-  isTor           Boolean          @default(false) @map("is_tor")
-  isHosting       Boolean          @default(false) @map("is_hosting")
-  isGcc           Boolean          @default(false) @map("is_gcc")
-  isValid         Boolean          @default(true)  @map("is_valid") // passes all filters
-  qualityScore    Int              @default(100)   @map("quality_score") // 0..100
-  events          Event[]
-  orders          OrderMirror[]
-  traffic         TrafficQuality?
+  id           String          @id @db.VarChar(36)
+  visitorId    String          @map("visitor_id") @db.VarChar(36)
+  visitor      Visitor         @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  startedAt    DateTime        @default(now()) @map("started_at")
+  lastSeen     DateTime        @default(now()) @map("last_seen")
+  endedAt      DateTime?       @map("ended_at")
+  landingPath  String?         @map("landing_path") @db.VarChar(255)
+  referrer     String?         @db.VarChar(500)
+  utmSource    String?         @map("utm_source") @db.VarChar(80)
+  utmMedium    String?         @map("utm_medium") @db.VarChar(80)
+  utmCampaign  String?         @map("utm_campaign") @db.VarChar(120)
+  device       String?         @db.VarChar(20) // mobile | tablet | desktop
+  browser      String?         @db.VarChar(40)
+  os           String?         @db.VarChar(40)
+  countryCode  String?         @map("country_code") @db.VarChar(2)
+  region       String?         @db.VarChar(80)
+  city         String?         @db.VarChar(80)
+  isp          String?         @db.VarChar(120)
+  ipHash       String?         @map("ip_hash") @db.VarChar(64)
+  uaHash       String?         @map("ua_hash") @db.VarChar(64)
+  isBot        Boolean         @default(false) @map("is_bot")
+  isVpn        Boolean         @default(false) @map("is_vpn")
+  isProxy      Boolean         @default(false) @map("is_proxy")
+  isTor        Boolean         @default(false) @map("is_tor")
+  isHosting    Boolean         @default(false) @map("is_hosting")
+  isGcc        Boolean         @default(false) @map("is_gcc")
+  isValid      Boolean         @default(true) @map("is_valid") // passes all filters
+  qualityScore Int             @default(100) @map("quality_score") // 0..100
+  events       Event[]
+  orders       OrderMirror[]
+  traffic      TrafficQuality?
 
   @@index([startedAt])
   @@index([visitorId])
@@ -91,24 +91,24 @@ model Session {
 
 /// Granular event log. The dashboard's core analytical surface.
 model Event {
-  id            BigInt    @id @default(autoincrement())
-  ts            DateTime  @default(now())
-  sessionId     String?   @map("session_id") @db.VarChar(36)
-  session       Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  visitorId     String?   @map("visitor_id") @db.VarChar(36)
-  visitor       Visitor?  @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  name          String    @db.VarChar(40)
-  path          String?   @db.VarChar(255)
-  productId     String?   @map("product_id") @db.VarChar(40)
-  productSlug   String?   @map("product_slug") @db.VarChar(80)
-  surface       String?   @db.VarChar(40)
-  valueMinor    BigInt?   @map("value_minor")
-  currency      String?   @db.VarChar(3)
-  meta          Json?
-  countryCode   String?   @map("country_code") @db.VarChar(2)
-  city          String?   @db.VarChar(80)
-  device        String?   @db.VarChar(20)
-  isValid       Boolean   @default(true) @map("is_valid")
+  id          BigInt   @id @default(autoincrement())
+  ts          DateTime @default(now())
+  sessionId   String?  @map("session_id") @db.VarChar(36)
+  session     Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  visitorId   String?  @map("visitor_id") @db.VarChar(36)
+  visitor     Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  name        String   @db.VarChar(40)
+  path        String?  @db.VarChar(255)
+  productId   String?  @map("product_id") @db.VarChar(40)
+  productSlug String?  @map("product_slug") @db.VarChar(80)
+  surface     String?  @db.VarChar(40)
+  valueMinor  BigInt?  @map("value_minor")
+  currency    String?  @db.VarChar(3)
+  meta        Json?
+  countryCode String?  @map("country_code") @db.VarChar(2)
+  city        String?  @db.VarChar(80)
+  device      String?  @db.VarChar(20)
+  isValid     Boolean  @default(true) @map("is_valid")
 
   @@index([ts])
   @@index([name, ts])
@@ -122,33 +122,33 @@ model Event {
 /// Mirror of every confirmed order. Source of truth remains Sheets / FastAPI;
 /// this row exists so dashboard queries don't have to round-trip externally.
 model OrderMirror {
-  id              String     @id @db.VarChar(40)
-  createdAt       DateTime   @default(now()) @map("created_at")
-  sessionId       String?    @map("session_id") @db.VarChar(36)
-  session         Session?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  visitorId       String?    @map("visitor_id") @db.VarChar(36)
-  visitor         Visitor?   @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  customerName    String     @map("customer_name") @db.VarChar(160)
-  phone           String     @db.VarChar(40)
-  phoneE164       String?    @map("phone_e164") @db.VarChar(40)
-  city            String?    @db.VarChar(80)
-  address         String?    @db.VarChar(255)
-  countryCode     String?    @map("country_code") @db.VarChar(2)
-  locale          String?    @db.VarChar(8)
-  paymentMethod   String     @default("cod") @map("payment_method") @db.VarChar(20)
-  status          String     @default("pending") @db.VarChar(24)
-  subtotalMinor   BigInt     @map("subtotal_minor")
-  totalMinor      BigInt     @map("total_minor")
-  currency        String     @db.VarChar(3)
-  itemCount       Int        @default(0) @map("item_count")
-  hasUpsell       Boolean    @default(false) @map("has_upsell")
-  hasCrossSell    Boolean    @default(false) @map("has_cross_sell")
-  sourcePath      String?    @map("source_path") @db.VarChar(255)
-  device          String?    @db.VarChar(20)
-  ipHash          String?    @map("ip_hash") @db.VarChar(64)
-  rawPayload      Json       @map("raw_payload")
-  items           OrderMirrorItem[]
-  notes           String?    @db.Text
+  id            String            @id @db.VarChar(40)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  sessionId     String?           @map("session_id") @db.VarChar(36)
+  session       Session?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  visitorId     String?           @map("visitor_id") @db.VarChar(36)
+  visitor       Visitor?          @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  customerName  String            @map("customer_name") @db.VarChar(160)
+  phone         String            @db.VarChar(40)
+  phoneE164     String?           @map("phone_e164") @db.VarChar(40)
+  city          String?           @db.VarChar(80)
+  address       String?           @db.VarChar(255)
+  countryCode   String?           @map("country_code") @db.VarChar(2)
+  locale        String?           @db.VarChar(8)
+  paymentMethod String            @default("cod") @map("payment_method") @db.VarChar(20)
+  status        String            @default("pending") @db.VarChar(24)
+  subtotalMinor BigInt            @map("subtotal_minor")
+  totalMinor    BigInt            @map("total_minor")
+  currency      String            @db.VarChar(3)
+  itemCount     Int               @default(0) @map("item_count")
+  hasUpsell     Boolean           @default(false) @map("has_upsell")
+  hasCrossSell  Boolean           @default(false) @map("has_cross_sell")
+  sourcePath    String?           @map("source_path") @db.VarChar(255)
+  device        String?           @db.VarChar(20)
+  ipHash        String?           @map("ip_hash") @db.VarChar(64)
+  rawPayload    Json              @map("raw_payload")
+  items         OrderMirrorItem[]
+  notes         String?           @db.Text
 
   @@index([createdAt])
   @@index([visitorId])
@@ -158,16 +158,16 @@ model OrderMirror {
 }
 
 model OrderMirrorItem {
-  id            BigInt       @id @default(autoincrement())
-  orderId       String       @map("order_id") @db.VarChar(40)
-  order         OrderMirror  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId     String       @map("product_id") @db.VarChar(40)
-  productSlug   String?      @map("product_slug") @db.VarChar(80)
-  title         String       @db.VarChar(160)
-  quantity      Int          @default(1)
-  unitMinor     BigInt       @map("unit_minor")
-  totalMinor    BigInt       @map("total_minor")
-  source        String       @default("base") @db.VarChar(20) // base | upsell | cross_sell
+  id          BigInt      @id @default(autoincrement())
+  orderId     String      @map("order_id") @db.VarChar(40)
+  order       OrderMirror @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String      @map("product_id") @db.VarChar(40)
+  productSlug String?     @map("product_slug") @db.VarChar(80)
+  title       String      @db.VarChar(160)
+  quantity    Int         @default(1)
+  unitMinor   BigInt      @map("unit_minor")
+  totalMinor  BigInt      @map("total_minor")
+  source      String      @default("base") @db.VarChar(20) // base | upsell | cross_sell
 
   @@index([orderId])
   @@index([productId])
@@ -198,12 +198,12 @@ model TrafficQuality {
 
 /// Admin login audit trail.
 model AdminAudit {
-  id        BigInt   @id @default(autoincrement())
-  ts        DateTime @default(now())
-  email     String   @db.VarChar(160)
-  action    String   @db.VarChar(40) // login_success | login_fail | logout
-  ipHash    String?  @map("ip_hash") @db.VarChar(64)
-  ua        String?  @db.VarChar(255)
+  id     BigInt   @id @default(autoincrement())
+  ts     DateTime @default(now())
+  email  String   @db.VarChar(160)
+  action String   @db.VarChar(40) // login_success | login_fail | logout
+  ipHash String?  @map("ip_hash") @db.VarChar(64)
+  ua     String?  @db.VarChar(255)
 
   @@index([ts])
   @@map("admin_audit")
@@ -237,14 +237,19 @@ model AdminAudit {
 /// created against them. The `configHash` field lets us spot drift when
 /// `StoreConfig` is edited without a deploy.
 model StudioStore {
-  id            String              @id @db.VarChar(64)
-  displayName   String              @map("display_name") @db.VarChar(160)
-  status        StudioStoreStatus   @default(live)
-  configHash    String              @map("config_hash") @db.VarChar(64)
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
-  drafts        StudioDraft[]
-  events        StudioEvent[]
+  id              String                     @id @db.VarChar(64)
+  displayName     String                     @map("display_name") @db.VarChar(160)
+  status          StudioStoreStatus          @default(live)
+  configHash      String                     @map("config_hash") @db.VarChar(64)
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  drafts          StudioDraft[]
+  events          StudioEvent[]
+  // M12 — DB-backed storefront catalog rows. Carries commerce metadata
+  // for both curated products and AI-generated publishes. Independent
+  // of `StudioPublishedProduct` (which carries the page document); the
+  // pairing is via `publishedProductId` for AI-sourced rows.
+  catalogProducts StorefrontCatalogProduct[]
 
   @@index([status])
   @@map("studio_store")
@@ -266,28 +271,28 @@ enum StudioStoreStatus {
 /// (see `@platform/builder-schema`). Nullable so M10 rows continue to
 /// validate; the Studio builder fills it in on first edit.
 model StudioDraft {
-  id              String              @id @default(cuid()) @db.VarChar(64)
-  storeId         String              @map("store_id") @db.VarChar(64)
-  store           StudioStore         @relation(fields: [storeId], references: [id])
-  slug            String              @db.VarChar(120)
-  title           String              @db.VarChar(255)
-  supplierUrl     String?             @map("supplier_url") @db.VarChar(2048)
-  notes           String?             @db.Text
-  positioning    String?              @db.Text
-  status          StudioDraftStatus   @default(intake)
-  template        String              @db.VarChar(80)
-  costCents       Int                 @default(0) @map("cost_cents")
-  publishedAt     DateTime?           @map("published_at")
-  publishedRef    String?             @map("published_ref") @db.VarChar(120)
-  payload         Json?
-  payloadVersion  Int                 @default(0) @map("payload_version")
-  createdBy       String              @default("system") @map("created_by") @db.VarChar(160)
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
-  runs            StudioRun[]
-  assets          StudioAsset[]
-  artifacts       StudioArtifact[]
-  publications    StudioPublishedProduct[]
+  id             String                   @id @default(cuid()) @db.VarChar(64)
+  storeId        String                   @map("store_id") @db.VarChar(64)
+  store          StudioStore              @relation(fields: [storeId], references: [id])
+  slug           String                   @db.VarChar(120)
+  title          String                   @db.VarChar(255)
+  supplierUrl    String?                  @map("supplier_url") @db.VarChar(2048)
+  notes          String?                  @db.Text
+  positioning    String?                  @db.Text
+  status         StudioDraftStatus        @default(intake)
+  template       String                   @db.VarChar(80)
+  costCents      Int                      @default(0) @map("cost_cents")
+  publishedAt    DateTime?                @map("published_at")
+  publishedRef   String?                  @map("published_ref") @db.VarChar(120)
+  payload        Json?
+  payloadVersion Int                      @default(0) @map("payload_version")
+  createdBy      String                   @default("system") @map("created_by") @db.VarChar(160)
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+  runs           StudioRun[]
+  assets         StudioAsset[]
+  artifacts      StudioArtifact[]
+  publications   StudioPublishedProduct[]
 
   @@unique([storeId, slug])
   @@index([storeId, status])
@@ -312,21 +317,21 @@ enum StudioDraftStatus {
 /// The `inngestRunId` field is reserved for the M11 Inngest wiring; M10
 /// callers leave it null.
 model StudioRun {
-  id              String              @id @default(cuid()) @db.VarChar(64)
-  draftId         String              @map("draft_id") @db.VarChar(64)
-  draft           StudioDraft         @relation(fields: [draftId], references: [id])
+  id            String          @id @default(cuid()) @db.VarChar(64)
+  draftId       String          @map("draft_id") @db.VarChar(64)
+  draft         StudioDraft     @relation(fields: [draftId], references: [id])
   /// Worker-side runId (M6 IngestJob.runId). Distinct from `id` so
   /// the same runId is searchable across file-store + DB during M10
   /// dual-write. UNIQUE so SSE/replay paths can fetch by worker id.
-  runId           String              @unique @map("run_id") @db.VarChar(120)
-  inngestRunId    String?             @map("inngest_run_id") @db.VarChar(120)
-  status          StudioRunStatus     @default(queued)
-  costCents       Int                 @default(0) @map("cost_cents")
-  startedAt       DateTime?           @map("started_at")
-  finishedAt      DateTime?           @map("finished_at")
-  errorMessage    String?             @map("error_message") @db.Text
-  inputSnapshot   Json                @map("input_snapshot")
-  steps           StudioStep[]
+  runId         String          @unique @map("run_id") @db.VarChar(120)
+  inngestRunId  String?         @map("inngest_run_id") @db.VarChar(120)
+  status        StudioRunStatus @default(queued)
+  costCents     Int             @default(0) @map("cost_cents")
+  startedAt     DateTime?       @map("started_at")
+  finishedAt    DateTime?       @map("finished_at")
+  errorMessage  String?         @map("error_message") @db.Text
+  inputSnapshot Json            @map("input_snapshot")
+  steps         StudioStep[]
 
   @@index([draftId])
   @@index([status])
@@ -349,23 +354,23 @@ enum StudioRunStatus {
 /// caching ("idempotency keys" per PLATFORM.md row M10). The M10
 /// PrismaRunStore writes `null` for it; M11 turns the cache on.
 model StudioStep {
-  id              String              @id @default(cuid()) @db.VarChar(64)
-  runId           String              @map("run_id") @db.VarChar(64)
-  run             StudioRun           @relation(fields: [runId], references: [id])
-  kind            String              @db.VarChar(40)
-  status          StudioStepStatus    @default(pending)
-  providerId      String?             @map("provider_id") @db.VarChar(40)
-  inputHash       String?             @map("input_hash") @db.VarChar(64)
-  attemptCount    Int                 @default(0) @map("attempt_count")
-  costCents       Int                 @default(0) @map("cost_cents")
-  tokensIn        Int?                @map("tokens_in")
-  tokensOut       Int?                @map("tokens_out")
-  latencyMs       Int?                @map("latency_ms")
-  startedAt       DateTime?           @map("started_at")
-  finishedAt      DateTime?           @map("finished_at")
-  errorMessage    String?             @map("error_message") @db.Text
-  errorKind       String?             @map("error_kind") @db.VarChar(40)
-  output          Json?
+  id           String           @id @default(cuid()) @db.VarChar(64)
+  runId        String           @map("run_id") @db.VarChar(64)
+  run          StudioRun        @relation(fields: [runId], references: [id])
+  kind         String           @db.VarChar(40)
+  status       StudioStepStatus @default(pending)
+  providerId   String?          @map("provider_id") @db.VarChar(40)
+  inputHash    String?          @map("input_hash") @db.VarChar(64)
+  attemptCount Int              @default(0) @map("attempt_count")
+  costCents    Int              @default(0) @map("cost_cents")
+  tokensIn     Int?             @map("tokens_in")
+  tokensOut    Int?             @map("tokens_out")
+  latencyMs    Int?             @map("latency_ms")
+  startedAt    DateTime?        @map("started_at")
+  finishedAt   DateTime?        @map("finished_at")
+  errorMessage String?          @map("error_message") @db.Text
+  errorKind    String?          @map("error_kind") @db.VarChar(40)
+  output       Json?
 
   @@index([runId, kind])
   @@map("studio_step")
@@ -386,16 +391,16 @@ enum StudioStepStatus {
 /// `isCurrent=true` and the previous one is flipped to false in the
 /// same transaction.
 model StudioArtifact {
-  id                String              @id @default(cuid()) @db.VarChar(64)
-  draftId           String              @map("draft_id") @db.VarChar(64)
-  draft             StudioDraft         @relation(fields: [draftId], references: [id])
-  kind              String              @db.VarChar(40)
-  locale            String?             @db.VarChar(8)
-  version           Int                 @default(1)
-  isCurrent         Boolean             @default(true) @map("is_current")
+  id                String      @id @default(cuid()) @db.VarChar(64)
+  draftId           String      @map("draft_id") @db.VarChar(64)
+  draft             StudioDraft @relation(fields: [draftId], references: [id])
+  kind              String      @db.VarChar(40)
+  locale            String?     @db.VarChar(8)
+  version           Int         @default(1)
+  isCurrent         Boolean     @default(true) @map("is_current")
   payload           Json
-  generatedByStepId String?             @map("generated_by_step_id") @db.VarChar(64)
-  createdAt         DateTime            @default(now()) @map("created_at")
+  generatedByStepId String?     @map("generated_by_step_id") @db.VarChar(64)
+  createdAt         DateTime    @default(now()) @map("created_at")
 
   @@unique([draftId, kind, locale, version])
   @@index([draftId, isCurrent])
@@ -408,21 +413,21 @@ model StudioArtifact {
 /// …). The `embedding` column from PLATFORM.md §13 is intentionally
 /// omitted in M10 — pgvector lands in M12.
 model StudioAsset {
-  id            String              @id @default(cuid()) @db.VarChar(64)
-  draftId       String              @map("draft_id") @db.VarChar(64)
-  draft         StudioDraft         @relation(fields: [draftId], references: [id])
-  source        StudioAssetSource
-  r2Bucket      String              @map("r2_bucket") @db.VarChar(160)
-  r2Key         String              @unique @map("r2_key") @db.VarChar(512)
-  contentType   String              @map("content_type") @db.VarChar(80)
-  bytes         Int
-  width         Int?
-  height        Int?
-  altAr         String?             @map("alt_ar") @db.VarChar(512)
-  altEn         String?             @map("alt_en") @db.VarChar(512)
+  id          String            @id @default(cuid()) @db.VarChar(64)
+  draftId     String            @map("draft_id") @db.VarChar(64)
+  draft       StudioDraft       @relation(fields: [draftId], references: [id])
+  source      StudioAssetSource
+  r2Bucket    String            @map("r2_bucket") @db.VarChar(160)
+  r2Key       String            @unique @map("r2_key") @db.VarChar(512)
+  contentType String            @map("content_type") @db.VarChar(80)
+  bytes       Int
+  width       Int?
+  height      Int?
+  altAr       String?           @map("alt_ar") @db.VarChar(512)
+  altEn       String?           @map("alt_en") @db.VarChar(512)
   // M12 — pgvector embedding for upsell-match. Out of scope for M10.
   // embedding   Unsupported("vector(1536)")?
-  createdAt     DateTime            @default(now()) @map("created_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
 
   @@index([draftId, source])
   @@map("studio_asset")
@@ -446,16 +451,16 @@ enum StudioAssetSource {
 /// The `currentForSlug` pointer is the unique key the runtime queries
 /// to resolve `/p/[slug]`.
 model StudioPublishedProduct {
-  id            String        @id @default(cuid()) @db.VarChar(64)
-  draftId       String        @map("draft_id") @db.VarChar(64)
-  draft         StudioDraft   @relation(fields: [draftId], references: [id])
-  storeId       String        @map("store_id") @db.VarChar(64)
-  slug          String        @db.VarChar(120)
-  version       Int           @default(1)
-  isCurrent     Boolean       @default(true) @map("is_current")
-  document      Json
-  publishedBy   String        @default("system") @map("published_by") @db.VarChar(160)
-  publishedAt   DateTime      @default(now()) @map("published_at")
+  id          String      @id @default(cuid()) @db.VarChar(64)
+  draftId     String      @map("draft_id") @db.VarChar(64)
+  draft       StudioDraft @relation(fields: [draftId], references: [id])
+  storeId     String      @map("store_id") @db.VarChar(64)
+  slug        String      @db.VarChar(120)
+  version     Int         @default(1)
+  isCurrent   Boolean     @default(true) @map("is_current")
+  document    Json
+  publishedBy String      @default("system") @map("published_by") @db.VarChar(160)
+  publishedAt DateTime    @default(now()) @map("published_at")
 
   @@unique([storeId, slug, version])
   @@index([storeId, slug, isCurrent])
@@ -463,17 +468,113 @@ model StudioPublishedProduct {
   @@map("studio_published_product")
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  STOREFRONT CATALOG (M12 — Step 2)
+//
+//  DB-backed commerce metadata for the fanaa storefront (and, in time,
+//  every storefront). Sits ALONGSIDE `StudioPublishedProduct`, which
+//  remains the source of truth for the published *document* (the page
+//  the runtime renders). This table is the source of truth for the
+//  *commerce* shape: price, SKU, collection, badges, rating, problems,
+//  upsell IDs, badges, landing path overrides.
+//
+//  Why a separate table:
+//    • `StudioPublishedProduct.document` is page-shaped (sections), not
+//      catalog-shaped. Re-deriving commerce metadata from it on every
+//      shop query would be brittle.
+//    • Curated products (the 4 hand-tuned fanaa products) need catalog
+//      rows but have NO corresponding published_product row.
+//    • Multi-store from day one: `(store_id, slug)` is unique within a
+//      store but a slug can repeat across stores.
+//    • A future M13 might extend with pgvector embeddings for upsell
+//      match; isolating the catalog table keeps that migration small.
+//
+//  Why FK to `studio_store` but NOT to `studio_published_product`:
+//    Catalog rows must always belong to a real store (FK enforced).
+//    The `published_product_id` link is OPTIONAL — curated rows have
+//    none; AI-generated rows pair to a specific publish snapshot. We
+//    keep that pairing as a string (no FK) so a publish-snapshot
+//    cleanup never accidentally hard-deletes a live catalog row; the
+//    catalog row's `is_live=false` toggle is the only kill-switch.
+model StorefrontCatalogProduct {
+  id                 String            @id @default(cuid()) @db.VarChar(64)
+  storeId            String            @map("store_id") @db.VarChar(64)
+  store              StudioStore       @relation(fields: [storeId], references: [id])
+  slug               String            @db.VarChar(120)
+  /// `curated` rows are the hand-tuned products living in
+  /// `apps/fanaa/data/products.ts`. `ai_generated` rows are written by
+  /// the Studio publish flow when the operator filled the catalog
+  /// metadata panel.
+  source             ProductSourceKind @default(curated)
+  /// Pairing to the specific publish snapshot. Null for curated rows.
+  /// Loose string (no FK) so publish-snapshot rotation never
+  /// cascades into the catalog.
+  publishedProductId String?           @map("published_product_id") @db.VarChar(64)
+  /// Commerce metadata — mirrors the commerce half of fanaa's `Product` type.
+  sku                String?           @db.VarChar(80)
+  /// Price as integer minor units (halalas for SAR, fils for AED, etc).
+  /// Matches the existing OrderMirror / event-log convention.
+  priceMinor         Int               @map("price_minor")
+  priceCurrency      String            @map("price_currency") @db.VarChar(3)
+  /// Multi-tier offers (quantity-discount tiers). Json so the shape can
+  /// evolve without a migration; consumers validate via Zod.
+  offerTiers         Json?             @map("offer_tiers")
+  /// Single collection slug (face / body / haircare …). Indexed.
+  collection         String?           @db.VarChar(80)
+  /// Single product type label (serum / cleanser …). Free-form.
+  productType        String?           @map("product_type") @db.VarChar(80)
+  /// Audience target — `women` | `men` | `unisex`. Indexed for shop filter.
+  target             String?           @db.VarChar(40)
+  /// Tagged concerns (dryness, acne, …). Postgres TEXT[] so shop filters
+  /// can use `WHERE ? = ANY(problems)` without a JOIN.
+  problems           String[]          @default([])
+  /// Free-form badges array (`{ tone, label }[]`). Shape lives in
+  /// `@platform/builder-schema`'s catalog-metadata module (M12 Phase 2.3).
+  badges             Json?
+  /// `{ value: number, count: number }`. Optional; storefront falls back
+  /// to "no rating yet" when null.
+  rating             Json?
+  stockLeft          Int?              @map("stock_left")
+  recentBuyers       Int?              @map("recent_buyers")
+  /// Slugs of other catalog rows that may be cross-sold. We DO NOT FK
+  /// these; cross-store references and curated-only upsells need to
+  /// resolve lazily on the loader side.
+  upsellIds          String[]          @default([]) @map("upsell_ids")
+  /// Optional URL override. Curated products use `/products/<slug>`; AI
+  /// rows default to Studio's `/p/<slug>` until a fanaa-native PDP exists.
+  landingPath        String?           @map("landing_path") @db.VarChar(160)
+  /// Soft-disable switch. `false` hides the row from the shop without
+  /// deleting it. Used for unpublished AI rows and discontinued
+  /// curated rows.
+  isLive             Boolean           @default(true) @map("is_live")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@unique([storeId, slug])
+  @@index([storeId, isLive])
+  @@index([storeId, collection])
+  @@index([publishedProductId])
+  @@map("storefront_catalog_product")
+}
+
+enum ProductSourceKind {
+  curated
+  ai_generated
+
+  @@map("product_source_kind")
+}
+
 /// Append-only event log for the Studio surface. Mirrors PLATFORM.md
 /// §13 "StudioEvent". Useful for the M11 audit trail / Slack glue.
 model StudioEvent {
-  id            String              @id @default(cuid()) @db.VarChar(64)
-  storeId       String?             @map("store_id") @db.VarChar(64)
-  store         StudioStore?        @relation(fields: [storeId], references: [id])
-  draftId       String?             @map("draft_id") @db.VarChar(64)
-  kind          String              @db.VarChar(60)
-  actor         String              @db.VarChar(160)
-  payload       Json?
-  createdAt     DateTime            @default(now()) @map("created_at")
+  id        String       @id @default(cuid()) @db.VarChar(64)
+  storeId   String?      @map("store_id") @db.VarChar(64)
+  store     StudioStore? @relation(fields: [storeId], references: [id])
+  draftId   String?      @map("draft_id") @db.VarChar(64)
+  kind      String       @db.VarChar(60)
+  actor     String       @db.VarChar(160)
+  payload   Json?
+  createdAt DateTime     @default(now()) @map("created_at")
 
   @@index([storeId, kind, createdAt])
   @@index([draftId, createdAt])

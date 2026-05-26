@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import type {
   PrismaLike,
   PrismaModelDelegate,
+  StorefrontCatalogProductRow,
   StudioArtifactRow,
   StudioAssetRow,
   StudioDraftRow,
@@ -40,6 +41,7 @@ export function makeMockPrisma(): {
     studioEvent: Record<keyof PrismaModelDelegate<StudioEventRow>, ReturnType<typeof vi.fn>>;
     studioPublishedProduct: Record<keyof PrismaModelDelegate<StudioPublishedProductRow>, ReturnType<typeof vi.fn>>;
     studioArtifact: Record<keyof PrismaModelDelegate<StudioArtifactRow>, ReturnType<typeof vi.fn>>;
+    storefrontCatalogProduct: Record<keyof PrismaModelDelegate<StorefrontCatalogProductRow>, ReturnType<typeof vi.fn>>;
   };
 } {
   function makeDelegate<TRow>(): Record<
@@ -68,6 +70,7 @@ export function makeMockPrisma(): {
     studioEvent: makeDelegate<StudioEventRow>(),
     studioPublishedProduct: makeDelegate<StudioPublishedProductRow>(),
     studioArtifact: makeDelegate<StudioArtifactRow>(),
+    storefrontCatalogProduct: makeDelegate<StorefrontCatalogProductRow>(),
   };
 
   const prisma: PrismaLike = {
@@ -79,6 +82,7 @@ export function makeMockPrisma(): {
     studioEvent: spies.studioEvent as unknown as PrismaModelDelegate<StudioEventRow>,
     studioPublishedProduct: spies.studioPublishedProduct as unknown as PrismaModelDelegate<StudioPublishedProductRow>,
     studioArtifact: spies.studioArtifact as unknown as PrismaModelDelegate<StudioArtifactRow>,
+    storefrontCatalogProduct: spies.storefrontCatalogProduct as unknown as PrismaModelDelegate<StorefrontCatalogProductRow>,
     $transaction: async <T,>(fn: (tx: PrismaLike) => Promise<T>): Promise<T> => fn(prisma),
   };
 
