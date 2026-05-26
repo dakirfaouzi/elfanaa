@@ -47,13 +47,13 @@ set -e
 #
 # # Source-of-truth: the baked BUILD_SHA file
 #
-# The builder stage (apps/studio/Dockerfile) derives the SHA from
-# .git/HEAD at build time and writes it to
+# The builder stage (apps/studio/Dockerfile) resolves the SHA from
+# EasyPanel's auto-injected `GIT_SHA` build arg (with two legacy
+# build args as fallbacks) at build time and writes it to
 # `/app/apps/studio/BUILD_SHA` inside the standalone bundle. Reading
-# from this file at runtime means the SHA always matches the source
-# that was actually built — no EasyPanel build-arg config required,
-# no chance of a stale operator-typed value misrepresenting the
-# deployed code.
+# from this file at runtime means the SHA always matches the build
+# arg the image was constructed with — no chance of a stale runtime
+# env var misrepresenting the deployed code.
 #
 # We OVERRIDE the env var here (rather than falling back to it)
 # because the file is the canonical post-M12-pipeline-fix source of
@@ -61,8 +61,12 @@ set -e
 # leftover from the legacy EasyPanel build-arg flow) gets superseded.
 #
 # Fallback order:
-#   1. /app/apps/studio/BUILD_SHA (the bake file).
-#   2. STUDIO_BUILD_SHA env (legacy EasyPanel build-arg path).
+#   1. /app/apps/studio/BUILD_SHA (the bake file — resolved from
+#      GIT_SHA / STUDIO_BUILD_SHA / NEXT_PUBLIC_STUDIO_BUILD_SHA at
+#      build time, in that priority).
+#   2. STUDIO_BUILD_SHA env (last-resort runtime fallback when the
+#      BUILD_SHA file is missing or empty — should not happen on
+#      images built with the current Dockerfile).
 #   3. NEXT_PUBLIC_STUDIO_BUILD_SHA env (defense in depth).
 #   4. "dev" — only reached if all three above are empty/missing,
 #      which would indicate a botched build. The NavBar pill renders

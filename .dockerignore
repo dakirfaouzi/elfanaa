@@ -23,27 +23,19 @@ out
 !**/.env.admin.example
 
 # VCS + IDE noise.
+#
+# Note on the build SHA: an earlier iteration of the Studio Dockerfile
+# tried to read .git/HEAD inside the build to derive the SHA. EasyPanel
+# does not ship .git/ in its build context — it downloads a GitHub
+# archive ZIP and builds from that — so the .git approach failed at
+# `COPY .git`. The current Dockerfile uses EasyPanel's auto-injected
+# `GIT_SHA` build arg instead, which sidesteps the build-context issue
+# entirely. There is no need to re-include any .git metadata here.
 .git
 .gitignore
 .idea
 .vscode
 .cursor
-
-# ── BUT keep the git metadata required for build-time SHA derivation ────────
-# `apps/studio/Dockerfile` (post-M12-deployment-pipeline-fix) reads
-# `.git/HEAD` + `.git/refs/heads/<branch>` (loose) or `.git/packed-refs`
-# (packed) to stamp the build SHA without relying on a hand-typed
-# `STUDIO_BUILD_SHA` build arg in EasyPanel. The object database
-# (objects/, pack/, hooks/, config, index) stays excluded — we ship
-# only ≈8 KB of refs metadata, not the entire git history.
-#
-# DO NOT remove these exceptions without also reverting the auto-SHA
-# block in apps/studio/Dockerfile. The build would silently regress
-# to the literal string "dev" on every deploy.
-!.git/HEAD
-!.git/refs
-!.git/refs/**
-!.git/packed-refs
 
 # Logs + caches.
 *.log
