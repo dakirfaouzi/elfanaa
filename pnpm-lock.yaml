@@ -272,6 +272,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@platform/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -279,6 +282,9 @@ importers:
       prisma:
         specifier: ^6.19.3
         version: 6.19.3(typescript@5.9.3)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.3
 
   packages/env:
     dependencies:
@@ -320,9 +326,6 @@ importers:
       '@platform/catalog-schema':
         specifier: workspace:*
         version: link:../catalog-schema
-      '@platform/db':
-        specifier: workspace:*
-        version: link:../db
       '@platform/ingest':
         specifier: workspace:*
         version: link:../ingest

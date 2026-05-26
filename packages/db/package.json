@@ -9,10 +9,15 @@
   "exports": {
     "./schema": "./prisma/schema.prisma"
   },
+  "scripts": {
+    "seed:storefront-catalog-fanaa": "tsx prisma/seed/storefront-catalog-fanaa.ts"
+  },
   "dependencies": {
+    "@platform/persistence": "workspace:*",
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "tsx": "^4.19.2"
   }
 }
