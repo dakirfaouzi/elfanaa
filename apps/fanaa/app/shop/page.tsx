@@ -1,10 +1,18 @@
 import { ShopExperience } from "./ShopExperience";
-import { products } from "@/data/products";
+import { loadAllCatalogProducts } from "@/lib/catalog/loader";
 import { collections, getCollectionBySlug } from "@/data/collections";
 
 type ShopPageProps = {
   searchParams: Promise<{ collection?: string }>;
 };
+
+/*
+ * ISR window for the shop list. See `app/page.tsx` for the rationale —
+ * the hybrid catalog loader (M12 / Step 2) gives operators a ~60s
+ * propagation window for commerce edits, and degrades to the snapshot
+ * if the DB is unreachable.
+ */
+export const revalidate = 60;
 
 /**
  * Shop / collection page.
@@ -16,9 +24,10 @@ type ShopPageProps = {
  */
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const { collection } = await searchParams;
+  const allProducts = await loadAllCatalogProducts();
   const filtered = collection
-    ? products.filter((p) => p.collection === collection)
-    : products;
+    ? allProducts.filter((p) => p.collection === collection)
+    : allProducts;
   const collectionMeta = collection ? getCollectionBySlug(collection) : undefined;
 
   return (

@@ -3,9 +3,17 @@ import type { Metadata } from "next";
 import { ShopExperience } from "@/app/shop/ShopExperience";
 import { CollectionHero } from "@/components/sections/CollectionHero";
 import { collections, getCollectionBySlug } from "@/data/collections";
-import { products } from "@/data/products";
+import { loadAllCatalogProducts } from "@/lib/catalog/loader";
 
 type Props = { params: Promise<{ slug: string }> };
+
+/*
+ * ISR window for collection pages — see `app/page.tsx` for the
+ * hybrid-loader rationale. Snapshot-only collections.ts drives the
+ * static params and editorial CollectionHero copy; the live catalog
+ * loader overlays operator-edited commerce metadata onto the rows.
+ */
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   return collections.map((c) => ({ slug: c.slug }));
@@ -33,7 +41,8 @@ export default async function CollectionPage({ params }: Props) {
   const collection = getCollectionBySlug(slug);
   if (!collection) notFound();
 
-  const collectionProducts = products.filter((p) =>
+  const allProducts = await loadAllCatalogProducts();
+  const collectionProducts = allProducts.filter((p) =>
     collection.productIds.includes(p.id)
   );
 

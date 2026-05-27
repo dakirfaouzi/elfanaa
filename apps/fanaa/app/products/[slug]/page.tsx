@@ -9,10 +9,24 @@ import { ProductFAQ } from "@/components/product/ProductFAQ";
 import { ProductIngredients } from "@/components/product/ProductIngredients";
 import { ProductDetails } from "./ProductDetails";
 import { RelatedProducts } from "@/components/sections/RelatedProducts";
-import { getProductBySlug, getRelatedProducts, products } from "@/data/products";
+import { products as snapshotProducts } from "@/lib/catalog/snapshot";
+import {
+  loadCatalogProductBySlug,
+  loadRelatedCatalogProducts,
+} from "@/lib/catalog/loader";
 import { pickLocalized } from "@/lib/format";
 
 type Props = { params: Promise<{ slug: string }> };
+
+/*
+ * ISR window for the PDP. The hybrid catalog loader (M12 / Step 2)
+ * overlays operator-edited commerce metadata from
+ * `storefront_catalog_product` onto the build-time snapshot, so price
+ * / badge / rating / stock edits land within ~60s without a redeploy.
+ * If the DB is unreachable the loader returns the snapshot unchanged
+ * and the page stays online — same behaviour shipped in Step 1.
+ */
+export const revalidate = 60;
 
 /*
  * Static params exclude products with a bespoke `landingPath`
@@ -22,16 +36,24 @@ type Props = { params: Promise<{ slug: string }> };
  *   • runtime `permanentRedirect()`  → safety net inside this route
  * Pre-rendering the dynamic page for them would just waste a static
  * shell that nobody can ever actually see.
+ *
+ * NOTE: `generateStaticParams` runs at BUILD TIME, before the live
+ * catalog loader can talk to the DB. We deliberately seed it from
+ * the snapshot — the snapshot is the authoritative list of curated
+ * slugs that need a prerendered shell. Any DB-only AI-generated
+ * slugs added later get served via on-demand ISR through the
+ * `revalidate` window above; they don't need to be in the
+ * prerender manifest.
  */
 export function generateStaticParams() {
-  return products
+  return snapshotProducts
     .filter((p) => !p.landingPath)
     .map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await loadCatalogProductBySlug(slug);
   if (!product) return {};
   // OG metadata uses the brand-language title in English (Arabic at this layer
   // confuses some social previews). The Arabic copy is the on-page experience.
@@ -74,7 +96,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await loadCatalogProductBySlug(slug);
   if (!product) notFound();
 
   /*
@@ -90,12 +112,17 @@ export default async function ProductPage({ params }: Props) {
    *     even before its next.config entry ships.
    *
    * `permanentRedirect` emits a true 308, preserving SEO equity.
+   *
+   * The hybrid catalog loader (M12 / Step 2) treats `landingPath` as
+   * commerce metadata that can be edited from Studio without a code
+   * deploy. The DB value wins when present, snapshot fallback
+   * otherwise — this redirect honours either source.
    */
   if (product.landingPath) {
     permanentRedirect(product.landingPath);
   }
 
-  const related = getRelatedProducts(product.id);
+  const related = await loadRelatedCatalogProducts(product.id);
 
   return (
     <div className="pb-24 md:pb-0">

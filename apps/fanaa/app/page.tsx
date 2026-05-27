@@ -7,7 +7,7 @@ import { Testimonials } from "@/components/sections/Testimonials";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { BrandStory } from "@/components/sections/BrandStory";
 import { UrgencyCta } from "@/components/sections/UrgencyCta";
-import { getBestSellers } from "@/data/products";
+import { loadBestSellers } from "@/lib/catalog/loader";
 
 /**
  * Homepage composition — Clinical Beauty Conversion Funnel.
@@ -24,8 +24,19 @@ import { getBestSellers } from "@/data/products";
  * Funnel logic:
  *   Hook → Trust → Self-identify → Authority → Solution → Proof → Moat → Close
  */
-export default function HomePage() {
-  const bestSellers = getBestSellers();
+
+/*
+ * ISR window for the homepage best-sellers band. The hybrid catalog
+ * loader (M12 / Step 2) merges live `storefront_catalog_product`
+ * commerce metadata onto the build-time snapshot, so operator-edited
+ * price / badge / rating / stock changes appear within ~60s without
+ * a redeploy. If the DB is unreachable, the loader transparently
+ * falls back to the snapshot and the page stays online.
+ */
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const bestSellers = await loadBestSellers();
   return (
     <>
       <HomeHero />

@@ -7,10 +7,18 @@ import {
   genderCollections,
   getGenderCollectionBySlug,
 } from "@/data/collections";
-import { products } from "@/data/products";
+import { loadAllCatalogProducts } from "@/lib/catalog/loader";
 import type { ProductTarget } from "@/lib/types";
 
 type Props = { params: Promise<{ gender: string }> };
+
+/*
+ * ISR window for gender pages — see `app/page.tsx` for the
+ * hybrid-loader rationale. Gender filtering keys off the live
+ * `target` field from the catalog row when present, snapshot
+ * fallback otherwise.
+ */
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   return genderCollections.map((c) => ({ gender: c.slug }));
@@ -37,10 +45,11 @@ export default async function GenderCollectionPage({ params }: Props) {
   const collection = getGenderCollectionBySlug(gender);
   if (!collection) notFound();
 
+  const allProducts = await loadAllCatalogProducts();
   const target = collection.presetTarget as ProductTarget | undefined;
   const genderProducts = target
-    ? products.filter((p) => p.target === target || p.target === "unisex")
-    : products.filter((p) => collection.productIds.includes(p.id));
+    ? allProducts.filter((p) => p.target === target || p.target === "unisex")
+    : allProducts.filter((p) => collection.productIds.includes(p.id));
 
   return (
     <>

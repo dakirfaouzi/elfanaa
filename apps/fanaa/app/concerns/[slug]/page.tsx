@@ -3,10 +3,18 @@ import type { Metadata } from "next";
 import { ShopExperience } from "@/app/shop/ShopExperience";
 import { CollectionHero } from "@/components/sections/CollectionHero";
 import { collections, concernCollections, getConcernBySlug } from "@/data/collections";
-import { products } from "@/data/products";
+import { loadAllCatalogProducts } from "@/lib/catalog/loader";
 import type { ProductProblem } from "@/lib/types";
 
 type Props = { params: Promise<{ slug: string }> };
+
+/*
+ * ISR window for concern pages. Concern filtering keys off the live
+ * `problems` array from the hybrid catalog loader (M12 / Step 2), so
+ * an operator clearing a problem tag in Studio surfaces here within
+ * ~60s without a redeploy.
+ */
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   return concernCollections.map((c) => ({ slug: c.slug }));
@@ -34,14 +42,15 @@ export default async function ConcernPage({ params }: Props) {
   const concern = getConcernBySlug(slug);
   if (!concern) notFound();
 
+  const allProducts = await loadAllCatalogProducts();
   const concernProducts =
     concern.presetProblems && concern.presetProblems.length > 0
-      ? products.filter((p) =>
+      ? allProducts.filter((p) =>
           p.problems?.some((pr) =>
             concern.presetProblems!.includes(pr as ProductProblem)
           )
         )
-      : products.filter((p) => concern.productIds.includes(p.id));
+      : allProducts.filter((p) => concern.productIds.includes(p.id));
 
   return (
     <>
