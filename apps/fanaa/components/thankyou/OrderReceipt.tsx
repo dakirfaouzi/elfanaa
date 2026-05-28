@@ -7,6 +7,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { getProductById } from "@/data/products";
 import { pickLocalized } from "@/lib/format";
+import { PLACEHOLDER_PRODUCT_IMAGE } from "@/lib/product-image";
 import type { OrderReceipt as Receipt } from "@/lib/order-receipt";
 
 type Props = {
@@ -86,7 +87,26 @@ export function OrderReceipt({ receipt }: Props) {
           <ul className="divide-y divide-line/60 px-4 md:px-6">
             {receipt.lines.map((line) => {
               const product = getProductById(line.productId);
-              const image = product?.images[0];
+              /*
+               * Image resolution is double-defensive:
+               *   1. `product?.images?.[0]` short-circuits on either
+               *      missing snapshot product (AI-generated SKUs whose
+               *      slug-keyed id misses the snapshot lookup) OR a
+               *      malformed snapshot that lost its `images` array.
+               *      The Phase 2.4.1 crash report cited this exact
+               *      `app/thank-you/[orderId]/page.js` chunk because
+               *      the old `product?.images[0]` form threw on the
+               *      second case (optional chaining only protects the
+               *      first segment of the access path).
+               *   2. The `??` tail falls back to the storefront
+               *      placeholder so the receipt row always renders a
+               *      thumbnail — an empty `<div>` looked broken next
+               *      to the line title.
+               * Both fallbacks fire in the same render slot so the
+               * RTL/LTR layout is identical regardless of which one
+               * wins.
+               */
+              const image = product?.images?.[0] ?? PLACEHOLDER_PRODUCT_IMAGE;
               const isUpsell = line.source === "post_purchase_upsell";
               return (
                 <li
@@ -95,15 +115,13 @@ export function OrderReceipt({ receipt }: Props) {
                 >
                   {/* Product image — premium framed thumbnail. */}
                   <div className="relative size-[72px] shrink-0 overflow-hidden rounded-xl bg-brand-soft ring-1 ring-line/70 md:size-[88px]">
-                    {image ? (
-                      <Image
-                        src={image.src}
-                        alt={pickLocalized(image.alt, locale)}
-                        fill
-                        sizes="(min-width: 768px) 88px, 72px"
-                        className="object-cover"
-                      />
-                    ) : null}
+                    <Image
+                      src={image.src}
+                      alt={pickLocalized(image.alt, locale)}
+                      fill
+                      sizes="(min-width: 768px) 88px, 72px"
+                      className="object-cover"
+                    />
                   </div>
 
                   {/* Copy + price.  On mobile the price stacks under the

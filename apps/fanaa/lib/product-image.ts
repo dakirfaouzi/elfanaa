@@ -59,9 +59,22 @@ export const PLACEHOLDER_PRODUCT_IMAGE: ProductImage = {
  *
  *   const image = getPrimaryImage(product);
  *   <Image src={image.src} alt={pickLocalized(image.alt, locale)} />
+ *
+ * The function is deliberately defensive about the shape of `images`:
+ * even though TypeScript declares it `ProductImage[]` (non-optional),
+ * a Product can reach this code path with `images === undefined` via:
+ *   • A legacy persisted Zustand cart deserialised before the type was
+ *     introduced.
+ *   • A malformed DB row that bypassed `synthesiseProductFromRow`'s
+ *     placeholder seeding (Phase 2.4.1).
+ *   • Test fixtures or future product sources that haven't been
+ *     migrated yet.
+ * Treat `undefined` exactly like an empty array — fall through to
+ * the placeholder — instead of throwing a "Cannot read properties of
+ * undefined (reading '0')" crash that would take the whole tree down.
  */
 export function getPrimaryImage(product: Pick<Product, "images">): ProductImage {
-  return product.images[0] ?? PLACEHOLDER_PRODUCT_IMAGE;
+  return product.images?.[0] ?? PLACEHOLDER_PRODUCT_IMAGE;
 }
 
 /**
@@ -75,8 +88,8 @@ export function getProductImageAt(
   index: number,
 ): ProductImage {
   return (
-    product.images[index] ??
-    product.images[0] ??
+    product.images?.[index] ??
+    product.images?.[0] ??
     PLACEHOLDER_PRODUCT_IMAGE
   );
 }

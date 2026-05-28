@@ -94,6 +94,17 @@ describe("getPrimaryImage", () => {
     expect(result).not.toBeUndefined();
     expect(typeof result.src).toBe("string");
   });
+
+  it("returns the placeholder when images is undefined (legacy / malformed product)", () => {
+    // TypeScript declares `images: ProductImage[]` non-optional, but
+    // legacy persisted carts, malformed DB rows, or test fixtures can
+    // still hand us `{ images: undefined }`. The helper must NOT
+    // crash with "Cannot read properties of undefined (reading '0')"
+    // — the regression-trigger that took down /thank-you in Phase
+    // 2.4.1's first hotfix attempt.
+    const malformed = { images: undefined as unknown as ProductImage[] };
+    expect(getPrimaryImage(malformed)).toBe(PLACEHOLDER_PRODUCT_IMAGE);
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -127,6 +138,12 @@ describe("getProductImageAt", () => {
     expect(getProductImageAt(product, 0)).toBe(REAL_HERO);
     expect(getProductImageAt(product, 1)).toBe(REAL_SECONDARY);
   });
+
+  it("returns the placeholder when images is undefined (legacy / malformed product)", () => {
+    const malformed = { images: undefined as unknown as ProductImage[] };
+    expect(getProductImageAt(malformed, 0)).toBe(PLACEHOLDER_PRODUCT_IMAGE);
+    expect(getProductImageAt(malformed, 5)).toBe(PLACEHOLDER_PRODUCT_IMAGE);
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -155,5 +172,13 @@ describe("getLifestyleImage", () => {
     expect(
       getLifestyleImage(productWith([REAL_HERO, REAL_SECONDARY], REAL_LIFESTYLE)),
     ).toBe(REAL_LIFESTYLE);
+  });
+
+  it("falls through to the placeholder when images is undefined and lifestyleImage is missing", () => {
+    const malformed = {
+      images: undefined as unknown as ProductImage[],
+      lifestyleImage: undefined,
+    };
+    expect(getLifestyleImage(malformed)).toBe(PLACEHOLDER_PRODUCT_IMAGE);
   });
 });

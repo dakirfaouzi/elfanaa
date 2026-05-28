@@ -51,6 +51,29 @@ const nextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "cdn.shopify.com" },
     ],
+    /*
+     * Allow the Image Optimization API to serve `.svg` sources.
+     *
+     * WHY: The storefront ships exactly ONE controlled SVG —
+     * `/public/placeholder-product.svg`, the warm-sand "image pending"
+     * tile rendered for AI-generated catalog rows that don't have
+     * curated photography yet (M12 / Step 2 / Phase 2.4.1). next/image
+     * silently rejects every `.svg` source by default and returns a 400
+     * from `/_next/image`, leaving the tile blank on the PDP gallery,
+     * shop cards, cart drawer, and thank-you cross-sells.
+     *
+     * SECURITY: The `dangerously` prefix exists because SVGs can carry
+     * scripts. We mitigate by:
+     *   • Pairing with an inline `contentSecurityPolicy` that disallows
+     *     all script execution and sandboxes the rendered SVG.
+     *   • Never serving user-uploaded SVGs (product photography is
+     *     either a snapshot CDN URL or this single in-repo file).
+     * The placeholder itself contains no <script>, no event handlers,
+     * and no foreign references — see the SVG markup for the audit
+     * trail (`apps/fanaa/public/placeholder-product.svg`).
+     */
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   experimental: {
     optimizePackageImports: ["lucide-react"],
