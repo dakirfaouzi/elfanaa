@@ -1,4 +1,5 @@
 import type {
+  CatalogMetadata,
   DraftDocument,
   DraftMeta,
   MediaRef,
@@ -36,6 +37,18 @@ export type BuilderAction =
   | { type: "SET_DRAFT"; document: DraftDocument }
   | { type: "UPDATE_META"; meta: Partial<DraftMeta> }
   | { type: "SET_SLUG"; slug: string }
+  /**
+   * M12 / Step 2 / Phase 2.3 — catalog metadata patch.
+   *
+   * `patch` is a shallow merge into `document.catalogMetadata`.
+   * Array/object fields (`offerTiers`, `badges`, `rating`, etc.)
+   * MUST be passed wholesale — same SHALLOW-MERGE rule as
+   * `UPDATE_SECTION`.
+   *
+   * Mutations are recorded in history so undo/redo work across the
+   * catalog panel and the section list as one unit.
+   */
+  | { type: "UPDATE_CATALOG_METADATA"; patch: Partial<CatalogMetadata> }
 
   // Section list mutations
   | { type: "ADD_SECTION"; kind: SectionKind; afterId?: string; section: Section }

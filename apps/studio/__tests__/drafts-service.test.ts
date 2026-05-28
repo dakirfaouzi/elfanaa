@@ -58,6 +58,8 @@ function makeFakePrisma(): NonNullable<
     studioEvent: new Map<string, Row>(),
     studioPublishedProduct: new Map<string, Row>(),
     studioArtifact: new Map<string, Row>(),
+    // M12 / Step 2 / Phase 2.3 — catalog upsert during publishDraft.
+    storefrontCatalogProduct: new Map<string, Row>(),
   };
 
   function clone<T extends Row>(r: T): T {
@@ -118,7 +120,11 @@ function makeFakePrisma(): NonNullable<
         return clone(next);
       },
       async upsert(args: {
-        where: { id?: string; storeId_slug_version?: { storeId: string; slug: string; version: number } };
+        where: {
+          id?: string;
+          storeId_slug_version?: { storeId: string; slug: string; version: number };
+          storeId_slug?: { storeId: string; slug: string };
+        };
         create: Row;
         update: Row;
       }) {
@@ -131,6 +137,15 @@ function makeFakePrisma(): NonNullable<
               row.slug === k.slug &&
               row.version === k.version
             ) {
+              key = id;
+              break;
+            }
+          }
+        }
+        if (!key && args.where.storeId_slug) {
+          const k = args.where.storeId_slug;
+          for (const [id, row] of map) {
+            if (row.storeId === k.storeId && row.slug === k.slug) {
               key = id;
               break;
             }
@@ -226,6 +241,7 @@ function makeFakePrisma(): NonNullable<
     studioEvent: makeDelegate("studioEvent", "event"),
     studioPublishedProduct: makeDelegate("studioPublishedProduct", "pp"),
     studioArtifact: makeDelegate("studioArtifact", "art"),
+    storefrontCatalogProduct: makeDelegate("storefrontCatalogProduct", "scp"),
     async $transaction<T>(fn: (tx: unknown) => Promise<T>): Promise<T> {
       return fn(client);
     },
@@ -233,6 +249,24 @@ function makeFakePrisma(): NonNullable<
   return client as unknown as NonNullable<
     Parameters<typeof getStudioPersistence>[0]
   >["prismaClient"];
+}
+
+/**
+ * Read back the contents of the in-memory storefront catalog table
+ * for a freshly bootstrapped persistence layer. Tests use this to
+ * assert the publish flow's catalog upsert wrote what we expected.
+ */
+async function readCatalogRows(
+  prisma: unknown,
+): Promise<Array<Record<string, unknown>>> {
+  const client = prisma as {
+    storefrontCatalogProduct: {
+      findMany(args: {
+        where?: Record<string, unknown>;
+      }): Promise<Array<Record<string, unknown>>>;
+    };
+  };
+  return await client.storefrontCatalogProduct.findMany({});
 }
 
 function withCode(code: string): Error & { code: string } {
@@ -384,6 +418,212 @@ describe("drafts-service", () => {
     expect(item?.documentInvalid).toBe(false);
     expect(item?.document).not.toBeNull();
   });
+
+  // ── M12 / Step 2 / Phase 2.3 — catalog upsert on publish ───────────
+  it(
+    "publishDraft SKIPS the catalog upsert when catalogMetadata is absent (legacy)",
+    async () => {
+      const prisma = bootstrapPersistence();
+      const created = await createDraft({ slug: "legacy", title: "Legacy" });
+      if (!created.ok) throw new Error("setup_failed");
+      const doc = createValidDocument();
+      // Simulate a legacy payload — no catalogMetadata field.
+      doc.catalogMetadata = undefined;
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc,
+      });
+      const result = await publishDraft({ draftId: created.value.id });
+      expect(result.ok).toBe(true);
+      const rows = await readCatalogRows(prisma);
+      expect(rows.length).toBe(0);
+      if (result.ok) {
+        expect(
+          result.value.warnings.some(
+            (w) => w.code === "catalog_upsert_failed",
+          ),
+        ).toBe(false);
+      }
+    },
+  );
+
+  it(
+    "publishDraft SKIPS the catalog upsert when priceMinor === 0 (operator-blank panel)",
+    async () => {
+      const prisma = bootstrapPersistence();
+      const created = await createDraft({ slug: "blank", title: "Blank" });
+      if (!created.ok) throw new Error("setup_failed");
+      const doc = createValidDocument();
+      // catalogMetadata is auto-seeded by makeBlankDraft via createDraft
+      // already (priceMinor = 0). createValidDocument preserves that.
+      expect(doc.catalogMetadata?.priceMinor).toBe(0);
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc,
+      });
+      const result = await publishDraft({ draftId: created.value.id });
+      expect(result.ok).toBe(true);
+      const rows = await readCatalogRows(prisma);
+      expect(rows.length).toBe(0);
+    },
+  );
+
+  it(
+    "publishDraft WRITES a storefront_catalog_product row when catalogMetadata has priceMinor > 0",
+    async () => {
+      const prisma = bootstrapPersistence();
+      const created = await createDraft({ slug: "live", title: "Live" });
+      if (!created.ok) throw new Error("setup_failed");
+      const doc = createValidDocument();
+      doc.catalogMetadata = {
+        priceMinor: 19_900,
+        priceCurrency: "SAR",
+        sku: "FN-LIVE-001",
+        offerTiers: [
+          { quantity: 1, total: { amount: 19_900, currency: "SAR" } },
+          { quantity: 2, total: { amount: 27_900, currency: "SAR" } },
+        ],
+        collection: "face",
+        productType: "serum",
+        target: "women",
+        problems: ["dark-spots", "dryness"],
+        badges: [{ ar: "الأكثر طلباً", en: "Best seller" }],
+        rating: { value: 4.8, count: 142 },
+        stockLeft: 12,
+        recentBuyers: 7,
+        upsellIds: ["barrier-cream"],
+        landingPath: null,
+      };
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc,
+      });
+      const result = await publishDraft({ draftId: created.value.id });
+      expect(result.ok).toBe(true);
+
+      const rows = await readCatalogRows(prisma);
+      expect(rows.length).toBe(1);
+      const row = rows[0];
+      expect(row.storeId).toBe("fanaa");
+      expect(row.slug).toBe("live");
+      expect(row.source).toBe("ai_generated");
+      expect(row.priceMinor).toBe(19_900);
+      expect(row.priceCurrency).toBe("SAR");
+      expect(row.sku).toBe("FN-LIVE-001");
+      expect(row.productType).toBe("serum");
+      expect(row.target).toBe("women");
+      expect(row.problems).toEqual(["dark-spots", "dryness"]);
+      expect(row.upsellIds).toEqual(["barrier-cream"]);
+      expect(row.collection).toBe("face");
+      expect(row.stockLeft).toBe(12);
+      expect(row.recentBuyers).toBe(7);
+      expect(row.isLive).toBe(true);
+      // The publish must link back to the studio_published_product row.
+      expect(row.publishedProductId).toBeTruthy();
+    },
+  );
+
+  it(
+    "publishDraft second publish UPDATES the same catalog row in place",
+    async () => {
+      const prisma = bootstrapPersistence();
+      const created = await createDraft({ slug: "iterate", title: "Iterate" });
+      if (!created.ok) throw new Error("setup_failed");
+
+      const doc1 = createValidDocument();
+      doc1.catalogMetadata = {
+        priceMinor: 19_900,
+        priceCurrency: "SAR",
+        sku: null,
+        offerTiers: [],
+        collection: null,
+        productType: null,
+        target: null,
+        problems: [],
+        badges: [],
+        rating: null,
+        stockLeft: null,
+        recentBuyers: null,
+        upsellIds: [],
+        landingPath: null,
+      };
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc1,
+      });
+      const first = await publishDraft({ draftId: created.value.id });
+      expect(first.ok).toBe(true);
+
+      const doc2 = createValidDocument();
+      doc2.catalogMetadata = {
+        ...doc1.catalogMetadata,
+        priceMinor: 24_900,
+        sku: "FN-ITER-002",
+      };
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc2,
+      });
+      const second = await publishDraft({ draftId: created.value.id });
+      expect(second.ok).toBe(true);
+
+      const rows = await readCatalogRows(prisma);
+      const live = rows.filter((r) => r.slug === "iterate");
+      // Still ONE row at `(storeId, slug) = (fanaa, iterate)` —
+      // upsert, not insert.
+      expect(live.length).toBe(1);
+      expect(live[0].priceMinor).toBe(24_900);
+      expect(live[0].sku).toBe("FN-ITER-002");
+    },
+  );
+
+  it(
+    "publishDraft still succeeds when the catalog upsert throws — warning attached",
+    async () => {
+      const prisma = bootstrapPersistence();
+      // Sabotage the catalog table's upsert to simulate a DB failure
+      // mid-publish. The publish itself must remain ok=true with a
+      // warning.
+      const client = prisma as unknown as {
+        storefrontCatalogProduct: { upsert: (args: unknown) => Promise<unknown> };
+      };
+      client.storefrontCatalogProduct.upsert = async () => {
+        const e = new Error("simulated_db_failure");
+        throw e;
+      };
+
+      const created = await createDraft({ slug: "noupsert", title: "NoUpsert" });
+      if (!created.ok) throw new Error("setup_failed");
+      const doc = createValidDocument();
+      doc.catalogMetadata = {
+        priceMinor: 9_900,
+        priceCurrency: "SAR",
+        sku: null,
+        offerTiers: [],
+        collection: null,
+        productType: null,
+        target: null,
+        problems: [],
+        badges: [],
+        rating: null,
+        stockLeft: null,
+        recentBuyers: null,
+        upsellIds: [],
+        landingPath: null,
+      };
+      await updateDraftDocument({
+        draftId: created.value.id,
+        document: doc,
+      });
+
+      const result = await publishDraft({ draftId: created.value.id });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const codes = result.value.warnings.map((w) => w.code);
+        expect(codes).toContain("catalog_upsert_failed");
+      }
+    },
+  );
 });
 
 describe("rowToListItem", () => {

@@ -18,6 +18,8 @@ import type {
   StickyCtaSection,
   TestimonialsSection,
 } from "@platform/builder-schema";
+import type { StoreConfig } from "@platform/stores";
+import { deriveCatalogMetadataFromProduct } from "./catalog-metadata-defaults";
 
 /**
  * Map a freshly assembled `UniversalProduct` (worker stage 12 output)
@@ -73,7 +75,7 @@ import type {
  */
 export function productToDraftDocument(
   product: UniversalProduct,
-  opts: { slug: string; newId: () => string },
+  opts: { slug: string; newId: () => string; storeConfig?: StoreConfig },
 ): DraftDocument {
   const { slug, newId } = opts;
   const sections: Section[] = [];
@@ -117,6 +119,27 @@ export function productToDraftDocument(
   // operator-edit experience starts from a complete-but-trimmed
   // baseline rather than an empty fallback.
   const heroSrc = safeStr(product.images[0]?.src);
+  /*
+   * M12 / Step 2 / Phase 2.3 — auto-derive the operator's catalog
+   * panel defaults from the pipeline's UniversalProduct.
+   *
+   * `deriveCatalogMetadataFromProduct` is pure and deterministic
+   * (see catalog-metadata-defaults.ts JSDoc). The operator can edit
+   * any field in the Studio panel before publish; the publish flow
+   * only upserts a catalog row when `priceMinor > 0`, which keeps
+   * the legacy publish path (no catalog row) intact for drafts
+   * created via "New draft" with no upstream pipeline output.
+   *
+   * Tier-A: NOT plumbing intake.offers through to here — the
+   * UniversalProduct's `priceHint` already reflects the operator's
+   * intake price, and the deterministic 1/2/3-pack ladder is the
+   * same one the FanaaPublisher would have computed. Operators
+   * adjust the ladder in the panel if the heuristic misses.
+   */
+  const catalogMetadata = deriveCatalogMetadataFromProduct({
+    product,
+    storeConfig: opts.storeConfig,
+  });
   return {
     version: 1,
     meta: {
@@ -136,6 +159,7 @@ export function productToDraftDocument(
       keywords: [],
     },
     sections,
+    catalogMetadata,
   };
 }
 

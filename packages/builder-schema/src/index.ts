@@ -14,6 +14,7 @@
 
 export * from "./media";
 export * from "./sections";
+export * from "./catalog-metadata";
 export * from "./draft";
 export * from "./validation";
 export * from "./factories";

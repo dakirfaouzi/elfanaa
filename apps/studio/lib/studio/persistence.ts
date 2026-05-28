@@ -13,6 +13,7 @@ import {
 import {
   CompositeRunStore,
   PrismaRunStore,
+  StorefrontCatalogProductRepository,
   StudioAssetRepository,
   StudioDraftRepository,
   StudioEventRepository,
@@ -71,6 +72,8 @@ export interface StudioPersistence {
     asset: StudioAssetRepository;
     event: StudioEventRepository;
     published: StudioPublishedProductRepository;
+    /** M12 / Step 2 / Phase 2.3 — catalog upsert during publish. */
+    storefrontCatalog: StorefrontCatalogProductRepository;
   };
   /** MediaStore used by asset endpoints. Always set (memory fallback). */
   mediaStore: MediaStore;
@@ -151,6 +154,7 @@ export function getStudioPersistence(
         asset: new StudioAssetRepository({ prisma }),
         event: new StudioEventRepository({ prisma }),
         published: new StudioPublishedProductRepository({ prisma }),
+        storefrontCatalog: new StorefrontCatalogProductRepository({ prisma }),
       };
     } else {
       warnings.push("dual_write_requested_but_prisma_client_unavailable");

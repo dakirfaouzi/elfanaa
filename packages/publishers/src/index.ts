@@ -44,6 +44,22 @@ export { PublisherError } from "./contracts";
 
 export type { FanaaPublisherOptions } from "./fanaa";
 export { FanaaPublisher } from "./fanaa";
+/**
+ * Deterministic UniversalProduct → FanaaProductExtension derivation.
+ *
+ * Re-exported (M12 / Step 2 / Phase 2.3) so the Studio's
+ * catalog-metadata defaults helper can call the same heuristics the
+ * publisher uses, keeping the operator's pre-publish view of
+ * commerce metadata in lock-step with what the publisher would
+ * have produced. Pure, side-effect-free; safe inside server
+ * components and worker stages.
+ */
+export {
+  toFanaaExtension,
+  deriveBeautyWellnessExtension,
+} from "./fanaa/to-fanaa-product";
+export { deriveOfferTiers } from "./fanaa/offer-tiers";
+export { deriveSku } from "./fanaa/sku";
 
 export type {
   FilePublishStoreOptions,

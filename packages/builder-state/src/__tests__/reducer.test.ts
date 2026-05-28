@@ -197,6 +197,72 @@ describe("reducer — section content", () => {
   });
 });
 
+describe("reducer — catalog metadata (Phase 2.3)", () => {
+  it("UPDATE_CATALOG_METADATA merges patch fields", () => {
+    const state = freshState();
+    const next = reducer(state, {
+      type: "UPDATE_CATALOG_METADATA",
+      patch: { priceMinor: 19_900, sku: "FN-SERUM-001" },
+    });
+    expect(next.document.catalogMetadata?.priceMinor).toBe(19_900);
+    expect(next.document.catalogMetadata?.sku).toBe("FN-SERUM-001");
+    // Untouched fields preserve their prior values.
+    expect(next.document.catalogMetadata?.priceCurrency).toBe("SAR");
+    expect(next.documentVersion).toBe(1);
+  });
+
+  it("UPDATE_CATALOG_METADATA replaces array fields wholesale", () => {
+    const state = freshState();
+    const next = reducer(state, {
+      type: "UPDATE_CATALOG_METADATA",
+      patch: {
+        offerTiers: [
+          { quantity: 1, total: { amount: 19_900, currency: "SAR" } },
+        ],
+        problems: ["dryness", "barrier-damage"],
+      },
+    });
+    expect(next.document.catalogMetadata?.offerTiers).toHaveLength(1);
+    expect(next.document.catalogMetadata?.problems).toEqual([
+      "dryness",
+      "barrier-damage",
+    ]);
+  });
+
+  it("UPDATE_CATALOG_METADATA seeds a default object for legacy drafts", () => {
+    // Simulate a draft that was hydrated from a pre-Phase-2.3 payload
+    // (no catalogMetadata field).
+    const blank = makeBlankDraft({
+      slug: "legacy",
+      title: { en: "Legacy" },
+      newId: id,
+    });
+    const legacy = { ...blank, catalogMetadata: undefined };
+    const state = initialState(legacy);
+    expect(state.document.catalogMetadata).toBeUndefined();
+    const next = reducer(state, {
+      type: "UPDATE_CATALOG_METADATA",
+      patch: { priceMinor: 12_345 },
+    });
+    expect(next.document.catalogMetadata).toBeDefined();
+    expect(next.document.catalogMetadata?.priceMinor).toBe(12_345);
+    expect(next.document.catalogMetadata?.priceCurrency).toBe("SAR");
+  });
+
+  it("UPDATE_CATALOG_METADATA participates in undo/redo history", () => {
+    const state = freshState();
+    const edited = reducer(state, {
+      type: "UPDATE_CATALOG_METADATA",
+      patch: { priceMinor: 19_900 },
+    });
+    const undone = reducer(edited, { type: "UNDO" });
+    expect(undone.document.catalogMetadata?.priceMinor).toBe(0);
+    expect(canRedo(undone)).toBe(true);
+    const redone = reducer(undone, { type: "REDO" });
+    expect(redone.document.catalogMetadata?.priceMinor).toBe(19_900);
+  });
+});
+
 describe("reducer — history", () => {
   it("UNDO restores the prior document", () => {
     const state = freshState();

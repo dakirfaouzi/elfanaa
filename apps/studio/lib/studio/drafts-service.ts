@@ -1,7 +1,9 @@
 import {
   DraftDocumentSchema,
+  hasMeaningfulCatalogMetadata,
   makeBlankDraft,
   validateForPublish,
+  type CatalogMetadata,
   type DraftDocument,
   type PublishIssue,
 } from "@platform/builder-schema";
@@ -428,6 +430,63 @@ export async function publishDraft(args: {
       actor: args.publishedBy ?? "studio_ui",
       payload: { publishedId: row.id, version: row.version },
     });
+
+    /*
+     * M12 / Step 2 / Phase 2.3 — best-effort catalog upsert.
+     *
+     * Pulls the operator-edited `catalogMetadata` from the validated
+     * draft document and writes it to `storefront_catalog_product`
+     * so the fanaa hybrid loader (Phase 2.2) overlays it onto the
+     * snapshot on the next ISR cycle.
+     *
+     * # Best-effort contract
+     *
+     *   • The upsert runs AFTER the publish artifact + status flip
+     *     have committed. If the catalog write fails, the publish
+     *     itself still succeeds — the operator can re-publish or
+     *     edit the catalog row out-of-band later.
+     *   • Failure is LOGGED to stderr but NEVER throws, so the
+     *     publish never regresses to "published row exists but
+     *     publish flow returned an error" (the bug class the C3.1
+     *     hardening eliminated).
+     *   • Catalog upsert is skipped when `catalogMetadata` is absent
+     *     (legacy draft) or when `priceMinor === 0` (operator
+     *     deliberately left the panel blank). Legacy publishes that
+     *     never touched the panel keep the same behaviour they had
+     *     before Phase 2.3.
+     *
+     * # Source classification
+     *
+     * Studio publishes are always `ai_generated` source — they came
+     * from the AI pipeline. Curated rows are seeded separately by
+     * the storefront-catalog-auto-seed bootstrap (Phase 2.2) and
+     * MUST NOT be overwritten here. The fanaa-storefront-catalog
+     * seed file uses `source: "curated"`; the upsert below uses
+     * `source: "ai_generated"`, and the underlying SQL `upsert` is
+     * keyed on `(storeId, slug)`. The slugs for curated products
+     * (`glow-serum`, `barrier-cream`, etc.) intentionally collide
+     * with what an operator-published draft would use — see
+     * `apps/studio/lib/studio/storefront-catalog-auto-seed.ts` for
+     * the corresponding "skip if already present" guard.
+     */
+    const upsertResult = await tryUpsertCatalogRow({
+      persistence,
+      storeId: draft.storeId,
+      slug: draft.slug,
+      publishedProductId: row.id,
+      catalogMetadata: validated.document.catalogMetadata,
+    });
+    if (upsertResult.kind === "logged_failure") {
+      // Surface as a publish WARNING so the UI banner can show it
+      // alongside successful publish. We don't promote it to error —
+      // the publish itself succeeded.
+      validated.warnings.push({
+        level: "warning",
+        code: "catalog_upsert_failed",
+        message: upsertResult.message,
+      });
+    }
+
     return {
       ok: true,
       value: {
@@ -534,4 +593,90 @@ export async function listPublishedProducts(args: {
     return { row, document: null, documentInvalid: true };
   });
   return { ok: true, value: items };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Catalog upsert helper (M12 / Step 2 / Phase 2.3)
+// ─────────────────────────────────────────────────────────────────────────
+
+type CatalogUpsertOutcome =
+  | { kind: "skipped"; reason: string }
+  | { kind: "ok" }
+  | { kind: "logged_failure"; message: string };
+
+/**
+ * `tryUpsertCatalogRow` — best-effort write from publishDraft into
+ * `storefront_catalog_product`.
+ *
+ * Three branches:
+ *
+ *   • `skipped` — `catalogMetadata` is missing or
+ *     `hasMeaningfulCatalogMetadata` returns false (e.g.
+ *     `priceMinor === 0`). Legacy publishes that never touched the
+ *     panel land here and preserve the pre-Phase-2.3 behaviour.
+ *
+ *   • `ok` — the catalog row was written. The fanaa hybrid loader
+ *     overlays it onto the build-time snapshot on the next ISR
+ *     cycle (≤60s after publish).
+ *
+ *   • `logged_failure` — the upsert threw. The publish itself
+ *     still succeeded (status flip, audit event); the failure is
+ *     logged to stderr AND attached to the publish result as a
+ *     warning so the UI surfaces it. We DO NOT throw — Phase 2.3
+ *     decision: a catalog upsert failure must never roll back a
+ *     successful publish.
+ */
+async function tryUpsertCatalogRow(args: {
+  persistence: NonNullable<ReturnType<typeof getStudioPersistence>>;
+  storeId: string;
+  slug: string;
+  publishedProductId: string;
+  catalogMetadata: CatalogMetadata | undefined;
+}): Promise<CatalogUpsertOutcome> {
+  const { persistence, catalogMetadata } = args;
+  if (!persistence.repositories) {
+    return { kind: "skipped", reason: "no_repositories" };
+  }
+  if (!catalogMetadata) {
+    return { kind: "skipped", reason: "no_catalog_metadata" };
+  }
+  if (!hasMeaningfulCatalogMetadata(catalogMetadata)) {
+    return { kind: "skipped", reason: "price_minor_zero" };
+  }
+
+  try {
+    await persistence.repositories.storefrontCatalog.upsert({
+      storeId: args.storeId,
+      slug: args.slug,
+      source: "ai_generated",
+      publishedProductId: args.publishedProductId,
+      sku: catalogMetadata.sku,
+      priceMinor: catalogMetadata.priceMinor,
+      priceCurrency: catalogMetadata.priceCurrency,
+      offerTiers: catalogMetadata.offerTiers,
+      collection: catalogMetadata.collection,
+      productType: catalogMetadata.productType,
+      target: catalogMetadata.target,
+      problems: catalogMetadata.problems,
+      badges: catalogMetadata.badges,
+      rating: catalogMetadata.rating,
+      stockLeft: catalogMetadata.stockLeft,
+      recentBuyers: catalogMetadata.recentBuyers,
+      upsellIds: catalogMetadata.upsellIds,
+      landingPath: catalogMetadata.landingPath,
+      isLive: true,
+    });
+    return { kind: "ok" };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : String(err);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[drafts-service] catalog_upsert_failed storeId=${args.storeId} slug=${args.slug} error=${message}`,
+    );
+    return {
+      kind: "logged_failure",
+      message: `Catalog row was not written: ${message}`,
+    };
+  }
 }

@@ -1,5 +1,6 @@
 import type { Section, SectionKind } from "./sections";
 import type { DraftDocument } from "./draft";
+import { emptyCatalogMetadata } from "./catalog-metadata";
 
 /**
  * Section factories — produce "blank" sections for the builder's
@@ -145,5 +146,15 @@ export function makeBlankDraft(opts: {
       makeBlankSection("hero", opts.newId),
       makeBlankSection("cta", opts.newId),
     ],
+    /*
+     * M12 / Step 2 / Phase 2.3 — empty-but-typed catalog metadata so
+     * the catalog panel renders without a guard branch. `priceMinor = 0`
+     * means the publish flow's `hasMeaningfulCatalogMetadata` check
+     * returns false until the operator (or the pipeline auto-deriver
+     * in `productToDraftDocument`) fills it in. No catalog row is
+     * upserted for drafts left at zero — matching the legacy publish
+     * behaviour before Phase 2.3.
+     */
+    catalogMetadata: emptyCatalogMetadata(),
   };
 }

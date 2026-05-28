@@ -1,4 +1,5 @@
 import type { DraftDocument, Section } from "@platform/builder-schema";
+import { emptyCatalogMetadata } from "@platform/builder-schema";
 import type { BuilderAction } from "./actions";
 import type { BuilderState } from "./state";
 import { HISTORY_LIMIT, initialState } from "./state";
@@ -86,6 +87,25 @@ export function reducer(state: BuilderState, action: BuilderAction): BuilderStat
       const next: DraftDocument = {
         ...state.document,
         meta: { ...state.document.meta, slug: action.slug },
+      };
+      return withDocument(state, next);
+    }
+
+    case "UPDATE_CATALOG_METADATA": {
+      /*
+       * Backward compatibility — drafts created before Phase 2.3
+       * don't carry `catalogMetadata`. Seed an empty-but-typed
+       * object on the first patch so the merge below is total. The
+       * empty default has `priceMinor = 0`, which keeps the
+       * publish flow's `hasMeaningfulCatalogMetadata` returning
+       * false until the operator types a real price — preserves
+       * the legacy "no catalog row" publish path for un-edited
+       * panels.
+       */
+      const current = state.document.catalogMetadata ?? emptyCatalogMetadata();
+      const next: DraftDocument = {
+        ...state.document,
+        catalogMetadata: { ...current, ...action.patch },
       };
       return withDocument(state, next);
     }

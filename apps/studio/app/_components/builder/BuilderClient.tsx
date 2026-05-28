@@ -6,6 +6,7 @@ import {
   SECTION_LABELS,
   makeBlankSection,
   validateForPublish,
+  type CatalogMetadata,
   type DraftDocument,
   type PublishIssue,
   type Section,
@@ -22,6 +23,7 @@ import {
 } from "@platform/builder-state";
 import { DraftRenderer } from "@platform/runtime-renderer";
 import { SectionEditor, sectionKindLabel } from "./editors";
+import { CatalogMetadataPanel } from "./CatalogMetadataPanel";
 import { RelativeTime } from "../RelativeTime";
 import { studioPath } from "@/lib/base-path";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
@@ -162,6 +164,9 @@ export function BuilderClient(props: BuilderClientProps) {
   function patchSection(section: Section, patch: Partial<Section>) {
     dispatch({ type: "UPDATE_SECTION", sectionId: section.id, patch });
   }
+  function patchCatalogMetadata(patch: Partial<CatalogMetadata>) {
+    dispatch({ type: "UPDATE_CATALOG_METADATA", patch });
+  }
   function addSection(kind: SectionKind) {
     dispatch({
       type: "ADD_SECTION",
@@ -258,6 +263,19 @@ export function BuilderClient(props: BuilderClientProps) {
         className="builder-split"
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/*
+           * M12 / Step 2 / Phase 2.3 — Catalog metadata panel.
+           *
+           * Renders ABOVE the section list as an always-visible card
+           * (Phase 2.3 decision 2). The panel is collapsible from
+           * its own header, but never hidden from the operator —
+           * commerce metadata is half the publish output.
+           */}
+          <CatalogMetadataPanel
+            value={state.document.catalogMetadata}
+            onPatch={patchCatalogMetadata}
+            readOnly={props.readOnly}
+          />
           {state.document.sections.map((section) => (
             <SectionBlock
               key={section.id}

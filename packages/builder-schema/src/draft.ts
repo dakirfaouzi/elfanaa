@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SectionSchema } from "./sections";
+import { CatalogMetadataSchema } from "./catalog-metadata";
 
 /**
  * DraftDocument — the normalised state shape stored in
@@ -70,6 +71,32 @@ export const DraftDocumentSchema = z.object({
   version: z.literal(1),
   meta: DraftMetaSchema,
   sections: z.array(SectionSchema).max(64).default([]),
+  /**
+   * Commerce metadata — operator-editable shape upserted into
+   * `storefront_catalog_product` on publish (M12 / Step 2 / Phase 2.3).
+   *
+   * # Why optional
+   *
+   * Drafts created before Phase 2.3 don't carry this field. The
+   * persistence layer's `coerceDocument` (see
+   * `apps/studio/lib/studio/drafts-service.ts`) feeds those drafts
+   * through `DraftDocumentSchema.safeParse`, which must still
+   * succeed. The catalog metadata field is synthesised on the next
+   * save via the productToDraftDocument auto-derivation; until
+   * then the publish flow skips the catalog upsert.
+   *
+   * # Why top-level instead of nested under meta
+   *
+   * `meta` carries SEO-facing fields (title, slug, description,
+   * ogImage, keywords). `catalogMetadata` carries commerce data
+   * (price, SKU, badges, taxonomy, scarcity). These are two
+   * orthogonal concerns with two different downstream consumers
+   * (the runtime renderer reads `meta`; the storefront catalog
+   * loader reads commerce metadata). Keeping them as sibling
+   * top-level fields makes the audit clean and lets the reducer
+   * mutate one without churning the other's history snapshot.
+   */
+  catalogMetadata: CatalogMetadataSchema.optional(),
 });
 export type DraftDocument = z.infer<typeof DraftDocumentSchema>;
 
