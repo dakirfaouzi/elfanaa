@@ -9,7 +9,11 @@ import {
 } from "@/data/products";
 import { isAdminDbConfigured, prisma } from "@/lib/admin/db";
 import type { CatalogRow } from "./types";
-import { mergeCatalogProduct, synthesiseProductFromRow } from "./merge";
+import {
+  assembleCatalogProducts,
+  mergeCatalogProduct,
+  synthesiseProductFromRow,
+} from "./merge";
 
 /**
  * Storefront catalog — live (DB-backed) loader.
@@ -130,7 +134,7 @@ const loadCatalogRowsBySlug = cache(
  */
 export async function loadAllCatalogProducts(): Promise<Product[]> {
   const rowsBySlug = await loadCatalogRowsBySlug();
-  return assembleCatalog(rowsBySlug);
+  return assembleCatalogProducts(snapshotProducts, rowsBySlug);
 }
 
 /**
@@ -220,37 +224,7 @@ export function bestSellersFromSnapshot(): Product[] {
   return snapshotBestSellers();
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                  Assembly                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Merge snapshot rows with DB-only rows. The strategy:
- *
- *   • Walk the snapshot in declaration order — guarantees stable
- *     homepage / shop layout. Overlay DB commerce metadata.
- *   • Walk the DB-only rows in `updatedAt DESC` order (already
- *     applied by the listLive query) and synthesise degraded
- *     Products for any slug that has no snapshot entry.
- *
- * Result: snapshot rows first (curated merchandising), DB-only rows
- * after (newer AI-generated products). Both are filtered for `isLive`
- * upstream by the SQL query, so unlisted rows never reach this code.
- */
-function assembleCatalog(rowsBySlug: Map<string, CatalogRow>): Product[] {
-  const snapshotSlugs = new Set<string>();
-  const out: Product[] = [];
-
-  for (const snapshot of snapshotProducts) {
-    snapshotSlugs.add(snapshot.slug);
-    const dbRow = rowsBySlug.get(snapshot.slug) ?? null;
-    out.push(mergeCatalogProduct(snapshot, dbRow));
-  }
-
-  for (const [slug, row] of rowsBySlug) {
-    if (snapshotSlugs.has(slug)) continue;
-    out.push(synthesiseProductFromRow(row));
-  }
-
-  return out;
-}
+// Catalog assembly lives in `./merge.ts` (`assembleCatalogProducts`)
+// so it can be unit-tested without dragging `server-only` /
+// `react/cache` into the test runtime. The loader's job ends at
+// "fetch + cache + fallback".

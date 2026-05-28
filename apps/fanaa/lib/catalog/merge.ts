@@ -1,17 +1,17 @@
 /**
- * Catalog merge — pure helper that overlays a `storefront_catalog_product`
- * row onto a curated `Product` from the build-time snapshot.
+ * Catalog merge — pure helpers that resolve the two-source-of-truth
+ * model behind the fanaa storefront catalog (M12 / Step 2).
  *
  * # Why a separate file
  *
- * The merge is the single place where two source-of-truth disagreements
- * are resolved. Keeping it pure (no Prisma, no React, no I/O) means:
+ * The merge is the single place where snapshot ↔ DB disagreements are
+ * resolved. Keeping it pure (no Prisma, no React, no I/O) means:
  *   • The loader can stay focused on caching + fallback decisions.
- *   • A future test runner in fanaa can cover this file directly.
+ *   • Apps/fanaa vitest covers every branch in this file directly.
  *   • The same merge logic can be reused at build time, request time,
  *     and during the Studio publish flow without import shenanigans.
  *
- * # Merge contract (M12 / Step 2)
+ * # Merge contract (Phase 2.2 → 2.4)
  *
  *   • CRO content always wins from the snapshot:
  *       title, description, headline, subheadline, images,
@@ -42,6 +42,21 @@
  * symmetry with `StorefrontCatalogProductRepository.upsert`, where
  * passing `null` *clears* the field. An empty array (e.g. `problems: []`)
  * is treated as "intentionally empty" and overrides the snapshot.
+ *
+ * # DB-only products (Phase 2.4 hardening)
+ *
+ * `synthesiseProductFromRow` runs for AI-generated rows with no
+ * matching snapshot entry. The upstream Studio panel validates every
+ * field via `CatalogMetadataSchema`, but the storefront still
+ * defensively validates closed enums (`productType`, `target`,
+ * `problems`) here — a hand-crafted SQL insert or a future schema
+ * drift won't smuggle unknown values into the type system. Unknown
+ * enum values are silently dropped (logged once via `console.warn`)
+ * and the field falls through to `undefined`. Invalid pricing
+ * (non-finite, negative) is clamped to `0` with the currency falling
+ * back to `"SAR"` (the fanaa primary market). Both cases produce a
+ * renderable Product — the worst-case symptom is "operator must
+ * republish to fix the row" rather than a 500 on the shop page.
  */
 
 import type { CatalogRow } from "./types";
@@ -135,12 +150,13 @@ export function mergeCatalogProduct(
  * # When is this called?
  *
  * Phase 2.2 ships with four curated rows whose slugs always match
- * `data/products.ts`. The fallback below is rare today, but it
- * matters for Phase 2.3+:
- *   • When the Studio publish flow drops a new `ai_generated` row
- *     with no matching snapshot entry, the shop page should still
- *     list the product. The result is a degraded card (no headline,
- *     no benefits, no reviews) but it's discoverable + buyable.
+ * `data/products.ts`. This path activates the moment the operator
+ * publishes a NEW product from Studio (Phase 2.3+):
+ *   • The shop / collection / concern pages list it (degraded card
+ *     — no headline, no benefits, no reviews — but discoverable +
+ *     buyable).
+ *   • `/p/<slug>` PDP renders the universal storefront fallback,
+ *     using the price + offer tiers + badges from the DB row.
  *
  * # Identity
  *
@@ -149,6 +165,14 @@ export function mergeCatalogProduct(
  * regenerated, but `addToCart` always goes through the PDP, where
  * `loadCatalogProductBySlug` returns this synthetic shape too, so
  * the cart line is keyed consistently.
+ *
+ * # Defensive validation (Phase 2.4)
+ *
+ * Closed-union enums (`productType`, `target`, `problems`) are
+ * validated against the storefront's filter system. Unknown values
+ * are dropped — the row remains visible but the filter sidebar
+ * stays consistent. Pricing is sanitised so a malformed row never
+ * crashes the PDP renderer (see `sanitisePrice` below).
  */
 export function synthesiseProductFromRow(
   row: CatalogRow,
@@ -164,18 +188,15 @@ export function synthesiseProductFromRow(
     title: fallbackTitle,
     description: { ar: "", en: "" },
     images: [],
-    price: {
-      amount: row.priceMinor,
-      currency: row.priceCurrency,
-    },
-    offerTiers: coerceOfferTiers(row.offerTiers) ?? undefined,
+    price: sanitisePrice(row.priceMinor, row.priceCurrency, row.slug),
+    offerTiers: nonEmptyOrUndefined(coerceOfferTiers(row.offerTiers)),
     sku: row.sku ?? undefined,
-    badges: coerceBadges(row.badges) ?? undefined,
+    badges: nonEmptyOrUndefined(coerceBadges(row.badges)),
     rating: coerceRating(row.rating) ?? undefined,
     collection: row.collection ?? undefined,
-    productType: (row.productType as ProductType | null) ?? undefined,
-    target: (row.target as ProductTarget | null) ?? undefined,
-    problems: row.problems.length > 0 ? (row.problems as ProductProblem[]) : undefined,
+    productType: validateProductType(row.productType, row.slug),
+    target: validateProductTarget(row.target, row.slug),
+    problems: validateProblems(row.problems, row.slug),
     upsellIds: row.upsellIds.length > 0 ? row.upsellIds : undefined,
     stockLeft: row.stockLeft ?? undefined,
     recentBuyers: row.recentBuyers ?? undefined,
@@ -183,6 +204,58 @@ export function synthesiseProductFromRow(
   };
 
   return product;
+}
+
+/**
+ * Assemble the full live catalog: snapshot rows (with DB overlay)
+ * first, DB-only rows synthesised at the end.
+ *
+ * # Why this is a separate pure function
+ *
+ * Extracting the assembly out of `loader.ts` keeps the loader free
+ * of testable logic — the loader is just "fetch + cache + fallback".
+ * This function takes the snapshot and the row map as parameters
+ * (rather than reaching into the snapshot module directly), which
+ * makes unit tests trivial and lets the same logic run identically
+ * at build time, request time, and in tests.
+ *
+ * # Ordering contract
+ *
+ *   1. Snapshot products in their declared order. The snapshot
+ *      encodes deliberate merchandising (hero placement, related-
+ *      product affinity) — sorting by `updatedAt` or alphabetical
+ *      would scramble it.
+ *   2. DB-only products in the iteration order of `rowsBySlug`. The
+ *      loader passes a Map seeded from `updatedAt DESC`, so newer
+ *      AI-generated products land near the snapshot's tail rather
+ *      than buried at the bottom.
+ *
+ * # Why snapshot products win on slug collision
+ *
+ * If a DB row's slug matches a snapshot entry, the DB row is
+ * applied as an overlay via `mergeCatalogProduct`. It is NEVER
+ * duplicated as a synthesised entry — the `snapshotSlugs` set
+ * filters it out of the DB-only loop.
+ */
+export function assembleCatalogProducts(
+  snapshot: ReadonlyArray<Product>,
+  rowsBySlug: ReadonlyMap<string, CatalogRow>,
+): Product[] {
+  const snapshotSlugs = new Set<string>();
+  const out: Product[] = [];
+
+  for (const product of snapshot) {
+    snapshotSlugs.add(product.slug);
+    const dbRow = rowsBySlug.get(product.slug) ?? null;
+    out.push(mergeCatalogProduct(product, dbRow));
+  }
+
+  for (const [slug, row] of rowsBySlug) {
+    if (snapshotSlugs.has(slug)) continue;
+    out.push(synthesiseProductFromRow(row));
+  }
+
+  return out;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -336,4 +409,142 @@ function coerceMoney(value: unknown): Money | null {
   const v = value as { amount?: unknown; currency?: unknown };
   if (typeof v.amount !== "number" || typeof v.currency !== "string") return null;
   return { amount: v.amount, currency: v.currency };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          Closed-union validation                            */
+/* -------------------------------------------------------------------------- */
+//
+// The storefront's filter system is built around closed string
+// unions (`ProductType`, `ProductTarget`, `ProductProblem`). The
+// Studio panel validates against the same vocabulary via Zod, so
+// well-behaved publish flows can't smuggle unknown values past the
+// upsert. These validators are defense in depth against:
+//   • Hand-crafted SQL inserts during a one-off migration.
+//   • Future vocabulary drift between Studio + storefront (a value
+//     added to one side but not the other).
+//   • A schema migration that widens the column type.
+// Unknown values are dropped silently (a single `console.warn` keeps
+// the breadcrumb in the runtime logs) and the field stays
+// `undefined`. The product itself stays renderable.
+
+const PRODUCT_TYPES: ReadonlySet<ProductType> = new Set<ProductType>([
+  "serum", "cream", "mask", "oil",
+  "capsules", "spray", "device", "bundle",
+]);
+
+const PRODUCT_TARGETS: ReadonlySet<ProductTarget> = new Set<ProductTarget>([
+  "women", "men", "unisex",
+]);
+
+const PRODUCT_PROBLEMS: ReadonlySet<ProductProblem> = new Set<ProductProblem>([
+  "dark-spots", "dryness", "uneven-tone", "barrier-damage",
+  "sensitive-skin", "oily-skin", "pores",
+  "hair-damage", "hair-dryness", "breakage", "color-treated", "hair-loss",
+  "complete-care",
+]);
+
+function validateProductType(
+  value: string | null,
+  slug: string,
+): ProductType | undefined {
+  if (value === null || value === "") return undefined;
+  if (PRODUCT_TYPES.has(value as ProductType)) return value as ProductType;
+  console.warn(
+    "[catalog/merge] unknown productType dropped from synthesised product",
+    { slug, value },
+  );
+  return undefined;
+}
+
+function validateProductTarget(
+  value: string | null,
+  slug: string,
+): ProductTarget | undefined {
+  if (value === null || value === "") return undefined;
+  if (PRODUCT_TARGETS.has(value as ProductTarget)) return value as ProductTarget;
+  console.warn(
+    "[catalog/merge] unknown target dropped from synthesised product",
+    { slug, value },
+  );
+  return undefined;
+}
+
+function validateProblems(
+  values: ReadonlyArray<string>,
+  slug: string,
+): ProductProblem[] | undefined {
+  if (values.length === 0) return undefined;
+  const valid: ProductProblem[] = [];
+  const dropped: string[] = [];
+  for (const value of values) {
+    if (PRODUCT_PROBLEMS.has(value as ProductProblem)) {
+      valid.push(value as ProductProblem);
+    } else {
+      dropped.push(value);
+    }
+  }
+  if (dropped.length > 0) {
+    console.warn(
+      "[catalog/merge] unknown problem values dropped from synthesised product",
+      { slug, dropped },
+    );
+  }
+  return valid.length > 0 ? valid : undefined;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            Price sanitisation                               */
+/* -------------------------------------------------------------------------- */
+//
+// `priceMinor` is a Postgres `Int4` non-null column and the Studio
+// panel enforces `>= 0` via Zod, so well-behaved rows always arrive
+// with a finite non-negative number. We still guard against:
+//   • Numeric overflow on JSON re-serialisation (Number ↔ BigInt).
+//   • Negative values from a hand-crafted SQL insert.
+//   • Empty `priceCurrency` from a partial migration.
+// The fallback currency "SAR" matches fanaa's primary market — any
+// store cloning this loader should override the fallback in their
+// own merge module.
+
+const FALLBACK_CURRENCY = "SAR";
+
+/**
+ * Treat coerced-but-empty arrays as "unset" for the synthesised
+ * Product. The merge path already does this via `pickOfferTiers` /
+ * `pickBadges` (empty array → snapshot fallback). The synthesise path
+ * has no snapshot fallback, but downstream consumers (`OfferSelector`,
+ * `PdpBadges`) treat `undefined` and `[]` identically — collapsing
+ * them keeps the Product shape canonical for caches and snapshots.
+ */
+function nonEmptyOrUndefined<T>(value: T[] | null): T[] | undefined {
+  if (value === null) return undefined;
+  if (value.length === 0) return undefined;
+  return value;
+}
+
+function sanitisePrice(
+  amount: number,
+  currency: string,
+  slug: string,
+): Money {
+  let safeAmount = amount;
+  if (!Number.isFinite(amount) || amount < 0) {
+    console.warn(
+      "[catalog/merge] invalid priceMinor clamped to 0 on synthesised product",
+      { slug, amount },
+    );
+    safeAmount = 0;
+  }
+
+  let safeCurrency = currency;
+  if (typeof currency !== "string" || currency.trim() === "") {
+    console.warn(
+      "[catalog/merge] missing priceCurrency replaced with SAR on synthesised product",
+      { slug, currency },
+    );
+    safeCurrency = FALLBACK_CURRENCY;
+  }
+
+  return { amount: safeAmount, currency: safeCurrency };
 }
