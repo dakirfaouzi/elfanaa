@@ -8,6 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { lineTotal } from "@/lib/pricing";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { getPrimaryImage } from "@/lib/product-image";
 import type { Product } from "@/lib/types";
 
 type Props = {
@@ -60,7 +61,7 @@ export function ProductStickyBar({
   }, [triggerSelector]);
 
   const total = lineTotal(product, quantity);
-  const image = product.images[0];
+  const image = getPrimaryImage(product);
 
   return (
     <div

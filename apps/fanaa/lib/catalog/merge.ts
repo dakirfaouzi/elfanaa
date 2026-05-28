@@ -57,6 +57,23 @@
  * back to `"SAR"` (the fanaa primary market). Both cases produce a
  * renderable Product — the worst-case symptom is "operator must
  * republish to fix the row" rather than a 500 on the shop page.
+ *
+ * # Images contract (Phase 2.4.1 fix)
+ *
+ * `storefront_catalog_product` does not (yet) carry product image
+ * data — that surface still lives in the snapshot's curated
+ * photography. AI-generated rows therefore arrive at the storefront
+ * with no images of their own. Phase 2.2's synthesise function
+ * shipped `images: []`, which crashed every UI surface that read
+ * `product.images[0].src` (ProductCard, cart drawer, PDP gallery,
+ * sticky add-to-cart bar, post-purchase upsell, thank-you cross-sells
+ * + recommendations). The merger now seeds
+ * `PLACEHOLDER_PRODUCT_IMAGE` into the synthesised Product so
+ * `images.length >= 1` is true for every value reaching the
+ * storefront. The UI layer also wraps its access via
+ * `lib/product-image.ts::getPrimaryImage(product)` for defense in
+ * depth — both layers share the same placeholder so the visual
+ * experience is identical regardless of where the fallback fires.
  */
 
 import type { CatalogRow } from "./types";
@@ -65,10 +82,12 @@ import type {
   Money,
   OfferTier,
   Product,
+  ProductImage,
   ProductProblem,
   ProductTarget,
   ProductType,
 } from "@/lib/types";
+import { PLACEHOLDER_PRODUCT_IMAGE } from "@/lib/product-image";
 
 /* -------------------------------------------------------------------------- */
 /*                                Public API                                   */
@@ -187,7 +206,15 @@ export function synthesiseProductFromRow(
     slug: row.slug,
     title: fallbackTitle,
     description: { ar: "", en: "" },
-    images: [],
+    // The DB row does not carry image data — that's still the
+    // snapshot's job. AI-generated rows therefore arrive with no
+    // photography, but every storefront surface (ProductCard, cart,
+    // PDP gallery, sticky bar, post-purchase upsell, thank-you
+    // recommendations) reads `images[0]` and crashes on undefined.
+    // Seed the placeholder so the synthesised Product is always
+    // renderable end-to-end. The `lib/product-image.ts` helpers add
+    // a second defensive layer at the UI layer.
+    images: [PLACEHOLDER_PRODUCT_IMAGE satisfies ProductImage],
     price: sanitisePrice(row.priceMinor, row.priceCurrency, row.slug),
     offerTiers: nonEmptyOrUndefined(coerceOfferTiers(row.offerTiers)),
     sku: row.sku ?? undefined,

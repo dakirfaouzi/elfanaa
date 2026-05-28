@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/Container";
 import { Flourish } from "@/components/brand/Flourish";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
+import { getLifestyleImage } from "@/lib/product-image";
 import type { Product } from "@/lib/types";
 
 type Props = { product: Product };
@@ -21,7 +22,10 @@ type Props = { product: Product };
  */
 export function ProductLifestyle({ product }: Props) {
   const { locale, t } = useLocale();
-  const image = product.lifestyleImage ?? product.images[0];
+  // Falls through `lifestyleImage` → `images[0]` → placeholder so the
+  // editorial band still renders for AI-generated products that have
+  // neither a curated lifestyle photo nor a hero gallery shot yet.
+  const image = getLifestyleImage(product);
   const headline = product.headline ?? product.title;
   const subhead = product.subheadline;
 

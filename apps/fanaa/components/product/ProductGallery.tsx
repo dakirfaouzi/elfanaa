@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { pickLocalized } from "@/lib/format";
 import { useLocale } from "@/hooks/useLocale";
 import { Badge } from "@/components/ui/Badge";
+import { getProductImageAt } from "@/lib/product-image";
 import type { Product } from "@/lib/types";
 
 type Props = { product: Product };
@@ -26,7 +27,10 @@ type Props = { product: Product };
 export function ProductGallery({ product }: Props) {
   const { locale } = useLocale();
   const [active, setActive] = useState(0);
-  const current = product.images[active] ?? product.images[0];
+  // Falls through `images[active]` → `images[0]` → placeholder so a
+  // hybrid-catalog product with no curated photography still renders
+  // a hero tile instead of crashing the PDP.
+  const current = getProductImageAt(product, active);
   const headlineBadge = product.badges?.[0];
 
   return (

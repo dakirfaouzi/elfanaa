@@ -7,6 +7,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { pickLocalized } from "@/lib/format";
 import { track } from "@/lib/analytics";
+import { getPrimaryImage } from "@/lib/product-image";
 import type { Product } from "@/lib/types";
 
 /**
@@ -18,7 +19,7 @@ export function CrossSellCard({ product }: { product: Product }) {
   const { locale, t } = useLocale();
   const add = useCart((s) => s.add);
   const format = useFormatPrice();
-  const image = product.images[0];
+  const image = getPrimaryImage(product);
 
   const onAdd = () => {
     // Tag this line as a cart-drawer cross-sell so the order webhook

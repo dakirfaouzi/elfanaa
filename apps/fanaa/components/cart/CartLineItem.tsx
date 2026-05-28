@@ -8,6 +8,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { pickLocalized } from "@/lib/format";
 import { lineTotal, nextTier, tierSavings } from "@/lib/pricing";
+import { getPrimaryImage } from "@/lib/product-image";
 
 export function CartLineItem({ line }: { line: ResolvedLine }) {
   const { locale, t } = useLocale();
@@ -19,7 +20,7 @@ export function CartLineItem({ line }: { line: ResolvedLine }) {
   const total = lineTotal(product, line.quantity);
   const saved = tierSavings(product, line.quantity);
   const upcoming = nextTier(product, line.quantity);
-  const image = product.images[0];
+  const image = getPrimaryImage(product);
 
   return (
     <li className="flex gap-4 px-5 py-5">

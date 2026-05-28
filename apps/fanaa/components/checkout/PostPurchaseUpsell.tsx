@@ -18,6 +18,7 @@ import {
   type UpsellStatus,
 } from "@/lib/order-receipt";
 import { apiUrl } from "@/lib/api";
+import { getPrimaryImage } from "@/lib/product-image";
 
 type Props = {
   orderProductIds: string[];
@@ -124,7 +125,7 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
   if (!upsell) return null;
 
   const { product, offerPrice, basePrice, savings, discountPercent, reason } = upsell;
-  const image = product.images[0];
+  const image = getPrimaryImage(product);
   const reasonCopy = reasonText(reason, t);
 
   const accept = async () => {

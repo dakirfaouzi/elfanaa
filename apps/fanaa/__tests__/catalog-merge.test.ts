@@ -34,6 +34,7 @@ import {
   mergeCatalogProduct,
   synthesiseProductFromRow,
 } from "@/lib/catalog/merge";
+import { PLACEHOLDER_PRODUCT_IMAGE } from "@/lib/product-image";
 
 /* -------------------------------------------------------------------------- */
 /*                                  Fixtures                                   */
@@ -414,7 +415,40 @@ describe("synthesiseProductFromRow", () => {
     expect(product.id).toBe("ai-product");
     expect(product.slug).toBe("ai-product");
     expect(product.price).toEqual({ amount: 12500, currency: "SAR" });
-    expect(product.images).toEqual([]);
+  });
+
+  describe("images contract (Phase 2.4.1 regression guard)", () => {
+    it("seeds the placeholder image so images is NEVER empty", () => {
+      const product = synthesiseProductFromRow(makeDbRow());
+      expect(product.images).toHaveLength(1);
+      expect(product.images[0]).toEqual(PLACEHOLDER_PRODUCT_IMAGE);
+    });
+
+    it("placeholder image carries both ar and en alt text (bilingual contract)", () => {
+      const product = synthesiseProductFromRow(makeDbRow());
+      const image = product.images[0]!;
+      expect(typeof image.alt.ar).toBe("string");
+      expect(typeof image.alt.en).toBe("string");
+      expect(image.alt.ar.length).toBeGreaterThan(0);
+      expect(image.alt.en.length).toBeGreaterThan(0);
+    });
+
+    it("placeholder image src is a local /public path (no external dependency)", () => {
+      const product = synthesiseProductFromRow(makeDbRow());
+      const image = product.images[0]!;
+      expect(image.src.startsWith("/")).toBe(true);
+      expect(image.src.startsWith("//")).toBe(false);
+    });
+
+    it("storefront consumers can safely access images[0].src on any synthesised product", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({ slug: "no-photos", sku: null, badges: [], offerTiers: [] }),
+      );
+      expect(() => {
+        const src: string = product.images[0]!.src;
+        expect(src.length).toBeGreaterThan(0);
+      }).not.toThrow();
+    });
   });
 
   it("falls back title/description to the slug", () => {

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Product image pending">
+  <!--
+    Storefront placeholder  rendered by `Image` whenever a product
+    row lacks a real photo (typically: an AI-generated row that has
+    just landed in storefront_catalog_product but doesn't yet have
+    curated CRO content in apps/fanaa/data/products.ts). Square
+    viewBox + xMidYMid slice keeps the icon centred in every aspect
+    ratio (3:4 card, 1:1 cart line item, 4:5 PDP gallery, 16:9 sticky
+    bar). All colours match the warm-sand brand palette so the tile
+    feels deliberate, not broken.
+  -->
+  <rect width="800" height="800" fill="#F5EFE6"/>
+  <g transform="translate(400 400)" stroke="#B89A78" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-150" y="-110" width="300" height="220" rx="18" ry="18"/>
+    <circle cx="-50" cy="-30" r="22" fill="#B89A78" stroke="none"/>
+    <path d="M-150 80 L-30 -10 L40 50 L100 0 L150 50 L150 110 L-150 110 Z" fill="#B89A78" stroke="none" opacity="0.55"/>
+  </g>
+  <text x="400" y="600" text-anchor="middle" fill="#8A7259" font-family="Georgia, serif" font-size="36" font-style="italic" letter-spacing="0.04em">image pending</text>
+</svg>

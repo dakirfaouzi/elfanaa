@@ -12,6 +12,7 @@ import { useCart } from "@/hooks/useCart";
 import { useUI } from "@/hooks/useUI";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
+import { getPrimaryImage } from "@/lib/product-image";
 import type { Product } from "@/lib/types";
 
 type ProductCardProps = {
@@ -60,7 +61,10 @@ export function ProductCard({
   const [justAdded, setJustAdded] = useState(false);
 
   const title = pickLocalized(product.title, locale);
-  const primary = product.images[0];
+  // `getPrimaryImage` guarantees a renderable image (placeholder
+  // fallback) even when the hybrid catalog hands us an AI-generated
+  // row with no curated photography yet. See `lib/product-image.ts`.
+  const primary = getPrimaryImage(product);
   const secondary = product.images[1] ?? primary;
   const onSale =
     product.compareAtPrice && product.compareAtPrice.amount > product.price.amount;
