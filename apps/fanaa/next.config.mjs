@@ -50,6 +50,14 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "cdn.shopify.com" },
+      // R2 public CDN for AI-generated product images (M12 / Step 2
+      // image fix). Studio re-hosts generated images to R2 at publish
+      // time and writes the resulting `https://cdn.elfanaa.com/<key>`
+      // URL onto storefront_catalog_product.hero_image_url. next/image
+      // blocks any host not listed here, so without this entry the
+      // generated hero would error → SafeProductImage falls back to
+      // the placeholder. Must match R2_PUBLIC_BASE_URL_FANAA's host.
+      { protocol: "https", hostname: "cdn.elfanaa.com" },
     ],
     /*
      * Allow the Image Optimization API to serve `.svg` sources.
