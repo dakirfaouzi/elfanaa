@@ -64,8 +64,13 @@ export function ProductCard({
   // `getPrimaryImage` guarantees a renderable image (placeholder
   // fallback) even when the hybrid catalog hands us an AI-generated
   // row with no curated photography yet. See `lib/product-image.ts`.
+  //
+  // The secondary image is the hover-reveal — must NOT crash when
+  // `product.images` is undefined (the optional-chain `?.[1]` is the
+  // belt to getPrimaryImage's suspenders, and matches the same form
+  // already in use across the helper API).
   const primary = getPrimaryImage(product);
-  const secondary = product.images[1] ?? primary;
+  const secondary = product.images?.[1] ?? primary;
   const onSale =
     product.compareAtPrice && product.compareAtPrice.amount > product.price.amount;
 

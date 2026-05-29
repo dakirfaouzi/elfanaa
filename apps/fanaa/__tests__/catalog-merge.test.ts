@@ -433,11 +433,16 @@ describe("synthesiseProductFromRow", () => {
       expect(image.alt.en.length).toBeGreaterThan(0);
     });
 
-    it("placeholder image src is a local /public path (no external dependency)", () => {
+    it("placeholder image src is an inline data URL (no external dependency, no /public copy)", () => {
+      // Phase 2.4.3: the placeholder was migrated from
+      // `/placeholder-product.svg` to an inline `data:image/svg+xml`
+      // URL so next/image auto-bypasses the optimizer and we no
+      // longer depend on `dangerouslyAllowSVG`, the optimizer hop,
+      // or the `public/` folder being copied into the standalone
+      // Docker bundle. This assertion pins that contract.
       const product = synthesiseProductFromRow(makeDbRow());
       const image = product.images[0]!;
-      expect(image.src.startsWith("/")).toBe(true);
-      expect(image.src.startsWith("//")).toBe(false);
+      expect(image.src.startsWith("data:image/svg+xml")).toBe(true);
     });
 
     it("storefront consumers can safely access images[0].src on any synthesised product", () => {

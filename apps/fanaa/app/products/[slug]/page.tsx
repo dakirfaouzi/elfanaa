@@ -73,7 +73,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       ...(product.landingPath ? { url: product.landingPath } : {}),
-      images: product.images.map((i) => i.src),
+      /*
+       * OG images must be absolute-resolvable string URLs. We filter
+       * out:
+       *   • Undefined entries (hardened against legacy / malformed
+       *     `product.images` shapes — see ProductGallery for the same
+       *     defensive pattern).
+       *   • `data:` URLs (the storefront placeholder, when an AI-gen
+       *     product hasn't been backfilled with photography yet). OG
+       *     scrapers (Facebook, Twitter, Slack) can't resolve data
+       *     URLs — emitting them would produce broken previews on
+       *     every social share. Better to ship an empty `images`
+       *     array and let the scraper fall back to the site-default
+       *     OG image than serve a guaranteed-broken thumbnail.
+       */
+      images: (product.images ?? [])
+        .filter((i): i is NonNullable<typeof i> => Boolean(i))
+        .map((i) => i.src)
+        .filter((src) => !src.startsWith("data:")),
     },
   };
 }

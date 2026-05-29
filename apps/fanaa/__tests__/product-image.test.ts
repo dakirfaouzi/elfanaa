@@ -57,9 +57,15 @@ function productWith(images: ProductImage[], lifestyleImage?: ProductImage): Pro
 /* -------------------------------------------------------------------------- */
 
 describe("PLACEHOLDER_PRODUCT_IMAGE", () => {
-  it("has a local /public src path", () => {
-    expect(PLACEHOLDER_PRODUCT_IMAGE.src.startsWith("/")).toBe(true);
-    expect(PLACEHOLDER_PRODUCT_IMAGE.src.startsWith("//")).toBe(false);
+  it("uses an inline data URL (no network fetch, no /public copy, no _next/image hop)", () => {
+    // Phase 2.4.3 migration: the placeholder is now inlined as a
+    // `data:image/svg+xml` URL. This is the contract every consumer
+    // relies on — next/image auto-bypasses the optimizer for `data:`
+    // srcs, so the placeholder renders without depending on
+    // `next.config.mjs::images.dangerouslyAllowSVG`, the
+    // `/_next/image` optimizer, or the `public/` folder being copied
+    // into the standalone Docker bundle.
+    expect(PLACEHOLDER_PRODUCT_IMAGE.src.startsWith("data:image/svg+xml")).toBe(true);
   });
 
   it("ships bilingual alt text (ar + en)", () => {
@@ -67,8 +73,31 @@ describe("PLACEHOLDER_PRODUCT_IMAGE", () => {
     expect(PLACEHOLDER_PRODUCT_IMAGE.alt.en.length).toBeGreaterThan(0);
   });
 
-  it("references the expected /placeholder-product.svg asset", () => {
-    expect(PLACEHOLDER_PRODUCT_IMAGE.src).toBe("/placeholder-product.svg");
+  it("encodes a valid SVG document (round-trips through decodeURIComponent)", () => {
+    // The placeholder is URL-encoded (not base64) to stay
+    // human-diffable. The encoded payload must still decode to a
+    // well-formed SVG so the browser can render it.
+    const commaIdx = PLACEHOLDER_PRODUCT_IMAGE.src.indexOf(",");
+    expect(commaIdx).toBeGreaterThan(0);
+    const decoded = decodeURIComponent(
+      PLACEHOLDER_PRODUCT_IMAGE.src.slice(commaIdx + 1),
+    );
+    expect(decoded).toMatch(/^<svg\s/);
+    expect(decoded).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(decoded).toContain("</svg>");
+    // Sanity-check that the brand palette and caption survived the
+    // encode/decode round-trip — guards against a future edit
+    // accidentally truncating the markup string.
+    expect(decoded).toContain("#F5EFE6");
+    expect(decoded).toContain("image pending");
+  });
+
+  it("stays well under typical browser URL length limits (<8KB)", () => {
+    // 8KB is the practical safe ceiling for data URLs across all
+    // major browsers and CDN edge layers. The placeholder is ~1KB,
+    // so this is a regression guard against someone pasting in a
+    // photographic SVG by accident.
+    expect(PLACEHOLDER_PRODUCT_IMAGE.src.length).toBeLessThan(8 * 1024);
   });
 });
 

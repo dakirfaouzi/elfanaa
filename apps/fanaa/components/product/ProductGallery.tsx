@@ -33,11 +33,25 @@ export function ProductGallery({ product }: Props) {
   const current = getProductImageAt(product, active);
   const headlineBadge = product.badges?.[0];
 
+  /*
+   * Thumbnail rail only renders when there's more than one real
+   * image — synthesised AI-generated products always have exactly
+   * one (the placeholder), so the rail never shows for them. The
+   * optional chain on `length` is defensive against the same
+   * `images: undefined` shape `getPrimaryImage` already guards.
+   * Filtering out undefined entries from the map iteration covers
+   * the rarer `[realImage, undefined]` case (legacy persisted carts
+   * or malformed DB rows) without crashing the gallery.
+   */
+  const thumbnails = (product.images ?? []).filter(
+    (img): img is NonNullable<typeof img> => Boolean(img),
+  );
+
   return (
     <div className="grid gap-3 md:grid-cols-[88px_1fr]">
-      {product.images.length > 1 ? (
+      {thumbnails.length > 1 ? (
         <div className="order-2 flex gap-2 overflow-x-auto scrollbar-none md:order-1 md:flex-col">
-          {product.images.map((img, i) => (
+          {thumbnails.map((img, i) => (
             <button
               key={img.src}
               type="button"
