@@ -204,6 +204,65 @@ export type CartLine = {
   variantId?: string;
   quantity: number;
   source?: CartLineSource;
+  /**
+   * Embedded product record captured at add-time (M12 / Step 2 /
+   * Phase 2.5 — "bridge the catalog split").
+   *
+   * # Why this exists
+   *
+   * The fanaa catalog is split into two sources:
+   *   • Snapshot (`data/products.ts`) — built into the JS bundle.
+   *     Owns CRO content. Race-safe for the order re-pricer.
+   *   • Hybrid loader (`lib/catalog/loader.ts`) — DB-backed.
+   *     Owns AI-generated products published from Studio.
+   *
+   * Every client-side cart selector (`useResolvedCartLines`,
+   * `useCartSubtotal`, `resolveCartCrossSells`) historically did
+   * `getProductById(line.productId)` against the SNAPSHOT ONLY. AI-
+   * generated products were silently filtered out: cart drawer
+   * empty, subtotal stuck at 0, checkout 422'd at re-price. The
+   * symptoms map 1:1 to the "Add to cart silently does nothing"
+   * report.
+   *
+   * # How this field fixes it
+   *
+   * The PDP / ProductCard / CrossSellCard already have the full
+   * `Product` in scope (they got it from the hybrid loader server-
+   * side and received it as a prop). When they call `useCart.add`,
+   * they pass the Product object via `opts.product` and it lands
+   * here on the cart line. Every selector then prefers
+   * `line.productSnapshot` over `getProductById(line.productId)`,
+   * which means:
+   *   • Snapshot products: identical behaviour (productSnapshot
+   *     === getProductById result; either source works).
+   *   • AI-generated products: productSnapshot is the ONLY source
+   *     (snapshot misses), so the cart renders correctly.
+   *
+   * # Backward compatibility
+   *
+   * Optional by design — legacy persisted Zustand carts from before
+   * Phase 2.5 deserialise unchanged and selectors fall through to
+   * the old `getProductById` path automatically. No migration
+   * needed; the field self-populates on the next `add`.
+   *
+   * # Why not a separate "AI-gen products" cart store
+   *
+   * Forking the cart store would require every consumer to merge
+   * two sources at render time, plus a coordinated checkout flow.
+   * Embedding the product record per-line keeps the existing
+   * Zustand shape intact and makes "which product is this?" a
+   * pure-data question on the cart line itself.
+   *
+   * # sessionStorage cost
+   *
+   * Each embedded Product is ~3-5 KB serialised (snapshot products
+   * carry full CRO content). With the default cart cap of ~6 lines
+   * the persisted payload stays well under the 5 MB localStorage
+   * budget. The data URL placeholder used by AI-gen products is
+   * the same shared reference across lines, so encoding overhead
+   * is one-time per cart.
+   */
+  productSnapshot?: Product;
 };
 
 export type Cart = {

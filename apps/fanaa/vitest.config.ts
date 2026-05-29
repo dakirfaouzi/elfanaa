@@ -50,6 +50,11 @@ export default defineConfig({
     environment: "node",
     include: ["__tests__/**/*.test.ts", "__tests__/**/*.test.tsx"],
     exclude: ["node_modules", ".next", ".turbo"],
+    // Polyfill `localStorage` / `sessionStorage` / `window` before
+    // any test module loads, so Zustand persist middleware (which
+    // reads these at module-init in `hooks/useCart.ts`) doesn't
+    // bind to undefined. Setup file documents the contract.
+    setupFiles: ["./__tests__/setup.ts"],
     globals: false,
     testTimeout: 5_000,
     reporters: ["default"],

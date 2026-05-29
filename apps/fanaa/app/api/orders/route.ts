@@ -9,7 +9,7 @@ import {
   type OrderRowLine,
   type SheetsOrderRow,
 } from "@/lib/webhooks/google-sheets";
-import { getProductById } from "@/data/products";
+import { resolveCatalogProductsByIds } from "@/lib/catalog/resolver";
 import { lineTotal } from "@/lib/pricing";
 import { sumMoney, pickLocalized } from "@/lib/format";
 import { validateSaudiPhone } from "@/lib/phone";
@@ -89,9 +89,22 @@ export async function POST(req: Request) {
   // production (catalog drift between storefront and a stale FastAPI
   // catalog mirror). Failing loud is the only way to keep the
   // storefront and the backend re-pricer in lockstep.
+  //
+  // Phase 2.5 ("bridge the catalog split"): resolution flows through
+  // `resolveCatalogProductsByIds` — snapshot-first, hybrid loader as
+  // fallback. Snapshot products resolve with ZERO behavioural change
+  // (same O(1) array find, no DB hit, same race-safety contract from
+  // `lib/catalog/snapshot.ts`). AI-generated products (absent from
+  // the snapshot but present in `storefront_catalog_product`) now
+  // resolve via the loader instead of producing a 422. The batch
+  // helper guarantees AT MOST ONE DB hit per request (the underlying
+  // `loadAllCatalogProducts` is wrapped in `React.cache`).
+  const lineIds = input.cart.lines.map((l) => l.productId);
+  const resolvedProducts = await resolveCatalogProductsByIds(lineIds);
+
   const unknownIds: string[] = [];
-  const lineDetailsRaw = input.cart.lines.map((line) => {
-    const product = getProductById(line.productId);
+  const lineDetailsRaw = input.cart.lines.map((line, i) => {
+    const product = resolvedProducts[i];
     if (!product) {
       unknownIds.push(line.productId);
       return null;
@@ -206,8 +219,19 @@ export async function POST(req: Request) {
   //                                                 with the full state and
   //                                                 the Apps Script overwrites
   //                                                 the row atomically.)
-  const orderRowLines: OrderRowLine[] = lineDetails.map((l) => {
-    const product = getProductById(l.productId);
+  // Sheets row builder — re-resolve through the same Phase 2.5
+  // bridge so AI-generated SKUs land on the row with their real SKU
+  // / URL instead of the legacy `FN-UNKNOWN-<id>` fallback. Every
+  // id here was already accepted by the re-pricer above, so the
+  // resolver MUST find each one — the `?? null` defensive shape
+  // stays because we'd rather degrade a row to "UNKNOWN" than crash
+  // the order fan-out. The batch resolver reuses the `React.cache`d
+  // catalog list, so this is still a single DB hit per request.
+  const rowProductLookup = await resolveCatalogProductsByIds(
+    lineDetails.map((l) => l.productId),
+  );
+  const orderRowLines: OrderRowLine[] = lineDetails.map((l, i) => {
+    const product = rowProductLookup[i];
     return {
       sku: product ? getProductSku(product) : `FN-UNKNOWN-${l.productId}`,
       name: product

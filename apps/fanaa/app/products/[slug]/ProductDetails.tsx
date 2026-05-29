@@ -45,7 +45,12 @@ export function ProductDetails({ product }: Props) {
   const subhead = product.subheadline;
 
   const onAddToCart = () => {
-    add(product.id, selected);
+    // Pass the full Product so AI-generated SKUs (absent from the
+    // snapshot) can still be added — Phase 2.5 "bridge the catalog
+    // split". The PDP server-loaded this product via the hybrid
+    // loader; passing it here is the path that closes the loop
+    // through useCart → cart drawer → checkout.
+    add(product.id, selected, { product });
     setFeedback("added");
     setTimeout(openCart, 220);
     setTimeout(() => setFeedback("idle"), 1600);

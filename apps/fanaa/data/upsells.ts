@@ -24,8 +24,24 @@ const PRICE_BAND_TOLERANCE = 0.2;
 
 export function resolveCartCrossSells(cart: Cart, max = 2): Product[] {
   const inCartIds = new Set(cart.lines.map((l) => l.productId));
+  /*
+   * Phase 2.5 ("bridge the catalog split"): seed the strategy from
+   * each cart line's embedded `productSnapshot` first, then fall
+   * back to the snapshot lookup for legacy cart lines that pre-date
+   * the embed. Without this, AI-generated products in the cart
+   * would contribute NOTHING to the candidate scoring (snapshot
+   * miss → filtered out), so the drawer would just show snapshot-
+   * based fallbacks unrelated to what's actually in the basket.
+   *
+   * The candidate POOL stays snapshot-only on purpose — AI-gen
+   * products don't yet have curated `upsellIds`, badges, or
+   * collection assignments, and surfacing them as cross-sells
+   * would push customers into the same cold-start state we're
+   * trying to bridge. Operators can promote AI-gen products into
+   * `bestSellerIds` / collections once they're ready.
+   */
   const cartProducts = cart.lines
-    .map((l) => getProductById(l.productId))
+    .map((l) => l.productSnapshot ?? getProductById(l.productId))
     .filter((p): p is Product => Boolean(p));
 
   if (cartProducts.length === 0) return [];
@@ -35,7 +51,7 @@ export function resolveCartCrossSells(cart: Cart, max = 2): Product[] {
   ).filter((p): p is Product => Boolean(p) && !inCartIds.has(p.id));
 
   const cartUnitPrices = cart.lines.map((l) => {
-    const p = getProductById(l.productId);
+    const p = l.productSnapshot ?? getProductById(l.productId);
     return p ? effectiveUnitPrice(p, l.quantity).amount : 0;
   });
   const target = Math.max(...cartUnitPrices);

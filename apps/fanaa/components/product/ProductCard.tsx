@@ -84,7 +84,11 @@ export function ProductCard({
   const onQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    add(product.id, 1);
+    // Pass the full Product so AI-generated rows added via the shop
+    // card / cross-sell card / recommendations grid land in the cart
+    // (Phase 2.5). Snapshot products resolve identically through
+    // either path; this just lets the AI-gen path succeed too.
+    add(product.id, 1, { product });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1400);
     setTimeout(openCart, 250);

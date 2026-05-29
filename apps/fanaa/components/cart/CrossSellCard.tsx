@@ -28,7 +28,13 @@ export function CrossSellCard({ product }: { product: Product }) {
     // this tag, the line is indistinguishable from a primary product
     // and lands in the base slot — collapsing the 3-slot model the
     // ops team relies on (`base / upsell / cross_sell`).
-    add(product.id, 1, { source: "cross_sell" });
+    //
+    // Also forward the full `product` (Phase 2.5) so AI-generated
+    // cross-sells flow through to the cart drawer without a snapshot
+    // miss. Current cross-sell candidate pool is snapshot-only, but
+    // the field is harmless when the product happens to be in the
+    // snapshot too — it just gets refreshed on every add.
+    add(product.id, 1, { source: "cross_sell", product });
     track("accept_upsell", { item_id: product.id, surface: "cart_drawer" });
   };
 

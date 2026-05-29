@@ -7,7 +7,10 @@ import {
   type SheetsOrderUpdateRow,
   type SheetsUpsellRow,
 } from "@/lib/webhooks/google-sheets";
-import { getProductById } from "@/data/products";
+import {
+  resolveCatalogProductById,
+  resolveCatalogProductsByIds,
+} from "@/lib/catalog/resolver";
 import { POST_PURCHASE_OFFER_PRICE } from "@/lib/upsell/strategy";
 import { pickLocalized } from "@/lib/format";
 import { getProductSku } from "@/lib/sku";
@@ -71,7 +74,17 @@ export async function POST(
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const product = getProductById(input?.productId);
+  /*
+   * Resolve the upsell offer through the Phase 2.5 bridge so an
+   * AI-generated product (published from Studio without a snapshot
+   * row) can be selected as the post-purchase offer. The current
+   * `selectPostPurchaseUpsell` strategy only returns snapshot
+   * products, so in practice this snapshot-first lookup hits the
+   * fast path. The DB fallback is here for forward compatibility
+   * when AI-gen products start landing in the upsell candidate
+   * pool (Phase 2.6+).
+   */
+  const product = await resolveCatalogProductById(input?.productId ?? "");
   if (!product) {
     return NextResponse.json({ error: "unknown_product" }, { status: 422 });
   }
@@ -104,8 +117,19 @@ export async function POST(
     if (input.priorLines && input.priorLines.length > 0) {
       const allLines: OrderRowLine[] = [];
       let totalMinor = 0;
-      for (const pl of input.priorLines) {
-        const p = getProductById(pl.productId);
+      /*
+       * Phase 2.5: resolve through the bridge so AI-generated lines
+       * that survived the order POST also survive the upsell rebuild
+       * — without this, an AI-gen product would silently disappear
+       * from the Sheets `order_update` row, breaking ops parity
+       * between the order POST and the upsell follow-up.
+       */
+      const priorResolved = await resolveCatalogProductsByIds(
+        input.priorLines.map((pl) => pl.productId),
+      );
+      for (let i = 0; i < input.priorLines.length; i += 1) {
+        const pl = input.priorLines[i];
+        const p = priorResolved[i];
         if (!p) continue;
         const url = `${siteConfig.url.replace(/\/$/, "")}${productHref(p)}`;
         const unitMinor = pl.unitPriceMinor ?? p.price.amount;

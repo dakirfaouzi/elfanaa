@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Cart, CartLine, CartLineSource, Money } from "@/lib/types";
+import type { Cart, CartLine, CartLineSource, Money, Product } from "@/lib/types";
 import { lineTotal } from "@/lib/pricing";
 import { getProductById } from "@/data/products";
 import { siteConfig } from "@/data/site";
@@ -23,6 +23,33 @@ type AddOptions = {
    * into `"cross_sell"`.
    */
   source?: CartLineSource;
+  /**
+   * Full product record to use INSTEAD of (or in addition to) a
+   * snapshot lookup (M12 / Step 2 / Phase 2.5).
+   *
+   * # Why this matters
+   *
+   * AI-generated products published from Studio live in
+   * `storefront_catalog_product`, NOT in the build-time
+   * `data/products.ts` snapshot. The PDP, ProductCard, and
+   * CrossSellCard receive these products via the hybrid loader
+   * (server-side) and pass them to `add()` here. Without this
+   * field the cart would silently no-op every AI-gen add (snapshot
+   * `getProductById` miss → early return).
+   *
+   * When provided, the product is:
+   *   • Used as the source of truth for the analytics
+   *     `trackCommerce("add_to_cart")` payload.
+   *   • Embedded into the cart line as `productSnapshot` so every
+   *     selector (`useResolvedCartLines`, `useCartSubtotal`,
+   *     `resolveCartCrossSells`) can render it without needing
+   *     access to the hybrid loader at render time.
+   *
+   * Backward compatible — when omitted, falls back to the legacy
+   * `getProductById` snapshot lookup. Existing snapshot callers
+   * don't need to pass it; AI-gen callers must.
+   */
+  product?: Product;
 };
 
 type CartState = {
@@ -66,18 +93,35 @@ export const useCart = create<CartState>()(
       cart: emptyCart,
 
       add: (productId, quantity = 1, variantIdOrOptions) => {
-        const product = getProductById(productId);
-        if (!product) return;
-
         // Backwards-compatible argument handling — accept either a
         // bare `variantId` string (legacy callers) or an options
-        // object with `{ variantId, source }`.
+        // object with `{ variantId, source, product }`. The string
+        // branch is the pre-Phase-2.5 surface that every existing
+        // call-site relied on.
         const opts: AddOptions =
           typeof variantIdOrOptions === "string"
             ? { variantId: variantIdOrOptions }
             : variantIdOrOptions ?? {};
         const variantId = opts.variantId;
         const source: CartLineSource = opts.source ?? "base";
+
+        /*
+         * Resolve the product. Phase 2.5 ("bridge the catalog split"):
+         *   1. Prefer `opts.product` — set by PDP / ProductCard /
+         *      CrossSellCard, which have the full Product in scope.
+         *      This is the ONLY path that works for AI-generated
+         *      products (they don't exist in the snapshot).
+         *   2. Fall back to `getProductById(productId)` for legacy
+         *      callers that haven't been updated to pass `product`
+         *      yet. Snapshot products still resolve here exactly as
+         *      they did before — zero behavioural change.
+         *
+         * If BOTH fail we early-return (preserves the existing
+         * "silent reject unknown id" contract — but now only fires
+         * on TRUE catalog drift, not on the entire AI-gen surface).
+         */
+        const product = opts.product ?? getProductById(productId);
+        if (!product) return;
 
         set((state) => {
           const lines = [...state.cart.lines];
@@ -90,6 +134,13 @@ export const useCart = create<CartState>()(
             // if a cross-sell add lands on a previously empty line.
             // Once a line is "cross_sell" it stays "cross_sell" — the
             // intent at first add is the most accurate signal.
+            //
+            // `productSnapshot` is refreshed on every re-add so a
+            // mid-session price/copy edit (operator publishes an
+            // update via Studio) propagates to the cart line on the
+            // next add, even if the user already had the product
+            // there. This is the same freshness contract the hybrid
+            // loader gives display pages.
             const prev = lines[idx];
             const mergedSource: CartLineSource =
               prev.source === "cross_sell" || source === "cross_sell"
@@ -99,9 +150,16 @@ export const useCart = create<CartState>()(
               ...prev,
               quantity: prev.quantity + quantity,
               source: mergedSource,
+              productSnapshot: product,
             };
           } else {
-            lines.push({ productId, variantId, quantity, source });
+            lines.push({
+              productId,
+              variantId,
+              quantity,
+              source,
+              productSnapshot: product,
+            });
           }
           return { cart: { ...state.cart, lines } };
         });
@@ -149,7 +207,11 @@ export const useCart = create<CartState>()(
 
       subtotal: () => {
         const total = get().cart.lines.reduce((acc, l) => {
-          const product = getProductById(l.productId);
+          // Phase 2.5: prefer the embedded `productSnapshot` so AI-
+          // generated products (absent from `getProductById`) still
+          // contribute to the subtotal. Falls back to snapshot lookup
+          // for legacy persisted carts that pre-date the embed.
+          const product = l.productSnapshot ?? getProductById(l.productId);
           if (!product) return acc;
           return acc + lineTotal(product, l.quantity).amount;
         }, 0);
@@ -209,7 +271,11 @@ export type ResolvedLine = CartLine & { product: NonNullable<ReturnType<typeof g
 export function selectResolvedLines(state: CartState): ResolvedLine[] {
   return state.cart.lines
     .map((line) => {
-      const product = getProductById(line.productId);
+      // Phase 2.5: embedded `productSnapshot` wins — it's the only
+      // source for AI-generated products and matches the snapshot
+      // exactly for curated ones. Snapshot lookup remains as the
+      // tail fallback for legacy persisted carts.
+      const product = line.productSnapshot ?? getProductById(line.productId);
       return product ? { ...line, product } : null;
     })
     .filter((l): l is ResolvedLine => Boolean(l));
@@ -241,7 +307,9 @@ export function useCartSubtotal(): Money {
   const currency = useCart((s) => s.cart.currency);
   return useMemo<Money>(() => {
     const amount = lines.reduce((acc, l) => {
-      const product = getProductById(l.productId);
+      // Phase 2.5: see `selectResolvedLines` for rationale — embedded
+      // snapshot wins, snapshot lookup is the legacy-cart fallback.
+      const product = l.productSnapshot ?? getProductById(l.productId);
       if (!product) return acc;
       return acc + lineTotal(product, l.quantity).amount;
     }, 0);
@@ -270,7 +338,11 @@ export function useResolvedCartLines(): ResolvedLine[] {
     () =>
       lines
         .map((line) => {
-          const product = getProductById(line.productId);
+          // Phase 2.5: same snapshot-first → embedded contract as
+          // `selectResolvedLines`. Hooks and selectors stay in lock-
+          // step so cart-drawer (uses hook) and order POST mirror
+          // (uses selector) never diverge on what's renderable.
+          const product = line.productSnapshot ?? getProductById(line.productId);
           return product ? { ...line, product } : null;
         })
         .filter((l): l is ResolvedLine => Boolean(l)),

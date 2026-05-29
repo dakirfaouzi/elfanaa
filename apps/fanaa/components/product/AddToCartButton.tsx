@@ -32,7 +32,13 @@ export function AddToCartButton({
   const [added, setAdded] = useState(false);
 
   const onClick = () => {
-    add(product.id, quantity, variantId);
+    // Phase 2.5: forward the variantId AND the full product so
+    // AI-generated rows added through this button (used by /sugarbear
+    // and any future bespoke landing page) flow through the cart
+    // exactly like snapshot products. The 3-arg shape passes options
+    // so both `variantId` and `product` ride along without breaking
+    // the legacy string-variantId callers (handled by `useCart.add`).
+    add(product.id, quantity, { variantId, product });
     setAdded(true);
     if (openOnAdd) setTimeout(openCart, 220);
     setTimeout(() => setAdded(false), 1500);
