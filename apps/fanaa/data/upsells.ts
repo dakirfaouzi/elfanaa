@@ -1,5 +1,4 @@
 import type { Cart, Product } from "@/lib/types";
-import { effectiveUnitPrice } from "@/lib/pricing";
 import { getProductById, products } from "./products";
 
 /* -------------------------------------------------------------------------- */
@@ -50,9 +49,28 @@ export function resolveCartCrossSells(cart: Cart, max = 2): Product[] {
     cartProducts.flatMap((p) => (p.upsellIds ?? []).map(getProductById))
   ).filter((p): p is Product => Boolean(p) && !inCartIds.has(p.id));
 
+  /*
+   * Band the candidate pool against each cart product's BASE unit
+   * price — NOT the tier-discounted effective unit price.
+   *
+   * Using `effectiveUnitPrice(p, quantity)` here made cross-sell
+   * visibility depend on the selected offer tier: as the customer
+   * raised quantity (1 → 2 → 3), the bulk-discount tier lowered the
+   * effective unit price, which dragged the ±20% `target` band BELOW
+   * the price point of the (full-price) snapshot candidate pool. The
+   * same-price matches then emptied, and because AI-generated cart
+   * products contribute no `upsellIds` (curated branch empty) and
+   * usually no matching `collection` (fallback branch empty),
+   * `samePrice` was the only contributor — so the entire cross-sell
+   * section disappeared at qty 2/3.
+   *
+   * A product's price *bracket* is a property of the product, not of
+   * how many units happen to be in the cart. Banding on `price.amount`
+   * makes the suggestion set stable across tier selection.
+   */
   const cartUnitPrices = cart.lines.map((l) => {
     const p = l.productSnapshot ?? getProductById(l.productId);
-    return p ? effectiveUnitPrice(p, l.quantity).amount : 0;
+    return p ? p.price.amount : 0;
   });
   const target = Math.max(...cartUnitPrices);
 
