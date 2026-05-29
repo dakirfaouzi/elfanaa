@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { Container } from "@/components/layout/Container";
 import { Flourish } from "@/components/brand/Flourish";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
 import { getLifestyleImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product } from "@/lib/types";
 
 type Props = { product: Product };
@@ -37,7 +37,7 @@ export function ProductLifestyle({ product }: Props) {
               .fn-photo-frame so the editorial framing matches HomeHero
               and the /sugarbear hero. */}
           <div className="fn-photo-frame relative order-1 aspect-[4/5] overflow-hidden md:aspect-[5/6] lg:order-2">
-            <Image
+            <SafeProductImage
               src={image.src}
               alt={pickLocalized(image.alt, locale)}
               fill

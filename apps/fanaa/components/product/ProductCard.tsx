@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ShoppingBag, Check, Star } from "lucide-react";
@@ -13,6 +12,7 @@ import { useUI } from "@/hooks/useUI";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
 import { getPrimaryImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product } from "@/lib/types";
 
 type ProductCardProps = {
@@ -114,7 +114,7 @@ export function ProductCard({
          * /sugarbear bottle, marble-flatlay editorials) frames cleanly.
          */}
         <div className="fn-card-product-frame relative aspect-[3/4]">
-          <Image
+          <SafeProductImage
             src={primary.src}
             alt={pickLocalized(primary.alt, locale)}
             fill
@@ -123,7 +123,7 @@ export function ProductCard({
             className="object-cover transition-transform duration-[900ms] ease-premium group-hover:scale-[1.04]"
           />
           {secondary !== primary ? (
-            <Image
+            <SafeProductImage
               src={secondary.src}
               alt={pickLocalized(secondary.alt, locale)}
               fill

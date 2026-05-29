@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Sparkles, Wallet, Truck } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
@@ -8,6 +7,7 @@ import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { getProductById } from "@/data/products";
 import { pickLocalized } from "@/lib/format";
 import { PLACEHOLDER_PRODUCT_IMAGE } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { OrderReceipt as Receipt } from "@/lib/order-receipt";
 
 type Props = {
@@ -115,7 +115,7 @@ export function OrderReceipt({ receipt }: Props) {
                 >
                   {/* Product image — premium framed thumbnail. */}
                   <div className="relative size-[72px] shrink-0 overflow-hidden rounded-xl bg-brand-soft ring-1 ring-line/70 md:size-[88px]">
-                    <Image
+                    <SafeProductImage
                       src={image.src}
                       alt={pickLocalized(image.alt, locale)}
                       fill

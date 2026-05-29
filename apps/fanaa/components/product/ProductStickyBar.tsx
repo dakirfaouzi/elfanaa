@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ShoppingBag } from "lucide-react";
 import { useFormatPrice } from "@/hooks/useFormatPrice";
@@ -9,6 +8,7 @@ import { lineTotal } from "@/lib/pricing";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { getPrimaryImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product } from "@/lib/types";
 
 type Props = {
@@ -75,7 +75,7 @@ export function ProductStickyBar({
     >
       <div className="pointer-events-auto mx-auto flex max-w-content items-center gap-4 px-6 py-3">
         <div className="relative size-12 shrink-0 overflow-hidden rounded-sm bg-brand-soft">
-          <Image
+          <SafeProductImage
             src={image.src}
             alt={pickLocalized(image.alt, locale)}
             fill

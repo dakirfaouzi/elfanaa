@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles, Timer, Check, X, Clock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +18,7 @@ import {
 } from "@/lib/order-receipt";
 import { apiUrl } from "@/lib/api";
 import { getPrimaryImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 
 type Props = {
   orderProductIds: string[];
@@ -278,7 +278,7 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       >
         <div className="grid gap-0 md:grid-cols-[200px_1fr]">
           <div className="relative aspect-square overflow-hidden bg-brand-soft md:aspect-auto md:h-full">
-            <Image
+            <SafeProductImage
               src={image.src}
               alt={pickLocalized(image.alt, locale)}
               fill

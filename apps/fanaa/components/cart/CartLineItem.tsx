@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Minus, Plus, X } from "lucide-react";
 import { Price } from "@/components/ui/Price";
 import { useCart, type ResolvedLine } from "@/hooks/useCart";
@@ -9,6 +8,7 @@ import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { pickLocalized } from "@/lib/format";
 import { lineTotal, nextTier, tierSavings } from "@/lib/pricing";
 import { getPrimaryImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 
 export function CartLineItem({ line }: { line: ResolvedLine }) {
   const { locale, t } = useLocale();
@@ -25,7 +25,7 @@ export function CartLineItem({ line }: { line: ResolvedLine }) {
   return (
     <li className="flex gap-4 px-5 py-5">
       <div className="relative size-20 shrink-0 overflow-hidden rounded-sm bg-brand-soft">
-        <Image
+        <SafeProductImage
           src={image.src}
           alt={pickLocalized(image.alt, locale)}
           fill

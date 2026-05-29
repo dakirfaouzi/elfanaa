@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { pickLocalized } from "@/lib/format";
 import { useLocale } from "@/hooks/useLocale";
 import { Badge } from "@/components/ui/Badge";
 import { getProductImageAt } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product } from "@/lib/types";
 
 type Props = { product: Product };
@@ -63,7 +63,7 @@ export function ProductGallery({ product }: Props) {
                 i === active ? "border-ink" : "border-transparent hover:border-line"
               )}
             >
-              <Image
+              <SafeProductImage
                 src={img.src}
                 alt={pickLocalized(img.alt, locale)}
                 fill
@@ -76,7 +76,7 @@ export function ProductGallery({ product }: Props) {
       ) : null}
 
       <div className="relative order-1 aspect-[4/5] overflow-hidden rounded-md bg-brand-soft md:order-2">
-        <Image
+        <SafeProductImage
           src={current.src}
           alt={pickLocalized(current.alt, locale)}
           fill

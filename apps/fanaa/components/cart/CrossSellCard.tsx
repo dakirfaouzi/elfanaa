@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Plus } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useLocale } from "@/hooks/useLocale";
@@ -8,6 +7,7 @@ import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { pickLocalized } from "@/lib/format";
 import { track } from "@/lib/analytics";
 import { getPrimaryImage } from "@/lib/product-image";
+import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product } from "@/lib/types";
 
 /**
@@ -41,7 +41,7 @@ export function CrossSellCard({ product }: { product: Product }) {
   return (
     <div className="flex items-center gap-3 rounded-md border border-line bg-bg p-3">
       <div className="relative size-14 shrink-0 overflow-hidden rounded-sm bg-brand-soft">
-        <Image
+        <SafeProductImage
           src={image.src}
           alt={pickLocalized(image.alt, locale)}
           fill
