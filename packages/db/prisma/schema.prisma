@@ -543,6 +543,13 @@ model StorefrontCatalogProduct {
   /// Optional URL override. Curated products use `/products/<slug>`; AI
   /// rows default to Studio's `/p/<slug>` until a fanaa-native PDP exists.
   landingPath        String?           @map("landing_path") @db.VarChar(160)
+  /// Primary (hero) product image — a durable, publicly-servable URL
+  /// (CDN) re-hosted from the AI pipeline's ephemeral vendor URL at
+  /// publish time. Null for curated rows (those keep their photography
+  /// in the build-time snapshot). This is the ONLY image surface the
+  /// storefront catalog row carries; the full gallery still lives in
+  /// the published document / snapshot.
+  heroImageUrl       String?           @map("hero_image_url") @db.VarChar(2048)
   /// Soft-disable switch. `false` hides the row from the shop without
   /// deleting it. Used for unpublished AI rows and discontinued
   /// curated rows.

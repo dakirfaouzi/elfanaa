@@ -118,6 +118,7 @@ function makeDbRow(overrides: Partial<CatalogRow> = {}): CatalogRow {
     recentBuyers: null,
     upsellIds: [],
     landingPath: null,
+    heroImageUrl: null,
     isLive: true,
     createdAt: new Date("2026-05-01T00:00:00Z"),
     updatedAt: new Date("2026-05-15T00:00:00Z"),

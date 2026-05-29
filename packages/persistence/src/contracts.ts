@@ -233,6 +233,10 @@ export interface StorefrontCatalogProductRow {
   recentBuyers: number | null;
   upsellIds: string[];
   landingPath: string | null;
+  /** Durable hero image URL (CDN) re-hosted from the AI pipeline's
+   *  vendor URL at publish time. Null for curated rows + legacy rows
+   *  published before the image fix. */
+  heroImageUrl: string | null;
   isLive: boolean;
   createdAt: Date;
   updatedAt: Date;

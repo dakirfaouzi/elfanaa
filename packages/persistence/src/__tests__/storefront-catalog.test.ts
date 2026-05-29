@@ -26,6 +26,7 @@ function makeRow(
     recentBuyers: 218,
     upsellIds: ["hydra-mist"],
     landingPath: null,
+    heroImageUrl: null,
     isLive: true,
     createdAt: new Date("2026-05-22T10:00:00Z"),
     updatedAt: new Date("2026-05-26T10:00:00Z"),

@@ -206,15 +206,16 @@ export function synthesiseProductFromRow(
     slug: row.slug,
     title: fallbackTitle,
     description: { ar: "", en: "" },
-    // The DB row does not carry image data — that's still the
-    // snapshot's job. AI-generated rows therefore arrive with no
-    // photography, but every storefront surface (ProductCard, cart,
-    // PDP gallery, sticky bar, post-purchase upsell, thank-you
-    // recommendations) reads `images[0]` and crashes on undefined.
-    // Seed the placeholder so the synthesised Product is always
-    // renderable end-to-end. The `lib/product-image.ts` helpers add
-    // a second defensive layer at the UI layer.
-    images: [PLACEHOLDER_PRODUCT_IMAGE satisfies ProductImage],
+    // Hero image: the catalog row now carries a durable `heroImageUrl`
+    // (CDN), re-hosted from the AI pipeline's ephemeral vendor URL at
+    // publish time (M12 / Step 2 image fix). When present + servable we
+    // use it as the AI product's hero across every storefront surface
+    // (ProductCard, cart, PDP gallery, sticky bar, upsells). When it's
+    // absent (curated rows, legacy rows, or a row published before a
+    // CDN base URL was configured) we fall back to the placeholder so
+    // the synthesised Product is always renderable — every surface
+    // reads `images[0]` and would crash on an empty array.
+    images: [synthesiseHeroImage(row)],
     price: sanitisePrice(row.priceMinor, row.priceCurrency, row.slug),
     offerTiers: nonEmptyOrUndefined(coerceOfferTiers(row.offerTiers)),
     sku: row.sku ?? undefined,
@@ -548,6 +549,29 @@ function nonEmptyOrUndefined<T>(value: T[] | null): T[] | undefined {
   if (value === null) return undefined;
   if (value.length === 0) return undefined;
   return value;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              Hero image                                     */
+/* -------------------------------------------------------------------------- */
+//
+// AI-generated rows now carry a durable `heroImageUrl` (a CDN URL
+// re-hosted at publish time). We accept it ONLY when it's a value the
+// storefront can actually render — an absolute http(s) URL or an inline
+// data URL. Bare R2 keys (`studio/<draftId>/...`) can occur when the
+// store has R2 configured but no public CDN base URL yet; fanaa has no
+// asset proxy, so those would 404. Rather than render a broken image we
+// fall back to the placeholder, matching the pre-image-fix behaviour.
+
+function synthesiseHeroImage(row: CatalogRow): ProductImage {
+  const src = typeof row.heroImageUrl === "string" ? row.heroImageUrl.trim() : "";
+  if (src && (/^https?:\/\//i.test(src) || src.startsWith("data:"))) {
+    return {
+      src,
+      alt: { ar: "صورة المنتج", en: "Product image" },
+    } satisfies ProductImage;
+  }
+  return PLACEHOLDER_PRODUCT_IMAGE satisfies ProductImage;
 }
 
 function sanitisePrice(

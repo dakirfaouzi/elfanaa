@@ -475,6 +475,7 @@ export async function publishDraft(args: {
       slug: draft.slug,
       publishedProductId: row.id,
       catalogMetadata: validated.document.catalogMetadata,
+      heroImageUrl: extractHeroImageUrl(validated.document),
     });
     if (upsertResult.kind === "logged_failure") {
       // Surface as a publish WARNING so the UI banner can show it
@@ -626,12 +627,47 @@ type CatalogUpsertOutcome =
  *     decision: a catalog upsert failure must never roll back a
  *     successful publish.
  */
+/**
+ * Pull the durable hero image URL out of a published document so the
+ * fanaa catalog row can carry it (M12 / Step 2 image fix).
+ *
+ * Precedence:
+ *   1. First enabled `hero` section's `media.desktopSrc` (the image
+ *      that renders at the top of the PDP).
+ *   2. `meta.ogImage` (the social-card image — also seeded from the
+ *      hero in `product-to-draft.ts`).
+ *
+ * By the time we get here the value has already been re-hosted to
+ * durable R2/CDN by `persistGeneratedImages` (during the run→draft
+ * step), so this is a plain absolute URL in the happy path. We return
+ * `null` for anything that isn't a non-empty string; the storefront
+ * treats `null` as "no hero image" and falls back to the placeholder.
+ */
+function extractHeroImageUrl(document: DraftDocument): string | null {
+  const sections = Array.isArray(document.sections) ? document.sections : [];
+  for (const section of sections) {
+    if (!section || (section as { kind?: unknown }).kind !== "hero") continue;
+    const media = (section as { media?: unknown }).media as
+      | { kind?: unknown; desktopSrc?: unknown }
+      | null
+      | undefined;
+    if (media && media.kind === "image" && typeof media.desktopSrc === "string") {
+      const src = media.desktopSrc.trim();
+      if (src) return src;
+    }
+  }
+  const ogImage = (document.meta as { ogImage?: unknown } | undefined)?.ogImage;
+  if (typeof ogImage === "string" && ogImage.trim()) return ogImage.trim();
+  return null;
+}
+
 async function tryUpsertCatalogRow(args: {
   persistence: NonNullable<ReturnType<typeof getStudioPersistence>>;
   storeId: string;
   slug: string;
   publishedProductId: string;
   catalogMetadata: CatalogMetadata | undefined;
+  heroImageUrl?: string | null;
 }): Promise<CatalogUpsertOutcome> {
   const { persistence, catalogMetadata } = args;
   if (!persistence.repositories) {
@@ -664,6 +700,7 @@ async function tryUpsertCatalogRow(args: {
       recentBuyers: catalogMetadata.recentBuyers,
       upsellIds: catalogMetadata.upsellIds,
       landingPath: catalogMetadata.landingPath,
+      heroImageUrl: args.heroImageUrl ?? null,
       isLive: true,
     });
     return { kind: "ok" };

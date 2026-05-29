@@ -30,6 +30,7 @@ function makeUpsertRow(
     recentBuyers: null,
     upsellIds: [],
     landingPath: null,
+    heroImageUrl: null,
     isLive: true,
     createdAt: new Date("2026-05-26T15:00:00Z"),
     updatedAt: new Date("2026-05-26T15:00:00Z"),

@@ -67,6 +67,13 @@ export interface CatalogRow {
   recentBuyers: number | null;
   upsellIds: string[];
   landingPath: string | null;
+  /**
+   * Durable hero image URL (CDN) re-hosted from the AI pipeline at
+   * publish time. `null` for curated rows (their photography lives in
+   * the snapshot) and for legacy rows published before the image fix.
+   * `synthesiseProductFromRow` uses it as the AI product's hero image.
+   */
+  heroImageUrl: string | null;
   isLive: boolean;
   createdAt: Date;
   updatedAt: Date;
