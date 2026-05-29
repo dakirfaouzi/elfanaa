@@ -47,9 +47,27 @@ export function ProductGallery({ product }: Props) {
     (img): img is NonNullable<typeof img> => Boolean(img),
   );
 
+  /*
+   * Only reserve the desktop two-track layout (`88px` rail + `1fr`
+   * hero) WHEN the thumbnail rail will actually render. With a single
+   * image (every AI-generated product — its only image is the
+   * placeholder), the rail `<div>` is omitted, so a static
+   * `md:grid-cols-[88px_1fr]` left the lone hero `<div>` as the only
+   * grid child. CSS grid auto-places a lone item into the FIRST track
+   * (the 88px rail track) — `md:order-2` reorders visually but does
+   * not move it to the `1fr` track — collapsing the hero to an 88px
+   * tile on desktop. That was the "blank PDP gallery" for AI-gen
+   * products: a correct placeholder image rendered at 88×110 in the
+   * corner of a 600px column. Curated products (2+ images) were
+   * unaffected because the rail filled track 1 and the hero took
+   * the `1fr` track. Dropping the explicit columns when there's no
+   * rail lets the hero use the full single-column width.
+   */
+  const hasThumbnailRail = thumbnails.length > 1;
+
   return (
-    <div className="grid gap-3 md:grid-cols-[88px_1fr]">
-      {thumbnails.length > 1 ? (
+    <div className={cn("grid gap-3", hasThumbnailRail && "md:grid-cols-[88px_1fr]")}>
+      {hasThumbnailRail ? (
         <div className="order-2 flex gap-2 overflow-x-auto scrollbar-none md:order-1 md:flex-col">
           {thumbnails.map((img, i) => (
             <button
