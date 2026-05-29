@@ -204,8 +204,15 @@ services:
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_BUCKET: ${R2_BUCKET:-}
-      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+      # NOTE: these MUST be the per-store names the code reads
+      # (packages/env/src/schemas.ts::R2EnvSchema → R2_BUCKET_FANAA /
+      # R2_PUBLIC_BASE_URL_FANAA). They were previously passed as the
+      # bare R2_BUCKET / R2_PUBLIC_BASE_URL, which the schema never
+      # reads — so the bucket/CDN never reached the container and
+      # resolveR2Config() silently degraded to the in-memory store
+      # (no durable image storage) even when credentials were set.
+      R2_BUCKET_FANAA: ${R2_BUCKET_FANAA:-}
+      R2_PUBLIC_BASE_URL_FANAA: ${R2_PUBLIC_BASE_URL_FANAA:-}
     ports:
       - "3001:3000"
     volumes:
