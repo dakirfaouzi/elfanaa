@@ -587,9 +587,24 @@ function synthesiseHeroImage(row: CatalogRow): ProductImage {
  * the env var is added to the web service. It is a PUBLIC URL, not a
  * credential, so it is safe to default here.
  */
-const CATALOG_IMAGE_CDN_BASE = (
-  process.env.R2_PUBLIC_BASE_URL_FANAA?.trim() || "https://cdn.elfanaa.com"
-).replace(/\/+$/, "");
+const CATALOG_IMAGE_CDN_BASE = resolveCatalogImageCdnBase();
+
+/**
+ * Resolve the public CDN base. `R2_PUBLIC_BASE_URL_FANAA` is the
+ * canonical source, BUT we guard against the common operator mistake of
+ * pointing it at the PRIVATE S3 API endpoint
+ * (`<account>.r2.cloudflarestorage.com/<bucket>`). That endpoint
+ * requires SigV4 auth and is not browser-fetchable, so if it's set we
+ * ignore it and fall back to the public custom domain (also the
+ * remotePatterns-whitelisted host).
+ */
+function resolveCatalogImageCdnBase(): string {
+  const env = process.env.R2_PUBLIC_BASE_URL_FANAA?.trim();
+  if (env && !/r2\.cloudflarestorage\.com/i.test(env)) {
+    return env.replace(/\/+$/, "");
+  }
+  return "https://cdn.elfanaa.com";
+}
 
 /**
  * Turn whatever is stored in `hero_image_url` into a value
@@ -609,7 +624,13 @@ const CATALOG_IMAGE_CDN_BASE = (
 export function resolveCatalogImageRef(raw: string): string | null {
   const value = raw.trim();
   if (!value) return null;
-  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  if (value.startsWith("data:")) return value;
+  if (/^https?:\/\//i.test(value)) {
+    // A private R2 S3-endpoint URL (set when R2_PUBLIC_BASE_URL_FANAA was
+    // misconfigured at publish time) is not browser-fetchable — rewrite
+    // it to the public CDN. Any other absolute URL passes through.
+    return rewriteR2EndpointUrl(value) ?? value;
+  }
   if (value.startsWith("r2://")) {
     const withoutScheme = value.slice("r2://".length);
     const firstSlash = withoutScheme.indexOf("/");
@@ -622,6 +643,28 @@ export function resolveCatalogImageRef(raw: string): string | null {
   if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return null;
   // Bare R2 object key.
   return `${CATALOG_IMAGE_CDN_BASE}/${value.replace(/^\/+/, "")}`;
+}
+
+/**
+ * Rewrite a private R2 S3-endpoint URL to the public CDN URL, or return
+ * `null` for any other host (the caller then passes the URL through).
+ *
+ * Input:  https://<account>.r2.cloudflarestorage.com/<bucket>/<key...>
+ * Output: <CDN_BASE>/<key...>   (the bucket segment is dropped because
+ *         the custom domain is bound to the bucket root)
+ */
+function rewriteR2EndpointUrl(absoluteUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(absoluteUrl);
+  } catch {
+    return null;
+  }
+  if (!/\.r2\.cloudflarestorage\.com$/i.test(parsed.hostname)) return null;
+  const segments = parsed.pathname.replace(/^\/+/, "").split("/");
+  if (segments.length < 2) return null; // need <bucket>/<key>
+  const key = segments.slice(1).join("/");
+  return key ? `${CATALOG_IMAGE_CDN_BASE}/${key}` : null;
 }
 
 function sanitisePrice(

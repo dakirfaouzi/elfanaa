@@ -479,6 +479,18 @@ describe("synthesiseProductFromRow", () => {
       expect(product.images[0]!.src).toBe("https://cdn.elfanaa.com/already/absolute.png");
     });
 
+    it("rewrites a private R2 S3-endpoint URL to the public CDN (drops bucket)", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({
+          heroImageUrl:
+            "https://7f605bacfe3b2fe3200beac2dbe29337.r2.cloudflarestorage.com/fanaa-assets/studio/draft1/generated/abc.jpg",
+        }),
+      );
+      expect(product.images[0]!.src).toBe(
+        "https://cdn.elfanaa.com/studio/draft1/generated/abc.jpg",
+      );
+    });
+
     it("falls back to the placeholder for an unknown scheme", () => {
       const product = synthesiseProductFromRow(
         makeDbRow({ heroImageUrl: "blob:something-unservable" }),
