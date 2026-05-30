@@ -102,9 +102,6 @@ importers:
 
   apps/studio:
     dependencies:
-      '@platform/ai-engine':
-        specifier: workspace:*
-        version: link:../../packages/ai-engine
       '@platform/builder-schema':
         specifier: workspace:*
         version: link:../../packages/builder-schema

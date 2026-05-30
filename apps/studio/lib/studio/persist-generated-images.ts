@@ -163,10 +163,19 @@ async function rehostOne(args: {
     });
 
     const ref = mediaStore.publicUrl({ bucket, key, publicBaseUrl });
-    // Prefer an absolute URL (CDN). The `r2://` sentinel means no
-    // public base is configured — fall back to the bare key so Studio
-    // can still proxy it; fanaa will placeholder until a CDN is set.
-    return ref.startsWith("http") ? ref : key;
+    // Store an absolute URL ONLY when it's a real public host. Guard
+    // against R2_PUBLIC_BASE_URL_FANAA being misconfigured to the
+    // PRIVATE S3 API endpoint (`<account>.r2.cloudflarestorage.com`),
+    // which requires SigV4 auth and is NOT browser-fetchable — persisting
+    // it produces the exact "image pending" failure we just fixed. In
+    // that case (and when no public base is set → the `r2://` sentinel)
+    // store the bare KEY instead: fanaa resolves keys to the public CDN
+    // at render time, so the storefront stays correct regardless of how
+    // the env is configured.
+    if (ref.startsWith("http") && !/r2\.cloudflarestorage\.com/i.test(ref)) {
+      return ref;
+    }
+    return key;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
