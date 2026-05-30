@@ -555,23 +555,73 @@ function nonEmptyOrUndefined<T>(value: T[] | null): T[] | undefined {
 /*                              Hero image                                     */
 /* -------------------------------------------------------------------------- */
 //
-// AI-generated rows now carry a durable `heroImageUrl` (a CDN URL
-// re-hosted at publish time). We accept it ONLY when it's a value the
-// storefront can actually render — an absolute http(s) URL or an inline
-// data URL. Bare R2 keys (`studio/<draftId>/...`) can occur when the
-// store has R2 configured but no public CDN base URL yet; fanaa has no
-// asset proxy, so those would 404. Rather than render a broken image we
-// fall back to the placeholder, matching the pre-image-fix behaviour.
+// AI-generated rows carry `heroImageUrl`, which in practice is almost
+// always a bare R2 object key (`studio-intake/<store>/…png`) — intake
+// uploads and re-hosted images are stored as keys in the draft document
+// and no upstream stage rewrites them to absolute URLs. We resolve
+// those keys to the public CDN URL here (see `resolveCatalogImageRef`),
+// so the storefront renders the real image instead of the placeholder.
+// Absolute http(s)/data URLs pass through untouched; only truly
+// unusable refs (unknown schemes, empty) fall back to the placeholder.
 
 function synthesiseHeroImage(row: CatalogRow): ProductImage {
-  const src = typeof row.heroImageUrl === "string" ? row.heroImageUrl.trim() : "";
-  if (src && (/^https?:\/\//i.test(src) || src.startsWith("data:"))) {
+  const resolved =
+    typeof row.heroImageUrl === "string"
+      ? resolveCatalogImageRef(row.heroImageUrl)
+      : null;
+  if (resolved) {
     return {
-      src,
+      src: resolved,
       alt: { ar: "صورة المنتج", en: "Product image" },
     } satisfies ProductImage;
   }
   return PLACEHOLDER_PRODUCT_IMAGE satisfies ProductImage;
+}
+
+/**
+ * Public CDN base used to resolve bare R2 object keys into URLs the
+ * storefront can actually fetch. `R2_PUBLIC_BASE_URL_FANAA` is the
+ * canonical source (same value the Studio uploader uses); we fall back
+ * to the production custom domain — already whitelisted in
+ * `next.config.mjs` remotePatterns — so resolution works even before
+ * the env var is added to the web service. It is a PUBLIC URL, not a
+ * credential, so it is safe to default here.
+ */
+const CATALOG_IMAGE_CDN_BASE = (
+  process.env.R2_PUBLIC_BASE_URL_FANAA?.trim() || "https://cdn.elfanaa.com"
+).replace(/\/+$/, "");
+
+/**
+ * Turn whatever is stored in `hero_image_url` into a value
+ * `next/image` can render, or `null` when it's unusable.
+ *
+ * The publish pipeline can store any of these shapes:
+ *   • absolute `http(s)://…`        → use as-is (already a CDN/vendor URL)
+ *   • inline `data:…`               → use as-is (placeholder/data URI)
+ *   • `r2://<bucket>/<key>`         → strip scheme+bucket → CDN base + key
+ *   • bare key `studio-intake/…png` → CDN base + key
+ *
+ * Bare keys are the common case: intake uploads and re-hosted images
+ * are stored as R2 object keys in the draft document, and no upstream
+ * stage rewrites them to absolute URLs. Resolving here means every
+ * already-published row renders without a re-publish.
+ */
+export function resolveCatalogImageRef(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  if (value.startsWith("r2://")) {
+    const withoutScheme = value.slice("r2://".length);
+    const firstSlash = withoutScheme.indexOf("/");
+    const key = firstSlash >= 0 ? withoutScheme.slice(firstSlash + 1) : "";
+    return key ? `${CATALOG_IMAGE_CDN_BASE}/${key.replace(/^\/+/, "")}` : null;
+  }
+  // Any other URI scheme we don't understand (blob:, file:, ftp:, …) is
+  // unusable. A scheme is letters/digits/+-./ followed by a colon before
+  // the first slash; bare R2 keys (`studio-intake/fanaa/x.png`) never match.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return null;
+  // Bare R2 object key.
+  return `${CATALOG_IMAGE_CDN_BASE}/${value.replace(/^\/+/, "")}`;
 }
 
 function sanitisePrice(

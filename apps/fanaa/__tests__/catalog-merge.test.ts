@@ -455,6 +455,36 @@ describe("synthesiseProductFromRow", () => {
         expect(src.length).toBeGreaterThan(0);
       }).not.toThrow();
     });
+
+    it("resolves a bare R2 object key to the public CDN URL", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({ heroImageUrl: "studio-intake/fanaa/01KSV1FECA3CBA81WX72TYDHD6.png" }),
+      );
+      expect(product.images[0]!.src).toBe(
+        "https://cdn.elfanaa.com/studio-intake/fanaa/01KSV1FECA3CBA81WX72TYDHD6.png",
+      );
+    });
+
+    it("resolves an r2:// ref (strips scheme + bucket) to the public CDN URL", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({ heroImageUrl: "r2://fanaa-bucket/studio/abc/gen.webp" }),
+      );
+      expect(product.images[0]!.src).toBe("https://cdn.elfanaa.com/studio/abc/gen.webp");
+    });
+
+    it("passes an absolute http(s) URL through untouched", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({ heroImageUrl: "https://cdn.elfanaa.com/already/absolute.png" }),
+      );
+      expect(product.images[0]!.src).toBe("https://cdn.elfanaa.com/already/absolute.png");
+    });
+
+    it("falls back to the placeholder for an unknown scheme", () => {
+      const product = synthesiseProductFromRow(
+        makeDbRow({ heroImageUrl: "blob:something-unservable" }),
+      );
+      expect(product.images[0]).toEqual(PLACEHOLDER_PRODUCT_IMAGE);
+    });
   });
 
   it("falls back title/description to the slug", () => {
