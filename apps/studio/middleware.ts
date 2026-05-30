@@ -39,6 +39,11 @@ const PUBLIC_PATHS = new Set<string>([
   // from outside the EasyPanel host. See the route file for the
   // exact response schema; nothing sensitive is exposed.
   "/api/diag/env",
+  // TEMPORARY fal.ai provider probe — auth healthCheck (free) + opt-in
+  // single generation. Returns provider id, booleans, HTTP status, and
+  // the credential-stripped fal error string only. Remove after the
+  // image_gen failure reason is captured.
+  "/api/diag/fal",
 ]);
 
 export async function middleware(req: NextRequest) {

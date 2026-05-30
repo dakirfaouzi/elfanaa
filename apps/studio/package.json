@@ -15,6 +15,7 @@
     "postinstall": "prisma generate --schema=../../packages/db/prisma/schema.prisma || echo '[postinstall] prisma generate skipped — schema not present yet (expected in the Docker deps stage if packages/db was not copied; the builder stage runs it again).'"
   },
   "dependencies": {
+    "@platform/ai-engine": "workspace:*",
     "@platform/builder-schema": "workspace:*",
     "@platform/builder-state": "workspace:*",
     "@platform/catalog-schema": "workspace:*",

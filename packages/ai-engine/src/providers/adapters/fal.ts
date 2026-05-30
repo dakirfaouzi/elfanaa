@@ -103,7 +103,7 @@ export function createFalAdapter(): Adapter {
           providerId: PROVIDER_ID,
           capability: "image",
           latencyMs: Math.round(performance.now() - startedAt),
-          errorMessage: errorMessage(err),
+          errorMessage: describeFalError(err),
         };
       }
     },
@@ -111,21 +111,31 @@ export function createFalAdapter(): Adapter {
     async generate(opts: ImageCallOptions): Promise<ImageResult> {
       const model = opts.model ?? DEFAULT_IMAGE_MODEL;
       const startedAt = performance.now();
-      const result = await fal.subscribe(model, {
-        input: {
-          prompt: opts.prompt,
-          negative_prompt: opts.negative,
-          image_size: { width: opts.size.w, height: opts.size.h },
-          seed: opts.seed,
-          // Image references for img2img / character consistency. fal
-          // accepts URL arrays under `image_url(s)` depending on model;
-          // we pass the first one as `image_url` which Flux + Recraft
-          // both accept.
-          ...(opts.referenceImages?.[0]
-            ? { image_url: opts.referenceImages[0].src }
-            : {}),
-        },
-      });
+      let result: Awaited<ReturnType<typeof fal.subscribe>>;
+      try {
+        result = await fal.subscribe(model, {
+          input: {
+            prompt: opts.prompt,
+            negative_prompt: opts.negative,
+            image_size: { width: opts.size.w, height: opts.size.h },
+            seed: opts.seed,
+            // Image references for img2img / character consistency. fal
+            // accepts URL arrays under `image_url(s)` depending on model;
+            // we pass the first one as `image_url` which Flux + Recraft
+            // both accept.
+            ...(opts.referenceImages?.[0]
+              ? { image_url: opts.referenceImages[0].src }
+              : {}),
+          },
+        });
+      } catch (err) {
+        // fal throws a structured `ApiError` whose human-readable cause
+        // (auth vs exhausted balance vs model validation) lives in
+        // `status` + `body`, NOT `message`. Surface all of it so the
+        // captured `failed[].errorMessage` is actionable instead of a
+        // generic "Forbidden" / "Unprocessable Entity".
+        throw new Error(`fal_generate_failed[${model}]: ${describeFalError(err)}`);
+      }
       const latencyMs = Math.round(performance.now() - startedAt);
       const payload = result.data as FalImagePayload;
       const first = payload.images?.[0];
@@ -181,6 +191,37 @@ function isNotFoundError(err: unknown): boolean {
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/**
+ * Extract every diagnostic field from a fal error. The fal client
+ * (`@fal-ai/client`) throws `ApiError`-like objects carrying:
+ *   • `status`  — HTTP code (401/403 = auth, 402 = billing, 422 = model
+ *                 validation, 5xx = fal outage).
+ *   • `body`    — JSON detail; e.g. `{ detail: "Exhausted balance..." }`
+ *                 for insufficient credits, or validation specifics.
+ *   • `message` — usually a generic reason phrase.
+ * We concatenate them (body truncated) so the persisted failure reason
+ * tells the operator exactly which knob to turn.
+ */
+function describeFalError(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as { status?: number; message?: string; body?: unknown };
+    const parts: string[] = [];
+    if (typeof e.status === "number") parts.push(`status=${e.status}`);
+    if (e.message) parts.push(`message=${e.message}`);
+    if (e.body !== undefined && e.body !== null) {
+      let bodyStr: string;
+      try {
+        bodyStr = typeof e.body === "string" ? e.body : JSON.stringify(e.body);
+      } catch {
+        bodyStr = String(e.body);
+      }
+      parts.push(`body=${bodyStr.slice(0, 600)}`);
+    }
+    if (parts.length > 0) return parts.join(" ");
+  }
+  return errorMessage(err);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
