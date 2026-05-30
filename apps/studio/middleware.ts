@@ -44,6 +44,11 @@ const PUBLIC_PATHS = new Set<string>([
   // the credential-stripped fal error string only. Remove after the
   // image_gen failure reason is captured.
   "/api/diag/fal",
+  // TEMPORARY end-to-end image-propagation trace for one run
+  // (image_gen -> image_post -> assemble -> draft -> published -> catalog).
+  // Returns only image URLs/keys + non-sensitive metadata. Remove after
+  // the propagation break is fixed.
+  "/api/diag/run",
 ]);
 
 export async function middleware(req: NextRequest) {
