@@ -16,6 +16,8 @@
 export type SectionKind =
   | "hero"
   | "benefits"
+  | "how_it_works"
+  | "transformation"
   | "lifestyle"
   | "ingredients"
   | "specifications"

@@ -51,6 +51,7 @@ export const UniversalProductSchema: z.ZodType<UniversalProduct> = z.object({
   description: LocalizedStringSchema,
   headline: LocalizedStringSchema.optional(),
   subheadline: LocalizedStringSchema.optional(),
+  foundersNote: LocalizedStringSchema.optional(),
 
   // Value content
   benefits: z.array(ProductBenefitSchema).min(1),

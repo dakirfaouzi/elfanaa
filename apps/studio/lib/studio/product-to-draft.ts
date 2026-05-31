@@ -14,6 +14,7 @@ import type {
   FaqSection,
   HeroSection,
   ImageGallerySection,
+  RichTextSection,
   Section,
   StickyCtaSection,
   TestimonialsSection,
@@ -54,6 +55,10 @@ import { deriveCatalogMetadataFromProduct } from "./catalog-metadata-defaults";
  *      Reviewer's name + city + rating + body. Uses Arabic name
  *      preferentially (matches the GCC-buyer audience).
  *
+ *   4b. **Founder's note** — emitted iff `product.foundersNote` has a
+ *      populated locale. Rendered as a narrow `rich_text` block (the
+ *      builder schema has no dedicated `founders_note` kind yet).
+ *
  *   5. **FAQ** — emitted iff `product.faq.length > 0`.
  *
  *   6. **CTA** — always emitted. Labels populated from the first ad
@@ -92,6 +97,13 @@ export function productToDraftDocument(
 
   if (product.reviews.length > 0) {
     sections.push(makeTestimonials(product.reviews, newId));
+  }
+
+  // Founder / brand-story note — historically dropped at assemble
+  // (PLATFORM.md §26.4.1); reclaimed in Step 4. Builder schema has no
+  // dedicated `founders_note` kind, so it renders as a narrow rich-text block.
+  if (hasAnyLocale(pickLocale(product.foundersNote))) {
+    sections.push(makeFoundersNote(product.foundersNote!, newId));
   }
 
   if (product.faq.length > 0) {
@@ -319,6 +331,19 @@ function makeFaq(faq: ProductFaq[], newId: () => string): FaqSection {
       question: pickLocale(item.q),
       answer: pickLocale(item.a),
     })),
+  };
+}
+
+function makeFoundersNote(
+  note: NonNullable<UniversalProduct["foundersNote"]>,
+  newId: () => string,
+): RichTextSection {
+  return {
+    id: newId(),
+    kind: "rich_text",
+    enabled: true,
+    body: pickLocale(note),
+    width: "narrow",
   };
 }
 

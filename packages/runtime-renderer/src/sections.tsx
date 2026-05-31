@@ -137,11 +137,7 @@ export function BenefitsRenderer(props: { section: BenefitsSection } & SectionRe
             const b = pickLocale(item.body, primary);
             return (
               <div key={item.id} className={cls.benefitsItem} style={{ direction: primary === "ar" ? "rtl" : "ltr" }}>
-                {item.icon ? (
-                  <div aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>
-                    {item.icon}
-                  </div>
-                ) : null}
+                {item.icon ? <BenefitIcon icon={item.icon} /> : null}
                 {t ? <strong style={{ fontSize: 16 }}>{t}</strong> : null}
                 {b ? <span style={{ color: "#5a5a5a", fontSize: 14 }}>{b}</span> : null}
               </div>
@@ -150,6 +146,41 @@ export function BenefitsRenderer(props: { section: BenefitsSection } & SectionRe
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Benefit icon marker.
+ *
+ * The pipeline emits `icon` as a **Lucide component name** (e.g. "Sparkles",
+ * "Shield", "Moon") for publishers that ship the Lucide set (apps/fanaa). This
+ * shared renderer intentionally carries NO icon dependency, so a Lucide-style
+ * PascalCase token must NOT be printed verbatim — otherwise it renders as a
+ * literal "Moon"/"Zap"/"Shield" heading (the bug seen in the Step 3 preview,
+ * PLATFORM.md §26.4.1). For those we draw a neutral accent dot; non-PascalCase
+ * tokens (emoji, single glyphs) are still shown as-is.
+ */
+function BenefitIcon({ icon }: { icon: string }) {
+  const isLucideName = /^[A-Z][A-Za-z0-9]+$/.test(icon.trim());
+  if (isLucideName) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          display: "inline-block",
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          background: "rgba(0,0,0,0.06)",
+          border: "1px solid rgba(0,0,0,0.12)",
+        }}
+      />
+    );
+  }
+  return (
+    <div aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>
+      {icon}
+    </div>
   );
 }
 

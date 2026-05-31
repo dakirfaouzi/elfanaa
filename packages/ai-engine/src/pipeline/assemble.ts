@@ -65,6 +65,7 @@ export async function assemble(
     description: input.copy.description,
     headline: input.copy.headline,
     subheadline: input.copy.subheadline,
+    foundersNote: input.copy.foundersNote,
 
     benefits: input.copy.benefits,
 

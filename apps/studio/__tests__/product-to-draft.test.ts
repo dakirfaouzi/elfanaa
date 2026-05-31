@@ -274,6 +274,49 @@ describe("productToDraftDocument", () => {
     ).toBe(false);
   });
 
+  // ── Founder's note (Step 4 — reclaimed from assemble drop) ─────────
+
+  it("emits a narrow rich_text founders note iff foundersNote has a locale", () => {
+    const withNote = productToDraftDocument(
+      makeFixture({
+        foundersNote: {
+          ar: "بدأنا من مطبخنا.",
+          en: "We started in our own kitchen.",
+        },
+      }),
+      { slug: "x", newId: makeIdGen() },
+    );
+    const note = withNote.sections.find((s) => s.kind === "rich_text");
+    expect(note).toBeDefined();
+    if (note?.kind !== "rich_text") throw new Error("not rich_text");
+    expect(note.width).toBe("narrow");
+    expect(note.body.en).toBe("We started in our own kitchen.");
+
+    const withoutNote = productToDraftDocument(makeFixture(), {
+      slug: "x",
+      newId: makeIdGen(),
+    });
+    expect(
+      withoutNote.sections.some((s) => s.kind === "rich_text"),
+    ).toBe(false);
+  });
+
+  it("orders the founders note after testimonials and before faq", () => {
+    const doc = productToDraftDocument(
+      makeFixture({
+        foundersNote: { ar: "قصتنا.", en: "Our story." },
+      }),
+      { slug: "x", newId: makeIdGen() },
+    );
+    const kinds = doc.sections.map((s) => s.kind);
+    const testimonialsIdx = kinds.indexOf("testimonials");
+    const noteIdx = kinds.indexOf("rich_text");
+    const faqIdx = kinds.indexOf("faq");
+    expect(testimonialsIdx).toBeGreaterThanOrEqual(0);
+    expect(noteIdx).toBeGreaterThan(testimonialsIdx);
+    expect(faqIdx).toBeGreaterThan(noteIdx);
+  });
+
   // ── Determinism / ids ──────────────────────────────────────────────
 
   it("section ids come from the supplied newId callback", () => {
