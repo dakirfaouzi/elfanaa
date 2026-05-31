@@ -34,16 +34,69 @@ const PROVIDER_ID: ProviderId = "fal";
 
 const DEFAULT_IMAGE_MODEL = "fal-ai/flux-pro/v1.1";
 const RECRAFT_MODEL = "fal-ai/recraft-v3";
+/**
+ * FLUX.1 Kontext [pro] — image-to-image editor used for product-identity
+ * preservation (Step 3, ADR-S3-3). Takes an `image_url` + an edit-instruction
+ * `prompt` and re-renders the scene while keeping the subject intact. Uses an
+ * `aspect_ratio` enum (NOT pixel `image_size`) and does not accept a
+ * `negative_prompt`. See https://fal.ai/models/fal-ai/flux-pro/kontext.
+ */
+const KONTEXT_MODEL = "fal-ai/flux-pro/kontext";
 
 // USD per image at default size (1024×1024). Validate against
 // https://fal.ai/models/<model>/api when bumping models.
 const PRICE_PER_IMAGE: Record<string, number> = {
   "fal-ai/flux-pro/v1.1": 0.04,
   "fal-ai/recraft-v3": 0.06,
+  "fal-ai/flux-pro/kontext": 0.04,
+  "fal-ai/flux-pro/kontext/max": 0.08,
 };
 
 function priceFor(model: string): number {
   return PRICE_PER_IMAGE[model] ?? 0.04;
+}
+
+/** Kontext family models edit an input image rather than generate from text. */
+function isKontextModel(model: string): boolean {
+  return /\/kontext(\/|$)/.test(model);
+}
+
+/** fal Kontext aspect_ratio enum. Map our pixel size to the nearest option. */
+const KONTEXT_ASPECT_RATIOS = [
+  "21:9",
+  "16:9",
+  "4:3",
+  "3:2",
+  "1:1",
+  "2:3",
+  "3:4",
+  "9:16",
+  "9:21",
+] as const;
+
+function nearestKontextAspectRatio(opts: {
+  aspectRatio?: string;
+  size: { w: number; h: number };
+}): string {
+  // Honour an explicit label when it's already a Kontext-supported value.
+  if (
+    opts.aspectRatio &&
+    (KONTEXT_ASPECT_RATIOS as readonly string[]).includes(opts.aspectRatio)
+  ) {
+    return opts.aspectRatio;
+  }
+  const target = opts.size.w / Math.max(opts.size.h, 1);
+  let best = "1:1";
+  let bestDelta = Infinity;
+  for (const label of KONTEXT_ASPECT_RATIOS) {
+    const [w, h] = label.split(":").map(Number);
+    const delta = Math.abs(w / h - target);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = label;
+    }
+  }
+  return best;
 }
 
 /**
@@ -113,21 +166,29 @@ export function createFalAdapter(): Adapter {
       const startedAt = performance.now();
       let result: Awaited<ReturnType<typeof fal.subscribe>>;
       try {
-        result = await fal.subscribe(model, {
-          input: {
-            prompt: opts.prompt,
-            negative_prompt: opts.negative,
-            image_size: { width: opts.size.w, height: opts.size.h },
-            seed: opts.seed,
-            // Image references for img2img / character consistency. fal
-            // accepts URL arrays under `image_url(s)` depending on model;
-            // we pass the first one as `image_url` which Flux + Recraft
-            // both accept.
-            ...(opts.referenceImages?.[0]
-              ? { image_url: opts.referenceImages[0].src }
-              : {}),
-          },
-        });
+        // Model-aware input shaping (ADR-S3-4). Kontext is an image editor:
+        // it requires `image_url` + `aspect_ratio` and rejects the
+        // text-to-image `image_size` / `negative_prompt` fields. Every other
+        // model keeps the original text-to-image shape unchanged.
+        const reference = opts.referenceImages?.[0]?.src;
+        const input = isKontextModel(model)
+          ? {
+              prompt: opts.prompt,
+              image_url: reference,
+              aspect_ratio: nearestKontextAspectRatio({
+                aspectRatio: opts.aspectRatio,
+                size: opts.size,
+              }),
+              seed: opts.seed,
+            }
+          : {
+              prompt: opts.prompt,
+              negative_prompt: opts.negative,
+              image_size: { width: opts.size.w, height: opts.size.h },
+              seed: opts.seed,
+              ...(reference ? { image_url: reference } : {}),
+            };
+        result = await fal.subscribe(model, { input });
       } catch (err) {
         // fal throws a structured `ApiError` whose human-readable cause
         // (auth vs exhausted balance vs model validation) lives in

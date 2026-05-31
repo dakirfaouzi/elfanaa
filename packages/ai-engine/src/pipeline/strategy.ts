@@ -26,7 +26,10 @@ export async function strategy(
     providers: { text: TextProvider };
   } & StageContext,
 ): Promise<StrategyOutput> {
-  const system = buildStrategySystemPrompt({ storeConfig: opts.storeConfig });
+  const system = buildStrategySystemPrompt({
+    storeConfig: opts.storeConfig,
+    targeting: opts.input.targeting,
+  });
   const user = buildStrategyUserPrompt({
     supplierUrl: opts.input.supplierUrl,
     researchMarkdown:

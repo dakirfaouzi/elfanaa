@@ -1,6 +1,6 @@
 # Platform Architecture — Master Document
 
-> **Status**: Authoritative · **Version**: 1.0 · **Last revised**: 2026-05-21
+> **Status**: Authoritative · **Version**: 1.1 · **Last revised**: 2026-05-31
 > **Scope**: Internal multi-store AI ecommerce production platform.
 > **Audience**: Anyone implementing, operating, reviewing, or extending the platform.
 >
@@ -39,6 +39,7 @@
 23. [Decision log](#23-decision-log)
 24. [Future extensibility](#24-future-extensibility)
 25. [Appendix — open questions](#25-appendix--open-questions)
+26. [Execution roadmap & live project memory (Steps 1–4)](#26-execution-roadmap--live-project-memory-steps-14)
 
 ---
 
@@ -1765,3 +1766,329 @@ questions block M1.
 > **Maintenance**: This document is reviewed at the end of every
 > milestone. Drift between code and document is a defect; fix the
 > drift, not by tolerating it.
+
+---
+
+## 26. Execution roadmap & live project memory (Steps 1–4)
+
+> **Purpose.** §22 (M1–M12) is the *original* build order and remains the
+> canonical milestone ledger. This section is the **operator-facing
+> execution narrative** layered on top of it: the "Steps" the platform
+> owner reasons in, the current live state of the deployed system, and a
+> continuously-updated record of decisions, discoveries, blockers, and
+> recommendations. **Keep this section current as work proceeds** — it is
+> the project's working memory across sessions.
+
+### 26.1 Step ↔ milestone mapping
+
+| Step | Theme | Maps to milestones | Status |
+|------|-------|--------------------|--------|
+| **Step 1** | Infrastructure / foundations | M1–M4 (monorepo, studio shell, schemas, provider registry) | ✅ Complete |
+| **Step 2** | Image + publishing pipeline, rendering reliability, fal integration, DB-backed catalog | M5–M10 happy path + M12 DB catalog migration | ✅ Complete (infra) |
+| **Step 3** | Intelligence layer — intake utilisation, audience/awareness/sophistication targeting, emotional angle, copy quality, **product-identity-preserving imagery** | Deepens M5 (pipeline core / prompt depth) | 🚧 Core landed 2026-05-31; pending live quality validation |
+| **Step 4** | Premium storefront generation — rich section architecture, storytelling, CRO structure, dynamic section selection | Deepens M5 + M7/M8 (publisher + draft mapping) + storefront | ⛔ Not started (documented below) |
+
+> Note: "Step" numbers are an execution lens, not a replacement for the
+> M-milestones. A Step can advance several milestones' depth at once.
+
+### 26.2 Current project state (as of 2026-05-31)
+
+**Working end-to-end:** Intake → generation → publish → DB catalog
+(`storefront_catalog_product`) → shop → PDP → cart. fal image generation
+works; R2 + `cdn.elfanaa.com` custom domain serve assets; generated hero
+images render everywhere; older products backfilled via re-publish.
+
+**Deployed reference commit:** Studio at `23db6bf`;
+`R2_PUBLIC_BASE_URL_FANAA=https://cdn.elfanaa.com` on `studio` and `web`.
+
+> **CRITICAL (2026-05-31, post-validation):** the Step 3 code described below
+> was **never committed** — HEAD is still `23db6bf`. The live "Step 3
+> validation" therefore ran the **pre-Step-3 pipeline**. On top of that, a
+> **pre-existing root-cause bug** was found that erases product identity on
+> *every* uploaded-image run regardless of Step 3. Both are detailed in
+> **§26.10**. Step 3 is **NOT** production-validated until that section's fix is
+> committed and deployed.
+
+**Known quality gap that motivated Step 3** (evidence-based trace, 2026-05-31):
+
+1. **Targeting barely influences output.** All 8 targeting selectors are
+   flattened into a human-readable string (`renderTargetingAsNotes`) stuffed
+   into `operatorNotes`, which reaches **only the `strategy` stage**. The raw
+   `intakeMetadata.targeting` object is persisted but **never read** by the
+   orchestrator. `copy`, `creative_prompts`, `structure` receive **zero**
+   targeting fields directly — they only inherit whatever `strategy` chose to
+   echo. There is no enforcement that awareness/sophistication/angle/tone shape
+   the copy.
+2. **Generated images do not preserve product identity.** `image_gen` is pure
+   text-to-image (Flux Pro 1.1). The fal adapter *supports* `referenceImages`
+   (`image_url`) but **no caller ever sets it**. The uploaded product photo is
+   used only by the `vision` stage (as text) and as a fallback hero — never as
+   image conditioning. Flux therefore invents a plausible product.
+3. **Page structure is a thin fixed template.** `structure` output is computed
+   then **dropped** (assemble/copy/creative ignore it). Many `SectionKind`s
+   (`ingredients`, `results_expectation`, `guarantee`, `comparison`,
+   `creative_strip`, `founders_note`) are schema-defined but never generated.
+   `product-to-draft` emits a fixed ~7-section shape. → **Step 4.**
+
+### 26.3 Step 3 — goals & success criteria
+
+**Objective:** the elaborate intake selections must measurably change the
+output, and AI imagery must depict the *actual* uploaded product.
+
+Success criteria:
+
+- [x] Structured `targeting` flows from `IngestJob.intakeMetadata.targeting`
+      through the orchestrator into `strategy`, `copy`, and `creative_prompts`
+      (additive, backward-compatible — absence = legacy behaviour). *Landed
+      2026-05-31.*
+- [x] A single **audience-directive** prompt module deterministically maps each
+      targeting enum to an enforced instruction (awareness playbook,
+      sophistication framing, emotional-angle lever, tone register, demographic
+      address, market/locale). Injected into the system prompt of the text
+      stages so the model cannot ignore it.
+      (`packages/ai-engine/src/prompts/audience-directive.ts`.)
+- [x] Operator `market`/`toneStyle` selections override the store defaults in
+      the prompt where set — the directive block declares "when a directive
+      conflicts with a generic default, the directive wins".
+- [x] `creative_prompts` is grounded in the real product via vision attributes
+      (category, form factor, packaging, colours, label text), so even
+      text-to-image shots stay on-identity.
+- [x] **img2img**: the operator's primary uploaded photo is passed to fal
+      `flux-pro/kontext` as `image_url` for the hero, preserving product
+      identity. **Hard fallback** to today's text-to-image hero on any
+      Kontext failure — never regress to the intake-image fallback.
+- [x] All changes covered by unit tests; `ai-engine` (67) + `worker` (30) suites
+      green; all 14 workspaces typecheck clean.
+
+**Remaining for Step 3 close-out (next):** observe Kontext output quality in
+production on a real run; tune the identity-preservation prompt + guidance if
+the model drifts; confirm operators see the audience choices reflected in
+generated copy. These require a live run and operator review, not more code.
+
+**Out of scope for Step 3** (→ Step 4): rich multi-section generation,
+dynamic section selection, storefront section rendering, `foundersNote`
+end-to-end, offer-ladder/cost-breakdown consumption.
+
+### 26.4 Step 4 — goals (documented, not yet started)
+
+- Generate content for schema-defined-but-unfilled sections: `ingredients`,
+  `results_expectation` (drive from `NicheProfile.expectationsModel`),
+  `guarantee`, `comparison`, `creative_strip`, `founders_note`.
+- **Consume `structure` output** end-to-end: assemble carries the section
+  ordering; `product-to-draft` and the storefront render dynamically rather
+  than via a fixed template.
+- Awareness-stage-conditional layout (e.g. `unaware` leads with
+  problem/education; `most-aware` leads with offer/urgency).
+- Add `foundersNote` to `UniversalProduct` + draft + storefront.
+- Consume `intakeMetadata.offers` for real offer ladders and
+  `costBreakdown` for margin-aware pricing surfaces.
+- Lift product identity from per-image to a consistent character across the
+  whole gallery (Kontext multi / seed reuse).
+
+### 26.5 Architecture decisions (Step 3)
+
+- **ADR-S3-1 — Targeting is passed as a structured object, not only as
+  serialized notes.** The orchestrator now reads
+  `job.intakeMetadata?.targeting` and passes it into stage inputs. The legacy
+  `operatorNotes` serialization is retained (belt-and-suspenders / freeform
+  notes still flow) but the structured object is the authoritative signal.
+- **ADR-S3-2 — One audience-directive builder, injected via the system
+  prompt.** Lives at `packages/ai-engine/src/prompts/audience-directive.ts`.
+  Pure function `Targeting → string`. Injected into `buildSystemPrompt` as an
+  appended block so every text stage shares one canonical interpretation and
+  the model treats it as a hard constraint, not a hint.
+- **ADR-S3-3 — img2img via `fal-ai/flux-pro/kontext`, hero-only, with hard
+  fallback.** Kontext is the identity-preserving editor ($0.04/img, same as
+  Flux 1.1). Reference URL is resolved from `job.uploadedImages[0]` against
+  `StoreConfig.r2PublicBaseUrl` (with the same S3-endpoint guard the fanaa
+  read-side uses). If no servable public URL is resolvable, or Kontext fails,
+  the hero degrades to the existing text-to-image path — guaranteeing no
+  regression versus the current working state.
+- **ADR-S3-4 — fal adapter shapes input per model family.** Kontext rejects
+  `image_size`/`negative_prompt`; it takes `image_url` + `aspect_ratio`. The
+  adapter branches on the model id so the Flux 1.1 path is byte-for-byte
+  unchanged.
+
+### 26.6 Major discoveries (running log)
+
+- 2026-05-31 — Confirmed `referenceImages` is dead across the repo (only
+  defined in `contracts.ts`/`fal.ts`); production image gen is text-only.
+- 2026-05-31 — `intakeMetadata.targeting`, `offers`, `costBreakdown` are
+  persisted on the run record but never consumed by the worker.
+- 2026-05-31 — `structure` stage output is computed and then ignored by
+  every downstream stage; `assemble` accepts it in its input type but never
+  reads it.
+- 2026-05-31 — `copy` generates `foundersNote`, but `assemble` drops it
+  (not present on `UniversalProduct`).
+- **2026-05-31 (ROOT CAUSE) — the `vision` stage is blind on every
+  uploaded-image run.** Intake persists images as **bare R2 keys**
+  (`ImageUploader` stores `{ src: presigned.ref.key }`). The orchestrator
+  passed those keys straight to the vision provider, and the Anthropic adapter
+  sends them as `image.source.url`. A bare key is not a fetchable URL → the API
+  call throws → `vision.ts` retries once, fails, and returns `{ skipped: true }`
+  **silently**. With vision skipped (and research often skipped/empty for
+  upload-only intakes), `strategy` has **no product signal** and fabricates a
+  product consistent only with Fanaa's hardcoded beauty/skincare brand voice.
+  This is why SmileEase (teeth-whitening) produced skincare copy + a generic
+  cream-jar hero. See §26.10.
+
+### 26.7 Blockers / risks
+
+- **fal Kontext is not unit-testable against the live API here.** Mitigated by
+  (a) mocked adapter tests for input shaping + fallback, and (b) the hard
+  text-to-image fallback so a Kontext outage cannot break hero generation.
+- **Reference URL must be publicly fetchable by fal.** If `r2PublicBaseUrl`
+  is ever misconfigured to the private S3 endpoint, the resolver skips img2img
+  (falls back) rather than passing an unservable URL.
+
+### 26.8 Future recommendations
+
+- Add an internal "regenerate single image with stronger identity lock" action
+  once Kontext quality is observed in production.
+- Consider a `targetingFingerprint` on the run so identical intake produces a
+  reproducible draft (aids A/B and caching).
+- Revisit whether `StoreConfig.market` should be derived per-run from intake
+  rather than fixed per store, once multi-market demand is real.
+
+### 26.9 Change log for this section
+
+- 2026-05-31 — Section created. Step 1–2 marked complete; Step 3 started
+  (audience directive, structured targeting threading, img2img via Kontext).
+- 2026-05-31 — Step 3 core implementation landed. Files touched:
+  - `packages/ai-engine/src/prompts/audience-directive.ts` (new) — `Targeting`
+    → enforced directive; `buildAudienceDirective` + `summariseAudience`.
+  - `packages/ai-engine/src/prompts/system.ts` — accepts + appends
+    `audienceDirective`.
+  - `packages/ai-engine/src/prompts/{strategy,copy,creative-prompts}.ts` —
+    accept `targeting`; creative-prompts now grounded in vision product-identity
+    attributes; identity-preservation system rules added.
+  - `packages/ai-engine/src/pipeline/{strategy,copy,creative-prompts}.ts` +
+    `types-{strategy,copy,creative-prompts}.ts` — thread `targeting`.
+  - `packages/ai-engine/src/pipeline/{image-gen.ts,types-image-gen.ts}` —
+    hero img2img-with-fallback; `referenceImage` input; `DEFAULT_IMG2IMG_MODEL`.
+  - `packages/ai-engine/src/providers/{contracts.ts,adapters/fal.ts}` —
+    `aspectRatio` passthrough; Kontext model-aware input shaping + pricing.
+  - `packages/worker/src/runtime/orchestrator.ts` — pass `targeting` to 3
+    stages; `resolveReferenceImage()` resolves the uploaded photo to a servable
+    public URL for img2img (S3-endpoint-guarded).
+  - Tests: new `prompts/__tests__/audience-directive.test.ts`; targeting +
+    img2img cases added to strategy/copy/creative-prompts/image-gen suites.
+  - Verification: `ai-engine` 67 tests, `worker` 30 tests green; `pnpm -r
+    typecheck` clean across all 14 workspaces.
+- 2026-05-31 — **Product-identity investigation + root-cause fix** (§26.10).
+  Vision image-URL resolution fix + product-fidelity prompt guards. Files:
+  - `packages/worker/src/runtime/orchestrator.ts` — new exported
+    `resolvePublicImageUrl()`; vision dispatch now resolves bare R2 keys →
+    public CDN URLs before calling the vision provider; `resolveReferenceImage`
+    refactored to reuse it.
+  - `packages/ai-engine/src/prompts/strategy.ts` + `copy.ts` — "PRODUCT
+    FIDELITY" hard rule (never substitute a generic store-typical product).
+  - `packages/ai-engine/src/prompts/copy.ts` + `pipeline/copy.ts` — copy user
+    prompt now carries vision `productCategory` + `visibleText` directly.
+  - Tests: new `worker/src/__tests__/resolve-public-image-url.test.ts` (8
+    cases). `worker` 38, `ai-engine` 67 green; both packages typecheck clean.
+- 2026-05-31 — **Identity-flow evidence harness** (real-code proof for the
+  SmileEase validation). New deterministic traces drive the real stages with
+  mocked provider I/O and capture exactly what each stage receives:
+  - `packages/ai-engine/src/pipeline/__tests__/identity-flow.trace.test.ts` —
+    proves (1) bare key → vision throws → SKIPPED → strategy gets "(No vision
+    summary)"; (2) resolved CDN URL → vision returns the SmileEase identity;
+    (3) strategy, (4) copy, (5a) creative-prompts user prompts all carry the
+    teeth-whitening identity; (5b) image-gen hero call uses `flux-pro/kontext`
+    with the real photo URL as the img2img reference + identity-lock prompt.
+  - `packages/worker/src/__tests__/identity-flow.trace.test.ts` — proves the
+    orchestrator resolves the bare key to the public CDN URL before BOTH the
+    vision and image providers, and threads structured targeting into the text
+    stages' system prompts (`AUDIENCE & POSITIONING DIRECTIVE`, `PRODUCT-AWARE`,
+    `LUXURIOUS`). `worker` 39, `ai-engine` 72 green.
+
+### 26.10 Product-identity pipeline investigation (2026-05-31)
+
+**Trigger:** live validation. Uploaded *SmileEase* (purple teeth-whitening /
+colour-corrector serum, V34). Output: skincare cream-jar hero + Arabic copy
+about skin softness (`بشرتك تستحق لمسة صادقة — نعومة حقيقية`). Both image **and**
+copy were wrong → identity lost upstream of image generation.
+
+**End-to-end trace (where identity survives vs dies):**
+
+| Stage | Carries identity? | Evidence |
+|---|---|---|
+| Intake upload | ✅ key stored | `ImageUploader` → `{ src: <R2 key> }` |
+| `IngestJob.uploadedImages` | ✅ bare key | orchestrator input |
+| **`vision`** | ❌ **DIES HERE** | bare key sent as `image.source.url` → API throws → `{ skipped:true }` silently |
+| `research` | ⚠️ only if a real supplier URL was scraped; upload-only intakes → skipped/empty |
+| `strategy` | ❌ no signal → fabricates from store brand voice | `formatVisionForPrompt` returns `undefined`; research empty |
+| `copy` | ❌ inherits generic skincare persona | hero promise already off-product |
+| `creative_prompts` | ❌ generic beauty jar | no real category/colours |
+| `image_gen` | ❌ text-to-image invents a jar | img2img code not deployed |
+| `assemble` | ✅ faithfully assembles the wrong product | n/a |
+
+**Root cause (primary):** vision is blind on every uploaded-image run because
+intake stores **bare R2 keys** and nothing resolved them to a fetchable URL
+before the vision provider call. Vision silently skips; the pipeline then
+invents a generic skincare product from Fanaa's hardcoded beauty brand voice.
+
+**Root cause (secondary, compounding):** the entire Step 3 implementation was
+**uncommitted** (HEAD `23db6bf`), so targeting threading, the audience
+directive, vision-grounded creative prompts, and Kontext img2img were **not in
+the validated build** at all.
+
+**Fixes implemented (this session):**
+
+1. **Vision image-URL resolution (the fix).**
+   `resolvePublicImageUrl(src, r2PublicBaseUrl)` composes bare R2 keys /
+   `r2://` refs into public `cdn.elfanaa.com` URLs (S3-endpoint-guarded), and
+   the `vision` dispatch resolves every uploaded image before the provider
+   call. Vision can now actually see the product → `strategy` receives
+   `Category / Label text / Colours` → identity propagates to copy + creative +
+   image. `resolveReferenceImage` (img2img) reuses the same helper.
+2. **Product-fidelity guardrails.** `strategy` and `copy` system prompts now
+   carry a hard rule: anchor to the EXACT product from vision/research; never
+   substitute a generic store-typical (skincare) product even when the item is
+   outside the store's usual niche.
+3. **Concrete identity into copy.** The `copy` user prompt now includes the
+   vision `productCategory` + `visibleText` directly (previously copy only saw
+   the strategy hero promise + form factor).
+
+**Targeting-field audit (deployed `23db6bf` reality):**
+
+| Intake field | Status (deployed) | After Step 3 commit |
+|---|---|---|
+| Market | partial — serialized into `operatorNotes` → strategy only | directive into strategy+copy+creative; can override store default |
+| Gender | partial — strategy only | directive into all 3 text stages |
+| Age range | partial — strategy only | directive into all 3 |
+| Awareness stage | partial — strategy only | enforced awareness playbook in all 3 |
+| Sophistication level | partial — strategy only | enforced framing in all 3 |
+| Emotional angle | partial — strategy only | enforced lever in all 3 |
+| Tone style | partial — strategy only | enforced register in all 3 |
+| Language | used — drives AR/EN copy locale | unchanged |
+| Target audience (free text) | partial — via operatorNotes | flows as before + directive |
+| **Product type** | **NOT CAPTURED** — no intake field exists | still not captured → recommend adding (Step 3.1/4) |
+| **Problems addressed** | **NOT CAPTURED** — no intake field exists | still not captured → recommend adding (Step 3.1/4) |
+
+Net: before this work targeting was *partially used* (strategy-only, as prose)
+and product identity was *lost at vision*. The fix restores identity; the Step 3
+commit makes targeting *actively enforced* across all text stages. "Product
+type" and "Problems addressed" are genuinely **absent from intake** and remain a
+recommended enhancement.
+
+**Step 3 status answers:**
+
+1. **Is Step 3 truly complete?** No. Code is complete and tested but
+   **uncommitted/undeployed**, and it was masking the vision root cause. After
+   committing + deploying this session's fix, Step 3 is *code-complete* and
+   awaits one clean live re-validation.
+2. **% actually working in production today (`23db6bf`):** ~15%. Only
+   `Language` reliably influences output; identity is broken on every
+   upload-only run. After deploy of this session's fix: ~85% (identity restored
+   + targeting enforced); the remaining ~15% is live-quality tuning of Kontext
+   identity-lock and audience reflection.
+3. **What remains before Step 4 can start safely:** (a) commit + deploy
+   §26.10 fix + the Step 3 changes; (b) one live run of SmileEase showing
+   teeth-whitening copy + an on-identity hero; (c) confirm targeting choices are
+   visibly reflected. No further code is blocking.
+4. **Exact fixes:** see "Fixes implemented" above (vision URL resolution;
+   product-fidelity guards; vision identity into copy prompt) + the Step 3
+   bundle (§26.9).
+5. **Validation:** `worker` 38 tests (incl. 8 new resolver regression tests),
+   `ai-engine` 67 tests, both typecheck clean. Live validation pending deploy.

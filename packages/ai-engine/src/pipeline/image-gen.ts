@@ -5,11 +5,12 @@ import type {
   AspectRatio,
   CreativePrompt,
 } from "./types-creative-prompts";
-import type {
-  ImageGenFailure,
-  ImageGenInput,
-  ImageGenOutput,
-  ImageGenResult,
+import {
+  DEFAULT_IMG2IMG_MODEL,
+  type ImageGenFailure,
+  type ImageGenInput,
+  type ImageGenOutput,
+  type ImageGenResult,
 } from "./types-image-gen";
 
 /**
@@ -32,14 +33,29 @@ export async function imageGen(
 ): Promise<ImageGenOutput> {
   const maxAttempts = opts.input.maxAttemptsPerPrompt ?? 3;
 
-  const heroJob = runOnePrompt({
-    role: "hero",
-    creative: opts.input.prompts.hero,
-    provider: opts.providers.image,
-    maxAttempts,
-    storeId: opts.storeConfig.id,
-    runId: opts.runId,
-  });
+  // Step 3 (ADR-S3-3): when a servable reference photo is supplied, generate
+  // the hero image-to-image (Kontext) so it preserves the real product's
+  // identity, with a hard fallback to text-to-image so a Kontext failure can
+  // never regress hero quality below today's working baseline.
+  const referenceUrl = resolveServableReference(opts.input.referenceImage?.src);
+  const heroJob = referenceUrl
+    ? runHeroWithIdentity({
+        creative: opts.input.prompts.hero,
+        referenceUrl,
+        img2imgModel: opts.input.img2imgModel ?? DEFAULT_IMG2IMG_MODEL,
+        provider: opts.providers.image,
+        maxAttempts,
+        storeId: opts.storeConfig.id,
+        runId: opts.runId,
+      })
+    : runOnePrompt({
+        role: "hero",
+        creative: opts.input.prompts.hero,
+        provider: opts.providers.image,
+        maxAttempts,
+        storeId: opts.storeConfig.id,
+        runId: opts.runId,
+      });
 
   const lifestyleJobs = opts.input.prompts.lifestyle.map((cp) =>
     runOnePrompt({
@@ -78,6 +94,67 @@ type RunOutcome =
   | { ok: true; result: ImageGenResult }
   | { ok: false; failure: ImageGenFailure };
 
+/**
+ * Generate the hero image-to-image first (identity-preserving), falling back
+ * to the standard text-to-image hero if the img2img path fails. The fallback
+ * guarantees we never end up worse than the legacy behaviour.
+ */
+async function runHeroWithIdentity(opts: {
+  creative: CreativePrompt;
+  referenceUrl: string;
+  img2imgModel: string;
+  provider: ImageProvider;
+  maxAttempts: number;
+  storeId: string;
+  runId: string;
+}): Promise<RunOutcome> {
+  const img2img = await runOnePrompt({
+    role: "hero",
+    creative: { ...opts.creative, prompt: buildIdentityPrompt(opts.creative.prompt) },
+    provider: opts.provider,
+    maxAttempts: opts.maxAttempts,
+    storeId: opts.storeId,
+    runId: opts.runId,
+    model: opts.img2imgModel,
+    referenceImages: [{ src: opts.referenceUrl }],
+  });
+  if (img2img.ok) return img2img;
+
+  // Hard fallback: text-to-image hero with the original prompt (no reference,
+  // default model). This is exactly today's working path.
+  return runOnePrompt({
+    role: "hero",
+    creative: opts.creative,
+    provider: opts.provider,
+    maxAttempts: opts.maxAttempts,
+    storeId: opts.storeId,
+    runId: opts.runId,
+  });
+}
+
+/**
+ * Wrap a text-to-image hero prompt as an identity-preserving EDIT instruction
+ * for Kontext: keep the actual product pixels, only restyle the scene.
+ */
+function buildIdentityPrompt(heroPrompt: string): string {
+  return (
+    "Using the provided product photo as the exact reference, keep the " +
+    "product's shape, packaging, label text, logo and colours identical. " +
+    "Re-render it as a premium studio hero shot: " +
+    heroPrompt +
+    " Do not alter, redesign, or relabel the product itself."
+  );
+}
+
+/**
+ * Only http(s) URLs are usable as fal references (fal must fetch the bytes).
+ * Bare R2 keys / empty values return undefined → caller uses text-to-image.
+ */
+function resolveServableReference(src?: string): string | undefined {
+  if (!src) return undefined;
+  return /^https?:\/\//i.test(src.trim()) ? src.trim() : undefined;
+}
+
 async function runOnePrompt(opts: {
   role: "hero" | "lifestyle";
   creative: CreativePrompt;
@@ -85,6 +162,10 @@ async function runOnePrompt(opts: {
   maxAttempts: number;
   storeId: string;
   runId: string;
+  /** Optional model override (e.g. Kontext for img2img). */
+  model?: string;
+  /** Optional reference images for img2img / identity conditioning. */
+  referenceImages?: { src: string; alt?: string }[];
 }): Promise<RunOutcome> {
   const { w, h } = aspectToPx(opts.creative.aspectRatio);
   let lastError: unknown;
@@ -95,8 +176,11 @@ async function runOnePrompt(opts: {
         prompt: opts.creative.prompt,
         negative: opts.creative.negative,
         size: { w, h },
+        aspectRatio: opts.creative.aspectRatio,
         storeId: opts.storeId,
         runId: opts.runId,
+        ...(opts.model ? { model: opts.model } : {}),
+        ...(opts.referenceImages ? { referenceImages: opts.referenceImages } : {}),
       });
       return {
         ok: true,

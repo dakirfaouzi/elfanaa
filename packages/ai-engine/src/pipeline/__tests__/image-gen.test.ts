@@ -108,6 +108,80 @@ describe("image-gen (stage 08)", () => {
     expect(out.failed[0]?.role).toBe("lifestyle");
   });
 
+  it("generates the hero img2img (Kontext) when a servable reference URL is supplied (Step 3)", async () => {
+    const img = mockImage({
+      responses: [imageResult({ url: "https://cdn.mock/hero-identity.webp" })],
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: promptsHeroOnly,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_img2img",
+    });
+
+    expect(out.results).toHaveLength(1);
+    expect(out.results[0]?.role).toBe("hero");
+    // Hero call routed to the identity-preserving Kontext model with the
+    // reference image attached.
+    expect(img.calls[0].model).toBe("fal-ai/flux-pro/kontext");
+    expect(img.calls[0].referenceImages?.[0]?.src).toBe(
+      "https://cdn.elfanaa.com/studio-intake/p.jpg",
+    );
+    expect(img.calls[0].prompt).toMatch(/keep the product's shape/i);
+  });
+
+  it("falls back to text-to-image hero when the Kontext img2img attempt fails (no regression)", async () => {
+    const img = mockImage({
+      responses: [
+        new Error("kontext_unavailable"),
+        imageResult({ url: "https://cdn.mock/hero-fallback.webp" }),
+      ],
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: promptsHeroOnly,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_img2img_fallback",
+    });
+
+    expect(out.results).toHaveLength(1);
+    expect(out.results[0]?.url).toBe("https://cdn.mock/hero-fallback.webp");
+    // First call: Kontext (failed). Second call: default text-to-image, no reference.
+    expect(img.calls[0].model).toBe("fal-ai/flux-pro/kontext");
+    expect(img.calls[1].model).toBeUndefined();
+    expect(img.calls[1].referenceImages).toBeUndefined();
+  });
+
+  it("does NOT use img2img when the reference is a bare R2 key (unservable)", async () => {
+    const img = mockImage({
+      responses: [imageResult({ url: "https://cdn.mock/hero.webp" })],
+    });
+
+    await imageGen({
+      input: {
+        prompts: promptsHeroOnly,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_bare_key",
+    });
+
+    expect(img.calls[0].model).toBeUndefined();
+    expect(img.calls[0].referenceImages).toBeUndefined();
+  });
+
   it("uses the aspect-ratio mapping to size each call", async () => {
     const img = mockImage({
       responses: [

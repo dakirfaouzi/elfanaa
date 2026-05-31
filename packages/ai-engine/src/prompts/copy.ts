@@ -1,5 +1,9 @@
 import type { StoreConfig } from "@platform/stores";
 import { buildSystemPrompt } from "./system";
+import {
+  buildAudienceDirective,
+  type AudienceTargeting,
+} from "./audience-directive";
 
 /**
  * Copy stage prompts (stage 06).
@@ -15,6 +19,8 @@ import { buildSystemPrompt } from "./system";
  */
 export function buildCopySystemPrompt(opts: {
   storeConfig: StoreConfig;
+  /** Step 3 — operator-selected structured targeting. */
+  targeting?: AudienceTargeting;
 }): string {
   return buildSystemPrompt({
     storeConfig: opts.storeConfig,
@@ -25,7 +31,10 @@ export function buildCopySystemPrompt(opts: {
       "facing field MUST exist in both Arabic AND English with no leakage " +
       "of one language into the other field.",
     outputFormat: "json",
+    audienceDirective: buildAudienceDirective(opts.targeting),
     stageRules: [
+      "PRODUCT FIDELITY: write about the EXACT product described by the strategy + vision inputs (its real category and use). NEVER drift to a generic skincare/store-typical product. If the product is oral-care, electronics, etc., the copy must be about THAT product, not skin.",
+      "The headline, subheadline and description MUST open at the awareness level set in the audience directive above, and carry its emotional angle and tone throughout.",
       "Arabic fields contain ONLY Arabic letters, Arabic punctuation, numerals (Arabic or Latin), and standard whitespace. No Latin letters.",
       "English fields contain ONLY Latin letters, ASCII punctuation, numerals, and standard whitespace. No Arabic letters.",
       "Arabic copy is in the dialect declared in the brand voice — naturally written, not transliterated.",
@@ -44,8 +53,20 @@ export function buildCopyUserPrompt(opts: {
   visualHooks?: string[];
   ingredientsHint?: string;
   formFactor?: string;
+  /** Step 3 — concrete product identity from vision, so copy can't drift. */
+  productCategory?: string;
+  productLabel?: string;
 }): string {
   const lines: string[] = [];
+  if (opts.productCategory || opts.productLabel) {
+    lines.push("PRODUCT (write about THIS exact product)");
+    lines.push("----------------------------------------");
+    if (opts.productCategory)
+      lines.push(`Product category: ${opts.productCategory}`);
+    if (opts.productLabel)
+      lines.push(`Visible label / brand text: "${opts.productLabel}"`);
+    lines.push("");
+  }
   lines.push("STRATEGY INPUTS");
   lines.push("---------------");
   lines.push(`Hero promise: ${opts.heroPromise}`);

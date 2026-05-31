@@ -135,6 +135,45 @@ describe("strategy (stage 04)", () => {
     expect(t.calls[0].prompt).toContain("ingredient_authority");
   });
 
+  it("injects the structured targeting directive into the system prompt (Step 3)", async () => {
+    const t = mockText({ responses: [textResult(goodStrategy)] });
+
+    await strategy({
+      input: {
+        supplierUrl: "https://supplier.example/p/1",
+        targeting: {
+          gender: "female",
+          market: "AE",
+          awarenessLevel: "problem-aware",
+          emotionalAngle: "transformation",
+          toneStyle: "luxurious",
+        },
+      },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_strategy_targeting",
+    });
+
+    const system = t.calls[0].system;
+    expect(system).toContain("AUDIENCE & POSITIONING DIRECTIVE");
+    expect(system).toContain("PROBLEM-AWARE");
+    expect(system).toContain("United Arab Emirates");
+    expect(system).toContain("LUXURIOUS");
+  });
+
+  it("omits the audience directive entirely when no targeting is supplied (legacy)", async () => {
+    const t = mockText({ responses: [textResult(goodStrategy)] });
+
+    await strategy({
+      input: { supplierUrl: "https://supplier.example/p/1" },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_strategy_no_targeting",
+    });
+
+    expect(t.calls[0].system).not.toContain("AUDIENCE & POSITIONING DIRECTIVE");
+  });
+
   it("uses a maxTokens cap large enough for the worst-case bilingual schema", async () => {
     // Regression guard for the 2026-05-25 truncation in
     // `run_mplsmk2g_h0x4h8i0` (anthropic_response_truncated, model=

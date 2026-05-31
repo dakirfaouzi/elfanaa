@@ -27,12 +27,17 @@ export async function copy(
     providers: { text: TextProvider };
   } & StageContext,
 ): Promise<CopyOutput> {
-  const baseSystem = buildCopySystemPrompt({ storeConfig: opts.storeConfig });
+  const baseSystem = buildCopySystemPrompt({
+    storeConfig: opts.storeConfig,
+    targeting: opts.input.targeting,
+  });
   const user = buildCopyUserPrompt({
     heroPromise: opts.input.strategy.heroPromise.en,
     benefitLabels: opts.input.strategy.benefitAngles.map((a) => a.label),
     visualHooks: opts.input.vision?.visualHooks,
     formFactor: opts.input.vision?.formFactor,
+    productCategory: opts.input.vision?.productCategory,
+    productLabel: opts.input.vision?.visibleText,
   });
 
   const forbidden = opts.storeConfig.brand.voice.forbidden_words;

@@ -48,8 +48,22 @@ export function buildSystemPrompt(opts: {
    * verbatim after the brand/niche/voice block.
    */
   stageRules?: string[];
+  /**
+   * Operator-selected audience & positioning directive (Step 3). When
+   * present it is appended as a hard-constraint block after the niche
+   * guardrails so every text stage shares one canonical interpretation of
+   * the intake targeting. Built by `buildAudienceDirective()`. Absent =
+   * legacy behaviour (no targeting was supplied).
+   */
+  audienceDirective?: string;
 }): string {
-  const { storeConfig, task, outputFormat = "text", stageRules = [] } = opts;
+  const {
+    storeConfig,
+    task,
+    outputFormat = "text",
+    stageRules = [],
+    audienceDirective,
+  } = opts;
   const { brand, nicheProfile, defaultLocale, supportedLocales, market } =
     storeConfig;
 
@@ -88,6 +102,14 @@ export function buildSystemPrompt(opts: {
   lines.push("----------------");
   lines.push(nicheProfile.legalGuardrails);
   lines.push("");
+
+  // Audience & positioning directive (Step 3) — operator-selected targeting.
+  // Appended here, above the stage rules, so it reads as a top-level
+  // constraint the model applies before stage-specific mechanics.
+  if (audienceDirective && audienceDirective.trim().length > 0) {
+    lines.push(audienceDirective.trim());
+    lines.push("");
+  }
 
   // Stage-specific extra rules
   if (stageRules.length > 0) {

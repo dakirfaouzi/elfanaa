@@ -1,5 +1,9 @@
 import type { StoreConfig } from "@platform/stores";
 import { buildSystemPrompt } from "./system";
+import {
+  buildAudienceDirective,
+  type AudienceTargeting,
+} from "./audience-directive";
 
 /**
  * Strategy stage prompts (stage 04).
@@ -12,6 +16,8 @@ import { buildSystemPrompt } from "./system";
  */
 export function buildStrategySystemPrompt(opts: {
   storeConfig: StoreConfig;
+  /** Step 3 — operator-selected structured targeting. */
+  targeting?: AudienceTargeting;
 }): string {
   return buildSystemPrompt({
     storeConfig: opts.storeConfig,
@@ -20,11 +26,14 @@ export function buildStrategySystemPrompt(opts: {
       "store's brand voice and the target market. The brief drives every " +
       "downstream stage of the pipeline.",
     outputFormat: "json",
+    audienceDirective: buildAudienceDirective(opts.targeting),
     stageRules: [
+      "PRODUCT FIDELITY: anchor the entire brief to the EXACT product shown in the research / vision inputs — its real category, form factor, and visible label text. NEVER substitute a generic store-typical product. If the product sits outside the store's usual niche (e.g. an oral-care item in a skincare store), sell THAT product on its own terms; do not drift to skincare/beauty defaults.",
       "Pick ONE hero promise — the single sentence the page must convey.",
       "List 4–6 prioritised benefit angles, ordered by likely conversion power.",
       "Name 3–5 customer objections that the FAQ/social-proof stages will need to neutralise.",
-      "Identify the primary persona (one short paragraph).",
+      "Identify the primary persona (one short paragraph) — it MUST reflect the audience directive above (gender, age, market, awareness).",
+      "The hero promise and benefit ordering MUST follow the awareness + emotional-angle directives above.",
       "All bilingual fields MUST have both `ar` and `en` keys, never empty.",
     ],
   });

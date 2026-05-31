@@ -2,6 +2,7 @@ import type { StrategyOutput } from "./types-strategy";
 import type { StructureOutput } from "./types-structure";
 import type { CopyOutput } from "./types-copy";
 import type { VisionOutput } from "./types-vision";
+import type { AudienceTargeting } from "../prompts/audience-directive";
 
 /**
  * Stage 07 (Creative prompts) input + output types.
@@ -28,6 +29,8 @@ export interface CreativePromptsInput {
   structure: StructureOutput;
   copy: CopyOutput;
   vision?: VisionOutput;
+  /** Step 3 — operator-selected structured targeting (intakeMetadata.targeting). */
+  targeting?: AudienceTargeting;
 }
 
 export interface CreativePromptsOutput {

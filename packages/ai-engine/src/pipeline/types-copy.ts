@@ -5,6 +5,7 @@ import type {
 import type { StrategyOutput } from "./types-strategy";
 import type { StructureOutput } from "./types-structure";
 import type { VisionOutput } from "./types-vision";
+import type { AudienceTargeting } from "../prompts/audience-directive";
 
 /**
  * Stage 06 (Arabic copywriting) input + output types.
@@ -19,6 +20,8 @@ export interface CopyInput {
   structure: StructureOutput;
   /** Optional vision-derived visual hooks the copy can reference. */
   vision?: VisionOutput;
+  /** Step 3 — operator-selected structured targeting (intakeMetadata.targeting). */
+  targeting?: AudienceTargeting;
 }
 
 export interface CopyOutput {

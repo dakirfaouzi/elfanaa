@@ -23,6 +23,12 @@
 export { buildSystemPrompt } from "./system";
 
 export {
+  buildAudienceDirective,
+  summariseAudience,
+  type AudienceTargeting,
+} from "./audience-directive";
+
+export {
   buildVisionSystemPrompt,
   buildVisionUserPrompt,
 } from "./vision";

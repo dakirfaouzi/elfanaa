@@ -125,6 +125,12 @@ export type ImageCallOptions = {
   /** Negative prompt — vendor-supported only on some models. */
   negative?: string;
   size: { w: number; h: number };
+  /**
+   * Aspect-ratio label (e.g. "1:1", "4:5"). Some models (fal Kontext) take an
+   * `aspect_ratio` enum rather than pixel dimensions; adapters use this when
+   * present and fall back to deriving it from `size`.
+   */
+  aspectRatio?: string;
   /** Reference images for img2img / style transfer / character consistency. */
   referenceImages?: ImageRef[];
   /** Vendor model override ("fal-ai/flux-pro/v1.1", "fal-ai/recraft-v3"). */

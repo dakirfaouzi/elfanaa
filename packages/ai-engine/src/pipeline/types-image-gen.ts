@@ -17,7 +17,21 @@ export interface ImageGenInput {
   prompts: CreativePromptsOutput;
   /** Per-prompt max retries before giving up. PLATFORM.md says 3. */
   maxAttemptsPerPrompt?: number;
+  /**
+   * Step 3 (ADR-S3-3) — the operator's primary product photo, resolved to a
+   * PUBLIC, fetchable URL. When present, the hero is generated image-to-image
+   * (fal Kontext) conditioned on this reference so the rendered hero preserves
+   * the exact product identity. Absent / non-http → text-to-image hero
+   * (legacy behaviour). The orchestrator only sets this when it can resolve a
+   * servable URL (never the private S3 endpoint).
+   */
+  referenceImage?: { src: string; alt?: string };
+  /** Override the img2img model. Defaults to `fal-ai/flux-pro/kontext`. */
+  img2imgModel?: string;
 }
+
+/** Default identity-preserving image-to-image model (fal Kontext [pro]). */
+export const DEFAULT_IMG2IMG_MODEL = "fal-ai/flux-pro/kontext";
 
 export interface ImageGenResult {
   role: "hero" | "lifestyle";

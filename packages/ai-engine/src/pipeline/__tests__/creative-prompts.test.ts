@@ -134,4 +134,38 @@ describe("creative-prompts (stage 07)", () => {
     expect(t.calls[0].prompt).toContain("amber glass");
     expect(t.calls[0].prompt).toContain("rose gold");
   });
+
+  it("grounds the prompt in concrete product-identity attributes from vision (Step 3)", async () => {
+    const t = mockText({ responses: [textResult(goodPrompts)] });
+
+    await creativePrompts({
+      input: {
+        strategy: dummyStrategy,
+        structure: dummyStructure,
+        copy: dummyCopy,
+        vision: {
+          skipped: false,
+          costUsd: 0,
+          productCategory: "face serum",
+          formFactor: "amber glass dropper bottle",
+          packagingMaterial: "frosted glass",
+          visibleColors: ["amber", "rose gold"],
+          visibleText: "FANAA GLOW",
+          visualHooks: ["amber glass"],
+        },
+        targeting: { gender: "female", market: "SA", toneStyle: "luxurious" },
+      },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_creative_identity",
+    });
+
+    const user = t.calls[0].prompt;
+    expect(user).toContain("PRODUCT IDENTITY");
+    expect(user).toContain("amber glass dropper bottle");
+    expect(user).toContain("FANAA GLOW");
+    // System prompt carries the identity-preservation rule + audience directive.
+    expect(t.calls[0].system).toContain("PRODUCT IDENTITY IS PARAMOUNT");
+    expect(t.calls[0].system).toContain("AUDIENCE & POSITIONING DIRECTIVE");
+  });
 });

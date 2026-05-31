@@ -139,6 +139,25 @@ describe("copy (stage 06)", () => {
     expect(t.calls[1].system).toContain("forbidden words");
   });
 
+  it("injects the audience directive into the copy system prompt (Step 3)", async () => {
+    const t = mockText({ responses: [textResult(cleanCopy)] });
+
+    await copy({
+      input: {
+        strategy: dummyStrategy,
+        structure: dummyStructure,
+        targeting: { awarenessLevel: "most-aware", toneStyle: "intimate" },
+      },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_copy_targeting",
+    });
+
+    expect(t.calls[0].system).toContain("AUDIENCE & POSITIONING DIRECTIVE");
+    expect(t.calls[0].system).toContain("MOST-AWARE");
+    expect(t.calls[0].system).toContain("INTIMATE");
+  });
+
   it("throws PipelineError when guardrails keep failing after the retry", async () => {
     const t = mockText({
       responses: [

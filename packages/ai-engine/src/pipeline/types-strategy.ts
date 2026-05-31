@@ -1,6 +1,7 @@
 import type { LocalizedString } from "@platform/catalog-schema";
 import type { ResearchOutput } from "./types-research";
 import type { VisionOutput } from "./types-vision";
+import type { AudienceTargeting } from "../prompts/audience-directive";
 
 /**
  * Stage 04 (Strategy) input + output types.
@@ -17,6 +18,8 @@ export interface StrategyInput {
   vision?: VisionOutput;
   /** Operator's free-text notes from intake (positioning hints). */
   operatorNotes?: string;
+  /** Step 3 — operator-selected structured targeting (intakeMetadata.targeting). */
+  targeting?: AudienceTargeting;
 }
 
 export interface StrategyBenefitAngle {

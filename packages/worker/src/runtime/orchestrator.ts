@@ -469,7 +469,16 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
       return vision({
         ...stageContext,
         input: {
-          images: job.uploadedImages.map((i) => ({ src: i.src, alt: i.alt })),
+          // CRITICAL (2026-05-31): the vision provider fetches each image by
+          // URL, but intake stores bare R2 keys (`studio-intake/...`). Resolve
+          // them to public CDN URLs here or the vision model is sent an
+          // unfetchable URL, fails, and silently skips — erasing all product
+          // identity. See PLATFORM.md §26.6.
+          images: job.uploadedImages.map((i) => ({
+            src:
+              resolvePublicImageUrl(i.src, storeConfig.r2PublicBaseUrl) ?? i.src,
+            alt: i.alt,
+          })),
         },
         providers: { vision: providers.vision },
       });
@@ -482,6 +491,9 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
           research: outputs.research,
           vision: outputs.vision,
           operatorNotes: job.operatorNotes,
+          // Step 3 — structured targeting now flows directly into the
+          // stage (no longer only as serialized operatorNotes prose).
+          targeting: job.intakeMetadata?.targeting,
         },
         providers: { text: providers.text },
       });
@@ -503,6 +515,7 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
           strategy: outputs.strategy!,
           structure: outputs.structure!,
           vision: outputs.vision,
+          targeting: job.intakeMetadata?.targeting,
         },
         providers: { text: providers.text },
       });
@@ -518,6 +531,7 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
           structure: outputs.structure!,
           copy: outputs.copy!,
           vision: outputs.vision,
+          targeting: job.intakeMetadata?.targeting,
         },
         providers: { text: providers.text },
       });
@@ -526,7 +540,12 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
       requirePresent(outputs.creative_prompts, "image_gen", "creative_prompts");
       return imageGen({
         ...stageContext,
-        input: { prompts: outputs.creative_prompts! },
+        input: {
+          prompts: outputs.creative_prompts!,
+          // Step 3 (ADR-S3-3): condition the hero on the operator's real
+          // product photo (img2img) when we can resolve a servable public URL.
+          referenceImage: resolveReferenceImage(job, storeConfig),
+        },
         providers: { image: providers.image },
       });
 
@@ -606,4 +625,54 @@ function requirePresent<T>(
       message: `${stage}_missing_dependency:${dependency}`,
     });
   }
+}
+
+/**
+ * Resolve a stored image reference (bare R2 key, `r2://` ref, or absolute URL)
+ * to a PUBLIC, fetchable URL. Both the vision provider (Anthropic image-by-URL)
+ * and fal img2img need a URL they can GET, but intake persists bare R2 keys.
+ *
+ *   • absolute http(s) URL that is NOT the private R2 S3 endpoint → use as-is
+ *   • bare R2 key / `r2://` ref → compose against `r2PublicBaseUrl` ONLY when
+ *     that base is a valid public CDN (never the private S3 API endpoint)
+ *   • anything unservable (no base, or base is the S3 endpoint) → `undefined`
+ *
+ * Mirrors the defensive resolution the fanaa read-side uses, so a misconfigured
+ * `r2PublicBaseUrl` can never leak an unfetchable URL into a provider call.
+ *
+ * @returns the public URL, or `undefined` when none can be safely composed.
+ */
+export function resolvePublicImageUrl(
+  src: string | undefined,
+  r2PublicBaseUrl: string | undefined,
+): string | undefined {
+  if (!src) return undefined;
+  const raw = src.trim();
+  if (!raw) return undefined;
+
+  if (/^https?:\/\//i.test(raw)) {
+    return /r2\.cloudflarestorage\.com/i.test(raw) ? undefined : raw;
+  }
+
+  const base = r2PublicBaseUrl?.trim();
+  if (!base || /r2\.cloudflarestorage\.com/i.test(base)) return undefined;
+
+  const key = raw.replace(/^r2:\/\//i, "").replace(/^\/+/, "");
+  if (!key) return undefined;
+  return `${base.replace(/\/+$/, "")}/${key}`;
+}
+
+/**
+ * Resolve the operator's primary uploaded photo to a servable URL for use as an
+ * image-to-image reference (Step 3, ADR-S3-3). Returns `undefined` when no
+ * servable URL exists, in which case the hero degrades to text-to-image.
+ */
+function resolveReferenceImage(
+  job: OrchestratorOptions["job"],
+  storeConfig: OrchestratorOptions["storeConfig"],
+): { src: string; alt?: string } | undefined {
+  const first = job.uploadedImages?.[0];
+  if (!first?.src) return undefined;
+  const src = resolvePublicImageUrl(first.src, storeConfig.r2PublicBaseUrl);
+  return src ? { src, alt: first.alt } : undefined;
 }

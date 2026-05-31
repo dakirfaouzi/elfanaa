@@ -3,6 +3,7 @@ import { CreativePromptsOutputSchema } from "../schemas/creative-prompts";
 import {
   buildCreativePromptsSystemPrompt,
   buildCreativePromptsUserPrompt,
+  summariseAudience,
 } from "../prompts/creative-prompts";
 import { runTextStage } from "./_helpers/run-text-stage";
 import type { StageContext } from "./types";
@@ -35,12 +36,26 @@ export async function creativePrompts(
 ): Promise<CreativePromptsOutput> {
   const system = buildCreativePromptsSystemPrompt({
     storeConfig: opts.storeConfig,
+    targeting: opts.input.targeting,
   });
+  const vision = opts.input.vision;
   const user = buildCreativePromptsUserPrompt({
-    productCategory: opts.input.vision?.productCategory,
-    visualHooks: opts.input.vision?.visualHooks ?? [],
+    productCategory: vision?.productCategory,
+    visualHooks: vision?.visualHooks ?? [],
     headlineEn: opts.input.copy.headline.en,
     benefitLabels: opts.input.strategy.benefitAngles.map((a) => a.label),
+    identity:
+      vision && !vision.skipped
+        ? {
+            productCategory: vision.productCategory,
+            formFactor: vision.formFactor,
+            packagingMaterial: vision.packagingMaterial,
+            visibleColors: vision.visibleColors,
+            visibleText: vision.visibleText,
+            approximateSize: vision.approximateSize,
+          }
+        : undefined,
+    audienceSummary: summariseAudience(opts.input.targeting),
   });
 
   return runTextStage<CreativePromptsOutput>({
