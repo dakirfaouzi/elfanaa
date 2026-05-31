@@ -2038,9 +2038,9 @@ architecture facts the original §26.4 bullet list did not account for:
     behaviour). Worker wiring: `structure` makes no provider call; cost
     accounting drops from 6→5 text calls/draft. Tests: ai-engine 89
     (+8 structure, +7 planner), worker 39, stores green.
-- **4.4 QA + live validation:** unit tests for new stages/schema/registry;
-  re-validate on Beef Tallow + SmileEase; confirm mobile ATF, sticky CTA,
-  section richness.
+- **4.4 QA + live validation — IN PROGRESS.** Unit tests done (ai-engine 89,
+  worker 39, fanaa 128, persistence 80). Live production validation procedure is
+  documented in **§26.4.6**; awaiting deploy + operator evidence.
 
 #### 26.4.4 Success criteria
 
@@ -2076,6 +2076,83 @@ Original plan assumed "render dynamically" was a small consumption change. It is
 not — the production storefront ignores AI sections entirely and most rich
 content is never generated. Step 4 is therefore re-scoped into the 5 phases
 above, with the **M12 storefront-render wiring** explicitly pulled in.
+
+#### 26.4.7 Phase 4.4 — production deploy + validation procedure
+
+This is the authoritative, repeatable procedure for validating Step 4 end-to-end
+on production. Run it after any change to the generation pipeline, the CRO data
+path, or the fanaa section renderer.
+
+**1. Services to deploy (rebuild from the Step-4 commit `69f2f54` or later):**
+- **studio** (`elfanaa_studio`) — runs the generation pipeline (worker is
+  embedded) AND owns the publish path that writes `cro_content`. MUST rebuild so
+  `prisma generate` picks up the `cro_content` column (Prisma only selects
+  columns known at client-generate time; a stale client silently omits it on
+  read and **errors** on write).
+- **web** (fanaa storefront, elfanaa.com) — reads `cro_content` and renders the
+  dynamic `ProductSections`. MUST rebuild for the same Prisma-client reason +
+  the new renderer code.
+- **api/backend** — NOT involved in Step 4 (COD orders only). No redeploy
+  required. Adding a nullable column is backward-compatible for it.
+- No new environment variables are required for Step 4.
+
+**2. Migrations:** exactly one pending — `0006_catalog_cro_content` (adds
+`storefront_catalog_product.cro_content JSONB`, nullable, backward-compatible).
+Apply once to the shared DB via either:
+- Set `STUDIO_AUTO_MIGRATE=true` on the studio service (entrypoint runs
+  `prisma migrate deploy` against `ADMIN_DATABASE_URL` on boot), OR
+- EasyPanel → elfanaa_studio → Shell →
+  `prisma migrate deploy --schema=/app/packages/db/prisma/schema.prisma`.
+Verify: `_prisma_migrations` contains `0006_catalog_cro_content`.
+
+**3. Re-publish / regenerate:** rich content (`sectionContent`, `sectionOrder`,
+`foundersNote`, `cro_content`) only exists for products whose **draft was
+produced by the Step-4 pipeline**. Re-publishing a pre-Step-4 draft does NOT
+backfill it (its UniversalProduct predates the `section_content` stage).
+Therefore validation requires **fresh pipeline runs** on the deployed studio,
+then publish. Older products stay commerce-only until regenerated (expected;
+same backfill pattern as the image pipeline).
+
+**4. Test products (run fresh intakes):**
+- **Beef Tallow Honey Balm** — identity + richness regression (the Step-3
+  validation product).
+- **SmileEase** (purple teeth-whitening) — the original identity-failure product;
+  proves identity + rich sections together.
+- **Awareness A/B:** run the SAME product twice with different targeting —
+  e.g. `awarenessLevel: unaware` vs `most-aware` (optionally vary
+  `sophisticationLevel: beginner` vs `expert`) — to prove ordering differs.
+
+**5. URLs to validate (per published product):**
+- Production PDP: `https://elfanaa.com/products/<slug>` (the conversion surface).
+- Studio run detail / preview: `/studio/runs/<runId>` and `/p/<slug>` (to read
+  the generated `sectionOrder` + the structure step's `rationale`, which is
+  `awareness:<level>` for targeted runs).
+- `/shop` + cart: confirm the product card + add-to-cart still work.
+
+**6. Mobile success criteria (Chrome DevTools, 390px width — iPhone 12/13/14):**
+- **ATF:** hero image (the real uploaded product) + title + price + add-to-cart
+  visible within the first viewport.
+- **Sticky CTA:** the mobile sticky add-to-cart bar persists through the scroll.
+- **Rich sections render** with product-real content (not generic filler):
+  mechanism/how-it-works, ingredients, results timeline, comparison, objections,
+  founder's note, guarantee, FAQ, reviews.
+- **No placeholder sections** and **no raw token text** (no "Moon/Zap/Shield"
+  /PascalCase icon names rendered as words); benefit cards show real icons.
+- **Awareness ordering differs** between the two A/B runs (e.g. unaware leads
+  with how-it-works; most-aware leads with social proof + guarantee).
+- **RTL correct** for Arabic; **no horizontal overflow**; readable type scale.
+- Curated products (e.g. /sugarbear and snapshot SKUs) are **unchanged**.
+
+**7. Evidence to capture:**
+- Full-page 390px screenshot of each test PDP (Beef Tallow + SmileEase).
+- Side-by-side 390px screenshots of the awareness A/B pair showing the section
+  order differs.
+- The generated `sectionOrder` for each run (from Studio run detail) + the
+  structure step `rationale` (`awareness:<level>`).
+- Confirmation `cro_content` is non-null for the new rows (Studio publish
+  success, or a `SELECT slug, cro_content IS NOT NULL FROM
+  storefront_catalog_product WHERE source='ai_generated'` spot check).
+- The deployed studio + web build SHAs (NavBar pill / boot banner) = `69f2f54`+.
 
 ### 26.5 Architecture decisions (Step 3)
 
