@@ -48,6 +48,9 @@ export type {
   ObjectionItem,
 } from "./section-content";
 
+// CRO projection carrier (Step 4 Phase 4.2)
+export type { CroContent } from "./cro-content";
+
 // Niche extensions
 export type {
   BeautyWellnessExtension,

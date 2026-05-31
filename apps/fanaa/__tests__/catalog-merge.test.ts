@@ -119,6 +119,7 @@ function makeDbRow(overrides: Partial<CatalogRow> = {}): CatalogRow {
     upsellIds: [],
     landingPath: null,
     heroImageUrl: null,
+    croContent: null,
     isLive: true,
     createdAt: new Date("2026-05-01T00:00:00Z"),
     updatedAt: new Date("2026-05-15T00:00:00Z"),
@@ -847,5 +848,104 @@ describe("assembleCatalogProducts", () => {
     expect(result[1]?.sku).toBe("DB-OVERLAY-2");
     expect(result[2]?.slug).toBe("new-mask");
     expect(result[2]?.productType).toBe("mask");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*              cro_content hydration (Step 4 / Phase 4.2 data path)           */
+/* -------------------------------------------------------------------------- */
+
+describe("synthesiseProductFromRow — cro_content projection", () => {
+  const richCro = {
+    headline: { ar: "عنوان", en: "Headline" },
+    subheadline: { ar: "عنوان فرعي", en: "Subheadline" },
+    foundersNote: { ar: "ملاحظة", en: "Founder note" },
+    benefits: [
+      { icon: "Shield", title: { ar: "ميزة", en: "Benefit" }, body: { ar: "وصف", en: "Body" } },
+    ],
+    reviews: [
+      {
+        name: { ar: "سارة", en: "Sara" },
+        city: { ar: "الرياض", en: "Riyadh" },
+        rating: 5,
+        body: { ar: "رائع", en: "Great" },
+        date: "2026-05-01",
+        verified: true,
+      },
+    ],
+    faq: [{ q: { ar: "سؤال", en: "Q" }, a: { ar: "جواب", en: "A" } }],
+    ingredients: [{ name: { ar: "عسل", en: "Honey" }, role: { ar: "ترطيب", en: "Hydrates" } }],
+    sectionContent: {
+      howItWorks: {
+        summary: { ar: "ملخص", en: "Summary" },
+        steps: [{ title: { ar: "خطوة", en: "Step" }, body: { ar: "تفاصيل", en: "Detail" } }],
+      },
+      guarantee: { title: { ar: "ضمان", en: "Guarantee" }, body: { ar: "نص", en: "Body" } },
+      comparison: {
+        ours: [{ ar: "ميزة", en: "Ours" }],
+        usual: [{ ar: "عيب", en: "Theirs" }],
+      },
+      objections: {
+        items: [{ objection: { ar: "اعتراض", en: "Doubt" }, response: { ar: "رد", en: "Reply" } }],
+      },
+      results: {
+        timeline: [{ when: { ar: "أسبوع", en: "Week 1" }, outcome: { ar: "نتيجة", en: "Result" } }],
+      },
+    },
+    sectionOrder: ["how_it_works", "benefits", "faq"],
+  };
+
+  it("hydrates the rich CRO surface onto a synthesised AI product", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({ slug: "ai-rich", source: "ai_generated", croContent: richCro }),
+    );
+    expect(product.headline).toEqual({ ar: "عنوان", en: "Headline" });
+    expect(product.foundersNote).toEqual({ ar: "ملاحظة", en: "Founder note" });
+    expect(product.benefits).toHaveLength(1);
+    expect(product.reviews).toHaveLength(1);
+    expect(product.faq).toHaveLength(1);
+    expect(product.ingredients).toHaveLength(1);
+    expect(product.sectionContent?.howItWorks?.steps).toHaveLength(1);
+    expect(product.sectionContent?.guarantee?.title.en).toBe("Guarantee");
+    expect(product.sectionContent?.comparison?.ours).toHaveLength(1);
+    expect(product.sectionContent?.objections?.items).toHaveLength(1);
+    expect(product.sectionContent?.results?.timeline).toHaveLength(1);
+    expect(product.sectionOrder).toEqual(["how_it_works", "benefits", "faq"]);
+  });
+
+  it("preserves the hero image as images[0] and appends projected gallery images", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-gallery",
+        heroImageUrl: "https://cdn.elfanaa.com/hero.png",
+        croContent: {
+          images: [
+            { src: "https://cdn.elfanaa.com/hero.png", alt: { ar: "ب", en: "hero" } },
+            { src: "https://cdn.elfanaa.com/gallery-2.png", alt: { ar: "ب", en: "g2" } },
+          ],
+        },
+      }),
+    );
+    expect(product.images[0]!.src).toBe("https://cdn.elfanaa.com/hero.png");
+    expect(product.images[1]!.src).toBe("https://cdn.elfanaa.com/gallery-2.png");
+  });
+
+  it("ignores a malformed cro_content blob and stays renderable (commerce-only)", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-broken",
+        croContent: { headline: "not-a-localized-string", benefits: [{ junk: true }] },
+      }),
+    );
+    expect(product.slug).toBe("ai-broken");
+    // Malformed localized field is dropped, not coerced into a crash.
+    expect(product.headline).toBeUndefined();
+  });
+
+  it("leaves curated rows (null cro_content) untouched", () => {
+    const product = synthesiseProductFromRow(makeDbRow({ croContent: null }));
+    expect(product.foundersNote).toBeUndefined();
+    expect(product.sectionContent).toBeUndefined();
+    expect(product.sectionOrder).toBeUndefined();
   });
 });

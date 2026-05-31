@@ -1962,9 +1962,42 @@ architecture facts the original §26.4 bullet list did not account for:
   the `structure` ordering** as `UniversalProduct.sectionOrder`. Wired through the
   worker orchestrator (PIPELINE_STAGES + dispatch). Tests: ai-engine 78, worker 39.
   Remaining 4.1: thread `targeting` into the `structure` stage (folded into 4.3).
-- **4.2 Dynamic mobile-first rendering:** fanaa section registry; render AI
-  order; commerce shell binding; eliminate placeholder/empty sections (only
-  render sections with real content).
+- **4.2 Dynamic mobile-first rendering — DONE.** Two halves shipped:
+  - **(a) Data path.** The pipeline's `UniversalProduct` CRO surface is projected
+    into a new canonical `CroContent` type (`@platform/catalog-schema`,
+    permissive read-boundary Zod schema), carried as an opaque `croContent` JSON
+    bag on `DraftDocument` (populated by `product-to-draft`), persisted through
+    the publish flow (`drafts-service` → persistence `storefront_catalog_product`
+    repository) into a new `cro_content JSONB` column (Prisma migration
+    `0006_catalog_cro_content`), and hydrated onto the fanaa `Product` by
+    `merge.ts::coerceCroContent` (defensive "drop-malformed, never-throw"
+    coercers consistent with the existing badge/rating/offerTiers pattern — a
+    bad projection degrades to a commerce-only product, never a 500). Decision:
+    embed on `DraftDocument`/catalog row rather than join
+    `studio_published_product.document` — simplest maintainable path, reuses the
+    existing hybrid-catalog loader, no extra query at render time. fanaa stays
+    self-contained (local section types, no catalog-schema dependency).
+  - **(b) Rendering.** New `ProductSections` orchestrator on the production fanaa
+    PDP (`/products/[slug]`) renders the AI `sectionOrder` inside the existing
+    commerce shell (gallery + buy box above, related products below). New
+    mobile-first, RTL-aware, self-guarding section components: `ProductHowItWorks`
+    (mechanism), `ProductResults` (week-by-week timeline), `ProductGuarantee`
+    (risk-reversal band), `ProductComparison` (us-vs-usual), `ProductObjections`,
+    `ProductFoundersNote` (editorial quote). AI order leads; `DEFAULT_ORDER`
+    backfills any grounded section the structure stage omitted (nothing grounded
+    is ever dropped). Curated/legacy products carry no `sectionOrder`/
+    `sectionContent`, so they fall through to a default order whose effective
+    output is **byte-identical** to the pre-Step-4 fixed layout (benefits →
+    ingredients → lifestyle → reviews → FAQ) — no curated page regresses. Every
+    section self-renders to `null` without content, so placeholder/empty sections
+    are eliminated by construction. Tests: fanaa 128 (incl. 4 new cro_content
+    hydration cases), persistence 80, builder/catalog-schema 41.
+  - **Deploy note:** requires `prisma migrate deploy` (adds `cro_content`) +
+    Prisma client regen on the services that read/write the catalog (studio
+    writes, fanaa/web reads). Loader uses `findMany` with no explicit `select`,
+    so the column is picked up automatically once present. Backfill: re-publish
+    AI products to populate `cro_content` (older rows render commerce-only until
+    re-published — same backfill pattern as the image pipeline).
 - **4.3 Awareness/sophistication-aware composition:** thread `targeting` into
   `structure`; ordering + section selection by awareness (unaware → problem/
   mechanism/education first; most-aware → offer/urgency first) and sophistication
@@ -2139,6 +2172,17 @@ above, with the **M12 storefront-render wiring** explicitly pulled in.
   `structure` ordering (`sectionOrder`), objections reclaimed from strategy.
   Tests: ai-engine 78, worker 39, studio 31, runtime-renderer 12. Next: 4.2
   (fanaa dynamic mobile-first section registry) + 4.3 (awareness-aware ordering).
+- 2026-05-31 — Step 4 **Phase 4.2** shipped (data path + rendering). New
+  `CroContent` projection persisted to `storefront_catalog_product.cro_content`
+  (Prisma migration `0006`) and hydrated onto the fanaa `Product` via defensive
+  coercers. New `ProductSections` orchestrator renders the AI `sectionOrder`
+  inside the production PDP commerce shell with mobile-first, RTL-aware section
+  components (how-it-works, results timeline, guarantee, comparison, objections,
+  founder's note); curated pages degrade byte-identically to the legacy fixed
+  layout. Tests: fanaa 128 (+4 cro_content hydration), persistence 80.
+  **Deploy:** `prisma migrate deploy` + client regen (studio writes, fanaa/web
+  reads); re-publish AI products to backfill `cro_content`. Next: 4.3
+  (awareness/sophistication-aware ordering) + 4.4 (mobile live validation).
 
 ### 26.10 Product-identity pipeline investigation (2026-05-31)
 

@@ -550,6 +550,13 @@ model StorefrontCatalogProduct {
   /// storefront catalog row carries; the full gallery still lives in
   /// the published document / snapshot.
   heroImageUrl       String?           @map("hero_image_url") @db.VarChar(2048)
+  /// Step 4 (Phase 4.2) — CRO content projection consumed by the fanaa PDP to
+  /// render AI-generated sections (benefits, mechanism, ingredients, results,
+  /// guarantee, comparison, objections, founder's note, gallery, sectionOrder).
+  /// Json so the shape evolves without a migration; the storefront validates it
+  /// via `@platform/catalog-schema`'s CroContentSchema at read time. Null for
+  /// curated rows + rows published before Step 4.
+  croContent         Json?             @map("cro_content")
   /// Soft-disable switch. `false` hides the row from the shop without
   /// deleting it. Used for unpublished AI rows and discontinued
   /// curated rows.

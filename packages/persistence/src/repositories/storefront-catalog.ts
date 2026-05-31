@@ -166,6 +166,7 @@ export class StorefrontCatalogProductRepository {
     upsellIds?: ReadonlyArray<string>;
     landingPath?: string | null;
     heroImageUrl?: string | null;
+    croContent?: unknown;
     isLive?: boolean;
   }): Promise<StorefrontCatalogProductRow> {
     const writable = {
@@ -186,6 +187,7 @@ export class StorefrontCatalogProductRepository {
       upsellIds: args.upsellIds ? Array.from(args.upsellIds) : undefined,
       landingPath: args.landingPath,
       heroImageUrl: args.heroImageUrl,
+      croContent: args.croContent,
       isLive: args.isLive,
     };
     try {
@@ -213,6 +215,7 @@ export class StorefrontCatalogProductRepository {
           upsellIds: writable.upsellIds ?? [],
           landingPath: writable.landingPath ?? null,
           heroImageUrl: writable.heroImageUrl ?? null,
+          croContent: writable.croContent ?? null,
           isLive: writable.isLive ?? true,
         },
         update: writable,

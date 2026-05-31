@@ -231,6 +231,29 @@ export function synthesiseProductFromRow(
     landingPath: row.landingPath ?? undefined,
   };
 
+  // Step 4 — hydrate the rich CRO surface from the publish-time projection so
+  // AI-generated products render a full page without a hand-authored snapshot.
+  const cro = coerceCroContent(row.croContent);
+  if (cro) {
+    if (cro.title) product.title = cro.title;
+    if (cro.description) product.description = cro.description;
+    if (cro.headline) product.headline = cro.headline;
+    if (cro.subheadline) product.subheadline = cro.subheadline;
+    if (cro.foundersNote) product.foundersNote = cro.foundersNote;
+    // The hero image URL on the row wins as images[0]; append projected
+    // gallery images (skip the first, which mirrors the hero).
+    if (cro.images && cro.images.length > 1) {
+      product.images = [product.images[0], ...cro.images.slice(1)];
+    }
+    if (cro.lifestyleImage) product.lifestyleImage = cro.lifestyleImage;
+    if (cro.benefits) product.benefits = cro.benefits;
+    if (cro.reviews) product.reviews = cro.reviews;
+    if (cro.faq) product.faq = cro.faq;
+    if (cro.ingredients) product.ingredients = cro.ingredients;
+    if (cro.sectionContent) product.sectionContent = cro.sectionContent;
+    if (cro.sectionOrder) product.sectionOrder = cro.sectionOrder;
+  }
+
   return product;
 }
 
@@ -437,6 +460,263 @@ function coerceMoney(value: unknown): Money | null {
   const v = value as { amount?: unknown; currency?: unknown };
   if (typeof v.amount !== "number" || typeof v.currency !== "string") return null;
   return { amount: v.amount, currency: v.currency };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                    Step 4 — CRO content projection (cro_content)            */
+/* -------------------------------------------------------------------------- */
+//
+// `storefront_catalog_product.cro_content` is a JSON projection of the AI
+// pipeline's UniversalProduct CRO surface (see @platform/catalog-schema's
+// CroContent). fanaa stays self-contained (no catalog-schema dependency), so
+// we validate the blob here with the same defensive "drop malformed, never
+// throw" philosophy as the other coercers. A malformed projection yields a
+// commerce-only product rather than a 500.
+
+function loc(value: unknown): LocalizedString | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as { ar?: unknown; en?: unknown };
+  if (typeof v.ar !== "string" || typeof v.en !== "string") return null;
+  return { ar: v.ar, en: v.en };
+}
+
+function locArray(value: unknown): LocalizedString[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: LocalizedString[] = [];
+  for (const entry of value) {
+    const l = loc(entry);
+    if (l) out.push(l);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function coerceProductImage(value: unknown): ProductImage | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as { src?: unknown; alt?: unknown };
+  if (typeof v.src !== "string" || v.src.trim().length === 0) return null;
+  const alt = loc(v.alt) ?? { ar: "", en: "" };
+  return { src: v.src, alt };
+}
+
+/**
+ * The validated CRO overlay applied onto a synthesised Product. Every field is
+ * optional; only well-formed fields survive.
+ */
+export interface CroOverlay {
+  title?: LocalizedString;
+  description?: LocalizedString;
+  headline?: LocalizedString;
+  subheadline?: LocalizedString;
+  foundersNote?: LocalizedString;
+  images?: ProductImage[];
+  lifestyleImage?: ProductImage;
+  benefits?: Product["benefits"];
+  reviews?: Product["reviews"];
+  faq?: Product["faq"];
+  ingredients?: Product["ingredients"];
+  sectionContent?: Product["sectionContent"];
+  sectionOrder?: string[];
+}
+
+export function coerceCroContent(value: unknown): CroOverlay | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const out: CroOverlay = {};
+
+  const title = loc(v.title);
+  if (title) out.title = title;
+  const description = loc(v.description);
+  if (description) out.description = description;
+  const headline = loc(v.headline);
+  if (headline) out.headline = headline;
+  const subheadline = loc(v.subheadline);
+  if (subheadline) out.subheadline = subheadline;
+  const foundersNote = loc(v.foundersNote);
+  if (foundersNote) out.foundersNote = foundersNote;
+
+  if (Array.isArray(v.images)) {
+    const imgs = v.images
+      .map(coerceProductImage)
+      .filter((i): i is ProductImage => i !== null);
+    if (imgs.length > 0) out.images = imgs;
+  }
+  const lifestyle = coerceProductImage(v.lifestyleImage);
+  if (lifestyle) out.lifestyleImage = lifestyle;
+
+  const benefits = coerceBenefits(v.benefits);
+  if (benefits) out.benefits = benefits;
+  const reviews = coerceReviews(v.reviews);
+  if (reviews) out.reviews = reviews;
+  const faq = coerceFaq(v.faq);
+  if (faq) out.faq = faq;
+  const ingredients = coerceIngredients(v.ingredients);
+  if (ingredients) out.ingredients = ingredients;
+
+  const sectionContent = coerceSectionContent(v.sectionContent);
+  if (sectionContent) out.sectionContent = sectionContent;
+
+  if (Array.isArray(v.sectionOrder)) {
+    const order = v.sectionOrder.filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+    if (order.length > 0) out.sectionOrder = order;
+  }
+
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function coerceBenefits(value: unknown): Product["benefits"] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: NonNullable<Product["benefits"]> = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as { icon?: unknown; title?: unknown; body?: unknown };
+    const title = loc(e.title);
+    const body = loc(e.body);
+    if (!title || !body) continue;
+    out.push({
+      icon: typeof e.icon === "string" && e.icon ? e.icon : "Sparkles",
+      title,
+      body,
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function coerceReviews(value: unknown): Product["reviews"] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: NonNullable<Product["reviews"]> = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as {
+      name?: unknown;
+      city?: unknown;
+      rating?: unknown;
+      body?: unknown;
+      date?: unknown;
+      verified?: unknown;
+    };
+    const name = loc(e.name);
+    const city = loc(e.city);
+    const body = loc(e.body);
+    if (!name || !city || !body) continue;
+    out.push({
+      name,
+      city,
+      rating: typeof e.rating === "number" ? e.rating : 5,
+      body,
+      date: typeof e.date === "string" ? e.date : "",
+      ...(typeof e.verified === "boolean" ? { verified: e.verified } : {}),
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function coerceFaq(value: unknown): Product["faq"] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: NonNullable<Product["faq"]> = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as { q?: unknown; a?: unknown };
+    const q = loc(e.q);
+    const a = loc(e.a);
+    if (!q || !a) continue;
+    out.push({ q, a });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function coerceIngredients(value: unknown): Product["ingredients"] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: NonNullable<Product["ingredients"]> = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as { name?: unknown; role?: unknown };
+    const name = loc(e.name);
+    const role = loc(e.role);
+    if (!name || !role) continue;
+    out.push({ name, role });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function coerceSectionContent(
+  value: unknown,
+): Product["sectionContent"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const out: NonNullable<Product["sectionContent"]> = {};
+
+  if (v.howItWorks && typeof v.howItWorks === "object") {
+    const h = v.howItWorks as { summary?: unknown; steps?: unknown };
+    const summary = loc(h.summary);
+    const steps = Array.isArray(h.steps)
+      ? h.steps
+          .map((s) => {
+            if (!s || typeof s !== "object") return null;
+            const e = s as { title?: unknown; body?: unknown };
+            const title = loc(e.title);
+            const body = loc(e.body);
+            return title && body ? { title, body } : null;
+          })
+          .filter((s): s is { title: LocalizedString; body: LocalizedString } => s !== null)
+      : [];
+    if (summary && steps.length > 0) out.howItWorks = { summary, steps };
+  }
+
+  if (v.results && typeof v.results === "object") {
+    const r = v.results as { intro?: unknown; timeline?: unknown };
+    const timeline = Array.isArray(r.timeline)
+      ? r.timeline
+          .map((t) => {
+            if (!t || typeof t !== "object") return null;
+            const e = t as { when?: unknown; outcome?: unknown };
+            const when = loc(e.when);
+            const outcome = loc(e.outcome);
+            return when && outcome ? { when, outcome } : null;
+          })
+          .filter((t): t is { when: LocalizedString; outcome: LocalizedString } => t !== null)
+      : [];
+    if (timeline.length > 0) {
+      const intro = loc(r.intro);
+      out.results = { ...(intro ? { intro } : {}), timeline };
+    }
+  }
+
+  if (v.guarantee && typeof v.guarantee === "object") {
+    const g = v.guarantee as { title?: unknown; body?: unknown };
+    const title = loc(g.title);
+    const body = loc(g.body);
+    if (title && body) out.guarantee = { title, body };
+  }
+
+  if (v.comparison && typeof v.comparison === "object") {
+    const c = v.comparison as { intro?: unknown; ours?: unknown; usual?: unknown };
+    const ours = locArray(c.ours);
+    const usual = locArray(c.usual);
+    if (ours && usual) {
+      const intro = loc(c.intro);
+      out.comparison = { ...(intro ? { intro } : {}), ours, usual };
+    }
+  }
+
+  if (v.objections && typeof v.objections === "object") {
+    const o = v.objections as { items?: unknown };
+    const items = Array.isArray(o.items)
+      ? o.items
+          .map((it) => {
+            if (!it || typeof it !== "object") return null;
+            const e = it as { objection?: unknown; response?: unknown };
+            const objection = loc(e.objection);
+            const response = loc(e.response);
+            return objection && response ? { objection, response } : null;
+          })
+          .filter((it): it is { objection: LocalizedString; response: LocalizedString } => it !== null)
+      : [];
+    if (items.length > 0) out.objections = { items };
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /* -------------------------------------------------------------------------- */

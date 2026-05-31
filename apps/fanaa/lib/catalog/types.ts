@@ -74,6 +74,9 @@ export interface CatalogRow {
    * `synthesiseProductFromRow` uses it as the AI product's hero image.
    */
   heroImageUrl: string | null;
+  /** Postgres `Json` column. Step 4 CRO projection. Validated by
+   *  `merge.ts::coerceCroContent`. Null for curated + pre-Step-4 rows. */
+  croContent: unknown;
   isLive: boolean;
   createdAt: Date;
   updatedAt: Date;

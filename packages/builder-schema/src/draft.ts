@@ -97,6 +97,20 @@ export const DraftDocumentSchema = z.object({
    * mutate one without churning the other's history snapshot.
    */
   catalogMetadata: CatalogMetadataSchema.optional(),
+  /**
+   * CRO content projection (Step 4 Phase 4.2). A DERIVED bag — not
+   * operator-edited canvas state — produced by `productToDraftDocument` from
+   * the pipeline's `UniversalProduct` (headline/benefits/reviews/faq/ingredients
+   * /sectionContent/sectionOrder/foundersNote/images). It rides the draft so it
+   * survives draft → publish, where it is projected into
+   * `storefront_catalog_product.cro_content` and read by the fanaa PDP.
+   *
+   * Carried as an opaque JSON bag (like offerTiers/badges/rating) so
+   * builder-schema stays decoupled from catalog-schema; the storefront
+   * validates it with `@platform/catalog-schema`'s `CroContentSchema` at the
+   * read boundary and ignores it on failure.
+   */
+  croContent: z.record(z.string(), z.unknown()).optional(),
 });
 export type DraftDocument = z.infer<typeof DraftDocumentSchema>;
 

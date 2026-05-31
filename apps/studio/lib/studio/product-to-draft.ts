@@ -6,6 +6,7 @@ import type {
   ProductImage,
   ProductReview,
   UniversalProduct,
+  CroContent,
 } from "@platform/catalog-schema";
 import type {
   BenefitsSection,
@@ -172,7 +173,39 @@ export function productToDraftDocument(
     },
     sections,
     catalogMetadata,
+    // CroContent is a closed shape; the schema carries it as an opaque JSON bag
+    // (Record<string, unknown>), so widen here at the single boundary.
+    croContent: buildCroContent(product) as Record<string, unknown>,
   };
+}
+
+/**
+ * Project the pipeline's `UniversalProduct` CRO fields into the
+ * `DraftDocument.croContent` bag (Step 4 Phase 4.2). This is the carrier that
+ * lets the fanaa PDP render a rich, AI-generated page without a hand-authored
+ * `data/products.ts` snapshot entry. Only populated keys are included so the
+ * storefront renders no empty sections.
+ */
+function buildCroContent(product: UniversalProduct): CroContent {
+  const cro: CroContent = {
+    title: product.title,
+    description: product.description,
+  };
+  if (product.headline) cro.headline = product.headline;
+  if (product.subheadline) cro.subheadline = product.subheadline;
+  if (product.foundersNote) cro.foundersNote = product.foundersNote;
+  if (product.images.length > 0) cro.images = product.images;
+  if (product.lifestyleImages && product.lifestyleImages.length > 0)
+    cro.lifestyleImage = product.lifestyleImages[0];
+  if (product.benefits.length > 0) cro.benefits = product.benefits;
+  if (product.reviews.length > 0) cro.reviews = product.reviews;
+  if (product.faq.length > 0) cro.faq = product.faq;
+  if (product.ingredients && product.ingredients.length > 0)
+    cro.ingredients = product.ingredients;
+  if (product.sectionContent) cro.sectionContent = product.sectionContent;
+  if (product.sectionOrder && product.sectionOrder.length > 0)
+    cro.sectionOrder = product.sectionOrder;
+  return cro;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

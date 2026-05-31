@@ -476,6 +476,7 @@ export async function publishDraft(args: {
       publishedProductId: row.id,
       catalogMetadata: validated.document.catalogMetadata,
       heroImageUrl: extractHeroImageUrl(validated.document),
+      croContent: validated.document.croContent ?? null,
     });
     if (upsertResult.kind === "logged_failure") {
       // Surface as a publish WARNING so the UI banner can show it
@@ -668,6 +669,8 @@ async function tryUpsertCatalogRow(args: {
   publishedProductId: string;
   catalogMetadata: CatalogMetadata | undefined;
   heroImageUrl?: string | null;
+  /** Step 4 — CRO projection from the draft, persisted for the storefront PDP. */
+  croContent?: unknown;
 }): Promise<CatalogUpsertOutcome> {
   const { persistence, catalogMetadata } = args;
   if (!persistence.repositories) {
@@ -701,6 +704,7 @@ async function tryUpsertCatalogRow(args: {
       upsellIds: catalogMetadata.upsellIds,
       landingPath: catalogMetadata.landingPath,
       heroImageUrl: args.heroImageUrl ?? null,
+      croContent: args.croContent ?? null,
       isLive: true,
     });
     return { kind: "ok" };

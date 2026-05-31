@@ -9,6 +9,7 @@
 export * from "./locales";
 export * from "./primitives";
 export * from "./section-content";
+export * from "./cro-content";
 export * from "./universal";
 export * from "./extensions/fanaa";
 export * from "./niches/beauty-wellness";

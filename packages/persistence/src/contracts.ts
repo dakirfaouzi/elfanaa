@@ -237,6 +237,10 @@ export interface StorefrontCatalogProductRow {
    *  vendor URL at publish time. Null for curated rows + legacy rows
    *  published before the image fix. */
   heroImageUrl: string | null;
+  /** Step 4 — CRO content projection (Json) read by the fanaa PDP to render
+   *  AI-generated sections. Null for curated rows + rows published before
+   *  Step 4. Validated by `@platform/catalog-schema`'s CroContentSchema on read. */
+  croContent: unknown;
   isLive: boolean;
   createdAt: Date;
   updatedAt: Date;

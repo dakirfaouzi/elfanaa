@@ -2,11 +2,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/Container";
 import { ProductGallery } from "@/components/product/ProductGallery";
-import { ProductBenefits } from "@/components/product/ProductBenefits";
-import { ProductLifestyle } from "@/components/product/ProductLifestyle";
-import { ProductReviews } from "@/components/product/ProductReviews";
-import { ProductFAQ } from "@/components/product/ProductFAQ";
-import { ProductIngredients } from "@/components/product/ProductIngredients";
+import { ProductSections } from "@/components/product/ProductSections";
 import { ProductDetails } from "./ProductDetails";
 import { RelatedProducts } from "@/components/sections/RelatedProducts";
 import { products as snapshotProducts } from "@/lib/catalog/snapshot";
@@ -101,14 +97,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Composition order is deliberate (premium DTC playbook — Article, Aesop,
  * Goop, Public Goods):
  *
- *   1. Gallery + Details  — the buyer needs to see the piece *and* the
- *                           offer in the same scroll. Side-by-side on
- *                           desktop, stacked on mobile.
- *   2. Benefits           — translates features into emotional outcomes.
- *   3. Lifestyle          — alternating image/text band; sells the vibe.
- *   4. Reviews            — qualitative + quantitative social proof.
- *   5. FAQ                — handles objections in line.
- *   6. Related products   — keeps the customer in the catalog if they
+ *   1. Gallery + Details  — the commerce shell. The buyer needs to see the
+ *                           piece *and* the offer in the same scroll.
+ *                           Side-by-side on desktop, stacked on mobile.
+ *   2. ProductSections    — the dynamic "story" stack (Step 4 / ADR-S4-1).
+ *                           For AI-published products this renders the
+ *                           pipeline's chosen section order + grounded
+ *                           content (mechanism, results, founder's note,
+ *                           comparison, objections, guarantee …). For curated
+ *                           products it degrades to the legacy fixed order
+ *                           (benefits → ingredients → lifestyle → reviews →
+ *                           FAQ) with zero visual change.
+ *   3. Related products   — keeps the customer in the catalog if they
  *                           weren't ready to buy *this* SKU yet.
  */
 export default async function ProductPage({ params }: Props) {
@@ -150,15 +150,7 @@ export default async function ProductPage({ params }: Props) {
         </div>
       </Container>
 
-      <ProductBenefits product={product} />
-
-      <ProductIngredients product={product} />
-
-      <ProductLifestyle product={product} />
-
-      <ProductReviews product={product} />
-
-      <ProductFAQ product={product} />
+      <ProductSections product={product} />
 
       <RelatedProducts products={related} />
     </div>
