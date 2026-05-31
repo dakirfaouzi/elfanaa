@@ -1801,13 +1801,14 @@ images render everywhere; older products backfilled via re-publish.
 **Deployed reference commit:** Studio at `23db6bf`;
 `R2_PUBLIC_BASE_URL_FANAA=https://cdn.elfanaa.com` on `studio` and `web`.
 
-> **CRITICAL (2026-05-31, post-validation):** the Step 3 code described below
-> was **never committed** — HEAD is still `23db6bf`. The live "Step 3
-> validation" therefore ran the **pre-Step-3 pipeline**. On top of that, a
-> **pre-existing root-cause bug** was found that erases product identity on
-> *every* uploaded-image run regardless of Step 3. Both are detailed in
-> **§26.10**. Step 3 is **NOT** production-validated until that section's fix is
-> committed and deployed.
+> **RESOLVED (2026-05-31) — Step 3 validated in production at `537d1a1`.**
+> The identity-loss root cause (vision sent bare R2 keys → blind → generic
+> hallucination; §26.10) is fixed and the Step 3 bundle (targeting threading,
+> audience directive, vision-grounded creative prompts, Kontext img2img) is
+> committed and deployed. Live validation on **Beef Tallow Honey Balm** (§26.11)
+> confirms identity now flows Intake → Vision → Strategy → Copy → Image. The
+> earlier "validation" that surfaced the bug had run the pre-Step-3 pipeline
+> (HEAD was `23db6bf`); that is now history.
 
 **Known quality gap that motivated Step 3** (evidence-based trace, 2026-05-31):
 
@@ -1860,30 +1861,146 @@ Success criteria:
 - [x] All changes covered by unit tests; `ai-engine` (67) + `worker` (30) suites
       green; all 14 workspaces typecheck clean.
 
-**Remaining for Step 3 close-out (next):** observe Kontext output quality in
-production on a real run; tune the identity-preservation prompt + guidance if
-the model drifts; confirm operators see the audience choices reflected in
-generated copy. These require a live run and operator review, not more code.
+- [x] **Validated in production (2026-05-31, build `537d1a1`).** See §26.11 for
+      the Beef Tallow Honey Balm live result. Vision sees the uploaded image;
+      product identity flows through strategy → copy → creative → hero; the
+      generic-skincare hallucination is gone; the hero preserves the uploaded
+      product (Kontext img2img).
+
+**Step 3 production status: COMPLETE & validated.** The intelligence layer
+(identity preservation + targeting) works in production. The remaining product
+gap — page is structurally generic, placeholder sections, no premium CRO/mobile
+architecture — is **Step 4 scope**, not a Step 3 defect.
 
 **Out of scope for Step 3** (→ Step 4): rich multi-section generation,
 dynamic section selection, storefront section rendering, `foundersNote`
 end-to-end, offer-ladder/cost-breakdown consumption.
 
-### 26.4 Step 4 — goals (documented, not yet started)
+### 26.4 Step 4 — execution plan (revised 2026-05-31, evidence-based)
 
-- Generate content for schema-defined-but-unfilled sections: `ingredients`,
-  `results_expectation` (drive from `NicheProfile.expectationsModel`),
-  `guarantee`, `comparison`, `creative_strip`, `founders_note`.
-- **Consume `structure` output** end-to-end: assemble carries the section
-  ordering; `product-to-draft` and the storefront render dynamically rather
-  than via a fixed template.
-- Awareness-stage-conditional layout (e.g. `unaware` leads with
-  problem/education; `most-aware` leads with offer/urgency).
-- Add `foundersNote` to `UniversalProduct` + draft + storefront.
-- Consume `intakeMetadata.offers` for real offer ladders and
-  `costBreakdown` for margin-aware pricing surfaces.
-- Lift product identity from per-image to a consistent character across the
-  whole gallery (Kontext multi / seed reuse).
+**Objective:** turn generated pages from generic templates into **mobile-first,
+conversion-focused GCC direct-response landing pages** for paid-social → mobile
+→ COD traffic.
+
+#### 26.4.1 Critical discoveries that REVISE the original plan
+
+A deep trace of the generation + rendering paths (2026-05-31) surfaced
+architecture facts the original §26.4 bullet list did not account for:
+
+1. **Two-renderer fork — the validated page is NOT the production storefront.**
+   - AI content (benefits/reviews/FAQ) renders on **Studio `/p/[slug]`** via
+     `@platform/runtime-renderer` (`renderSection` switch over the *builder*
+     section kinds), driven by `DraftDocument.sections`. The "Moon/Zap/Shield"
+     headings are this renderer printing the **Lucide icon NAME as 28px text**
+     (`runtime-renderer/src/sections.tsx` ~139). That proves the validated
+     screenshots are the Studio preview.
+   - The **production storefront** `apps/fanaa/app/products/[slug]/page.tsx`
+     renders a **fixed, hardcoded** order (`ProductGallery`, `ProductDetails`,
+     `ProductBenefits`, `ProductIngredients`, `ProductLifestyle`,
+     `ProductReviews`, `ProductFAQ`, `RelatedProducts`) from **flat `Product`
+     CRO fields sourced from the `data/products.ts` snapshot**. It does **not**
+     read AI `sections[]`. AI-published rows go through `synthesiseProductFromRow`
+     → **commerce fields only** (hero + price) → benefits/FAQ/reviews are
+     **empty** on the real store. Studio `/p/` is explicitly commented as "what
+     real visitors *would* see when M12 wires apps/fanaa to this renderer".
+   - **Therefore Step 4 must also do the deferred M12 wiring**: make the
+     customer-facing domain render the AI-generated page dynamically.
+2. **Three competing section taxonomies.** `catalog-schema` `SectionKind`
+   (pipeline: hero, benefits, ingredients, lifestyle, results_expectation,
+   social_proof, faq, guarantee, cross_sell, creative_strip, comparison,
+   founders_note, press_strip, specifications, sticky_cta) ≠ `builder-schema`
+   (hero, benefits, before_after, testimonials, cta, faq, sticky_cta, video,
+   image_gallery, rich_text) ≠ fanaa fixed components. No 1:1 mapping. Step 4
+   needs ONE canonical section contract + one registry.
+3. **Most "rich" sections are never generated.** Today only hero, benefits,
+   faq, social_proof (as testimonials), partial lifestyle (images) and partial
+   sticky_cta have any pipeline footprint. `ingredients`, `results_expectation`,
+   `guarantee`, `comparison`, `creative_strip`, a **mechanism/how-it-works**
+   kind (doesn't even exist in the taxonomy), and `founders_note` (generated by
+   copy, then **dropped at assemble**) are NOT produced. So Step 4 = generate
+   content AND render it.
+4. **`structure` stage output is computed then dropped** (assemble/copy/creative
+   ignore it) and it never receives `targeting` → no awareness/sophistication-
+   aware ordering is possible yet.
+5. **Already-generated-but-unrendered data to reclaim:** `strategy.persona`,
+   `strategy.objections[].neutraliser`, full `benefitAngles`, `copy.foundersNote`,
+   `socialProof.hooks[1..n]`, `lifestyleImages`, `vision.*`.
+
+#### 26.4.2 Revised target architecture
+
+- **One canonical page model** = ordered `sections[]` with typed, bilingual
+  content per section (the AI's `structure` ordering + per-section content).
+- **One production landing surface on the customer domain** that renders those
+  sections **dynamically** through a **fanaa-native, mobile-first premium
+  section registry** (kind → component), wrapped in the existing **commerce
+  shell** (offer selector, add-to-cart, cart drawer, sticky mobile CTA, COD,
+  scarcity, trust).   **DECIDED (ADR-S4-1, 2026-05-31):** extend the production fanaa PDP
+  `apps/fanaa/app/products/[slug]` into a dynamic section-driven renderer that
+  renders AI `sections[]` when present and **falls back to the existing fixed
+  curated layout** when absent. Additive (no regression for curated products),
+  keeps the commerce shell + premium components, stays on elfanaa.com. Rejected:
+  promoting the generic Studio `runtime-renderer` to production (no commerce, not
+  premium); a separate `/p/[slug]` route (splits the funnel + analytics).
+- **Mobile-first as the design driver** (base = mobile; progressive `min-width`):
+  ATF hero+price+CTA, persistent sticky mobile CTA, CTAs repeated between
+  sections, social proof surfaced early, COD/trust band, scarcity, fast LCP.
+
+#### 26.4.3 Phased delivery
+
+- **4.0 Foundations:** canonical section contract + kind↔component mapping;
+  add `how_it_works`/`mechanism` kind; **fix the benefit-icon rendering bug**
+  (render Lucide component, never the name as text); document the landing-surface
+  ADR.
+- **4.1 Content generation:** generate the missing sections — mechanism/
+  how-it-works, ingredients (from vision/research, never invented), results/
+  expectations (drive from `NicheProfile.expectationsModel`), guarantee,
+  comparison, structured objection-handling, **stop dropping `foundersNote`**.
+  Ground every block in vision + research + targeting (product-fidelity rule).
+- **4.2 Dynamic mobile-first rendering:** fanaa section registry; render AI
+  order; commerce shell binding; eliminate placeholder/empty sections (only
+  render sections with real content).
+- **4.3 Awareness/sophistication-aware composition:** thread `targeting` into
+  `structure`; ordering + section selection by awareness (unaware → problem/
+  mechanism/education first; most-aware → offer/urgency first) and sophistication
+  (educate vs differentiate).
+- **4.4 QA + live validation:** unit tests for new stages/schema/registry;
+  re-validate on Beef Tallow + SmileEase; confirm mobile ATF, sticky CTA,
+  section richness.
+
+#### 26.4.4 Success criteria
+
+- AI-published product renders a **rich, product-specific** page on the
+  **customer domain** with ≥6 populated, real sections and **zero placeholder/
+  empty sections**.
+- Section **ordering varies by product + awareness stage** (evidence: two
+  different awareness inputs produce different orderings).
+- Mechanism/how-it-works, ingredients, results, guarantee, founders note, FAQ,
+  social proof all render with product-real content (not generic filler).
+- **Mobile-first verified:** ATF hero+price+CTA on a 390px viewport, sticky
+  mobile CTA persists through scroll, readable type scale, no horizontal
+  overflow.
+- Benefit cards show real Lucide icons + marketing titles (bug gone).
+
+#### 26.4.5 Risks & dependencies
+
+- **Risk:** scope/regression on the live storefront PDP (commerce machinery is
+  polished). Mitigate by additive dynamic rendering behind the existing shell +
+  a fallback to the current fixed layout when sections are absent.
+- **Risk:** AI hallucinating ingredients/mechanism. Mitigate with hard
+  product-fidelity grounding (vision/research only) + "omit if unknown".
+- **Risk:** more generation stages = higher cost/latency (per §17 ceiling).
+  Mitigate by batching section content into fewer LLM calls.
+- **Dependency / DECISION:** confirm the production landing surface (fanaa
+  `/products/[slug]` vs a fanaa `/p/[slug]` vs Studio preview) before 4.2.
+- **Dependency:** `NicheProfile.expectationsModel` for results blocks;
+  `intakeMetadata.offers`/`costBreakdown` for offer ladders (optional this step).
+
+#### 26.4.6 Roadmap revision vs original §26.4
+
+Original plan assumed "render dynamically" was a small consumption change. It is
+not — the production storefront ignores AI sections entirely and most rich
+content is never generated. Step 4 is therefore re-scoped into the 5 phases
+above, with the **M12 storefront-render wiring** explicitly pulled in.
 
 ### 26.5 Architecture decisions (Step 3)
 
@@ -2001,6 +2118,14 @@ end-to-end, offer-ladder/cost-breakdown consumption.
     vision and image providers, and threads structured targeting into the text
     stages' system prompts (`AUDIENCE & POSITIONING DIRECTIVE`, `PRODUCT-AWARE`,
     `LUXURIOUS`). `worker` 39, `ai-engine` 72 green.
+- 2026-05-31 — Step 3 **validated in production** (`537d1a1`) via Beef Tallow
+  Honey Balm (§26.11). §26.2 critical note flipped to RESOLVED; §26.3 marked
+  validated. **Step 4 plan revised** (§26.4) after an evidence trace of the
+  generation + rendering paths: discovered the two-renderer fork (production
+  fanaa PDP ignores AI sections; validated page is the Studio preview), three
+  competing section taxonomies, that most rich sections are never generated, and
+  the benefit-icon rendering bug. Step 4 re-scoped into 5 phases incl. the
+  deferred M12 storefront-render wiring, mobile-first.
 
 ### 26.10 Product-identity pipeline investigation (2026-05-31)
 
@@ -2092,3 +2217,30 @@ recommended enhancement.
    bundle (§26.9).
 5. **Validation:** `worker` 38 tests (incl. 8 new resolver regression tests),
    `ai-engine` 67 tests, both typecheck clean. Live validation pending deploy.
+
+### 26.11 Live validation results
+
+**2026-05-31 — SmileEase (purple teeth-whitening serum):** the failure case that
+exposed the §26.10 root cause. Pre-fix output was a generic skincare cream-jar
+hero + skin-softness Arabic copy. Root cause: vision blind on bare-key images →
+generic hallucination from the store brand voice.
+
+**2026-05-31 — Beef Tallow Honey Balm (build `537d1a1`, post-fix):** PASS for
+Step 3 objectives.
+- Vision now sees the uploaded product image.
+- Identity flows Intake → Vision → Strategy → Copy → Image generation.
+- Hero uses the actual uploaded product (no invented product).
+- Copy is about balm / honey / hydration — on-product, not generic.
+- Product category + visible label text reach copy generation.
+- **Step 3 validated in production.**
+
+Confirmed remaining gaps (all **Step 4**, not Step 3 defects): page structure
+still generic; placeholder/empty sections; no premium sales architecture; no
+mechanism storytelling; no ingredient/founder/transformation/results blocks; no
+awareness-aware layout; not yet a premium mobile-first GCC CRO experience.
+
+> **Surface caveat (evidence):** the validated rich page is the **Studio
+> `/p/[slug]` runtime-renderer preview** (the "Moon/Zap/Shield" icon-name
+> headings are that renderer's signature bug). The production storefront PDP
+> (`apps/fanaa/.../products/[slug]`) does **not** yet render AI sections — see
+> §26.4.1. Wiring that is core Step 4 work.
