@@ -21,6 +21,7 @@ import {
   fixtureCreativePrompts,
   fixtureImageResults,
   fixtureScrapeResult,
+  fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
   fixtureStructureModelResponse,
@@ -43,11 +44,12 @@ import {
  *   imageGen        → image.generate() ×N (N = hero + lifestyle.length)
  *   imagePost       → (no provider)
  *   socialProof     → text.generate() ×1
+ *   sectionContent  → text.generate() ×1
  *   upsellMatch     → (embedding optional — we omit it so the stage
  *                       falls through to best-sellers, then `empty`)
  *   assemble        → (no provider)
  *
- * Total: 5 text calls, 1 vision, 1 scraper, 2 image, 0 embedding.
+ * Total: 6 text calls, 1 vision, 1 scraper, 2 image, 0 embedding.
  *
  * # Returning the buffers
  *
@@ -92,6 +94,7 @@ export function createMockBundle(opts?: MockBundleOptions): MockBundle {
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),
+      textResult(fixtureSectionContent),
     ],
   });
   const vision = mockVision({

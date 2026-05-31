@@ -6,6 +6,7 @@ import {
   imagePost,
   PipelineError,
   research,
+  sectionContent,
   socialProof,
   strategy,
   structure,
@@ -568,6 +569,19 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
         providers: { text: providers.text },
       });
 
+    case "section_content":
+      requirePresent(outputs.strategy, "section_content", "strategy");
+      return sectionContent({
+        ...stageContext,
+        input: {
+          strategy: outputs.strategy!,
+          vision: outputs.vision,
+          research: outputs.research,
+          targeting: job.intakeMetadata?.targeting,
+        },
+        providers: { text: providers.text },
+      });
+
     case "upsell_match":
       requirePresent(outputs.strategy, "upsell_match", "strategy");
       requirePresent(outputs.copy, "upsell_match", "copy");
@@ -604,6 +618,7 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
           imageGen: outputs.image_gen!,
           imagePost: outputs.image_post!,
           socialProof: outputs.social_proof!,
+          sectionContent: outputs.section_content,
           upsells: outputs.upsell_match!,
           priceHint: job.priceHint,
           uploadedImageKeys: job.uploadedImages.map((i) => i.src),

@@ -12,6 +12,7 @@ import {
   ProductFaqSchema,
   AdHookSchema,
 } from "./primitives";
+import { SectionContentSchema } from "./section-content";
 
 /**
  * Runtime validator for `UniversalProduct` (../universal.ts).
@@ -85,6 +86,10 @@ export const UniversalProductSchema: z.ZodType<UniversalProduct> = z.object({
 
   // Cross-sell
   upsellSuggestions: z.array(z.string()).optional(),
+
+  // Step 4 — rich section content + AI page ordering
+  sectionContent: SectionContentSchema.optional(),
+  sectionOrder: z.array(z.string().min(1)).optional(),
 
   // Provenance
   sources: z.object({

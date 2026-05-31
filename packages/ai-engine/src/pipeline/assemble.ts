@@ -1,5 +1,6 @@
 import type {
   ProductImage,
+  SectionContent,
   UniversalProduct,
 } from "@platform/catalog-schema";
 import { UniversalProductSchema } from "../schemas/assemble";
@@ -68,6 +69,11 @@ export async function assemble(
     foundersNote: input.copy.foundersNote,
 
     benefits: input.copy.benefits,
+    ingredients:
+      input.sectionContent?.ingredients &&
+      input.sectionContent.ingredients.length > 0
+        ? input.sectionContent.ingredients
+        : undefined,
 
     images,
     lifestyleImages:
@@ -89,6 +95,12 @@ export async function assemble(
         ? input.upsells.suggestedProductIds
         : undefined,
 
+    sectionContent: buildSectionContent(input),
+    sectionOrder:
+      input.structure.sections.length > 0
+        ? input.structure.sections
+        : undefined,
+
     sources: {
       supplierUrl: input.research.supplierUrl,
       scrapedAt: input.research.scrapedAt,
@@ -97,6 +109,34 @@ export async function assemble(
   };
 
   return UniversalProductSchema.parse(product);
+}
+
+/**
+ * Merge the generated rich-section blocks (mechanism/results/guarantee/
+ * comparison) with objections sourced from the strategy stage. Objections are
+ * NOT regenerated — reusing `strategy.objections` reclaims already-paid-for
+ * data (PLATFORM.md §26.4.1). Returns `undefined` when no block is present so
+ * the publisher renders nothing rather than an empty section.
+ */
+function buildSectionContent(input: AssembleInput): SectionContent | undefined {
+  const sc = input.sectionContent;
+  const objections = input.strategy.objections;
+
+  const content: SectionContent = {};
+  if (sc?.howItWorks) content.howItWorks = sc.howItWorks;
+  if (sc?.results) content.results = sc.results;
+  if (sc?.guarantee) content.guarantee = sc.guarantee;
+  if (sc?.comparison) content.comparison = sc.comparison;
+  if (objections.length > 0) {
+    content.objections = {
+      items: objections.map((o) => ({
+        objection: o.objection,
+        response: o.neutraliser,
+      })),
+    };
+  }
+
+  return Object.keys(content).length > 0 ? content : undefined;
 }
 
 function buildId(runId: string): string {

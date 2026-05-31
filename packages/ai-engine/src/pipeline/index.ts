@@ -87,6 +87,10 @@ export type {
   SocialProofOutput,
 } from "./types-social-proof";
 export type {
+  SectionContentInput,
+  SectionContentOutput,
+} from "./types-section-content";
+export type {
   UpsellMatchCatalogPort,
   UpsellMatchInput,
   UpsellMatchOutput,
@@ -107,4 +111,5 @@ export { imageGen } from "./image-gen";
 export { imagePost } from "./image-post";
 export { socialProof } from "./social-proof";
 export { upsellMatch } from "./upsell-match";
+export { sectionContent } from "./section-content";
 export { assemble } from "./assemble";

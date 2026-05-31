@@ -10,6 +10,7 @@ import {
   fixtureCopy,
   fixtureCreativePrompts,
   fixtureIngestJob,
+  fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
   fixtureStructureModelResponse,
@@ -100,8 +101,8 @@ describe("runPipeline — cost aggregation", () => {
       store,
     });
 
-    // 5 text + 1 vision + 1 scraper + 2 image = 9 provider calls.
-    expect(result.run.costs.length).toBe(9);
+    // 6 text + 1 vision + 1 scraper + 2 image = 10 provider calls.
+    expect(result.run.costs.length).toBe(10);
 
     const stagesInCosts = new Set(result.run.costs.map((r) => r.stage));
     for (const stage of [
@@ -113,6 +114,7 @@ describe("runPipeline — cost aggregation", () => {
       "creative_prompts",
       "image_gen",
       "social_proof",
+      "section_content",
     ]) {
       expect(stagesInCosts).toContain(stage);
     }
@@ -158,6 +160,7 @@ describe("runPipeline — retry semantics", () => {
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),
+      textResult(fixtureSectionContent),
     ]);
 
     const store = new MemoryStore();

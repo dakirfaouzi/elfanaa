@@ -128,6 +128,7 @@ export const PIPELINE_STAGES = [
   "image_gen",
   "image_post",
   "social_proof",
+  "section_content",
   "upsell_match",
   "assemble",
 ] as const;
@@ -150,6 +151,7 @@ export interface StageOutputs {
   image_gen?: import("@platform/ai-engine").ImageGenOutput;
   image_post?: import("@platform/ai-engine").ImagePostOutput;
   social_proof?: import("@platform/ai-engine").SocialProofOutput;
+  section_content?: import("@platform/ai-engine").SectionContentOutput;
   upsell_match?: import("@platform/ai-engine").UpsellMatchOutput;
   assemble?: UniversalProduct;
 }

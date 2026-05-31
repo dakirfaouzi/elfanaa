@@ -8,6 +8,7 @@ import type { CreativePromptsOutput } from "./types-creative-prompts";
 import type { ImageGenOutput } from "./types-image-gen";
 import type { ImagePostOutput } from "./types-image-post";
 import type { SocialProofOutput } from "./types-social-proof";
+import type { SectionContentOutput } from "./types-section-content";
 import type { UpsellMatchOutput } from "./types-upsell-match";
 
 /**
@@ -37,6 +38,8 @@ export interface AssembleInput {
   imageGen: ImageGenOutput;
   imagePost: ImagePostOutput;
   socialProof: SocialProofOutput;
+  /** Step 4 — rich conversion sections (mechanism/ingredients/results/…). */
+  sectionContent?: SectionContentOutput;
   upsells: UpsellMatchOutput;
 
   // Non-pipeline inputs threaded from intake

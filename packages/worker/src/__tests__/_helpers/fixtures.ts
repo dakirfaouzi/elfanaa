@@ -18,6 +18,7 @@ import type {
   ImageGenOutput,
   ImagePostOutput,
   ResearchOutput,
+  SectionContentOutput,
   SocialProofOutput,
   StrategyOutput,
   StructureOutput,
@@ -344,6 +345,84 @@ export const fixtureSocialProof: SocialProofOutput = {
       cta: { ar: "جربيه الآن.", en: "Try it now." },
     },
   ],
+};
+
+// ── Stage 11b — Section content (Step 4) ────────────────────────────────────
+
+export const fixtureSectionContent: SectionContentOutput = {
+  howItWorks: {
+    summary: {
+      ar: "يعمل السيروم على ترطيب البشرة وتوحيد لونها من أول استخدام.",
+      en: "The serum hydrates the skin and evens its tone from the first use.",
+    },
+    steps: [
+      {
+        title: { ar: "يخترق الطبقات", en: "Penetrates deeply" },
+        body: {
+          ar: "تركيبة خفيفة تصل إلى عمق البشرة بسرعة.",
+          en: "A light formula reaches deep into the skin quickly.",
+        },
+      },
+      {
+        title: { ar: "يرطب ويوحد", en: "Hydrates and evens" },
+        body: {
+          ar: "يحبس الترطيب ويعمل على توحيد اللون تدريجيًا.",
+          en: "It locks in moisture and evens tone gradually.",
+        },
+      },
+    ],
+  },
+  ingredients: [
+    {
+      name: { ar: "حمض الهيالورونيك", en: "Hyaluronic acid" },
+      role: {
+        ar: "يرطب البشرة ويملؤها.",
+        en: "Hydrates and plumps the skin.",
+      },
+    },
+    {
+      name: { ar: "فيتامين سي", en: "Vitamin C" },
+      role: {
+        ar: "يوحد لون البشرة ويمنحها إشراقة.",
+        en: "Evens tone and adds radiance.",
+      },
+    },
+  ],
+  results: {
+    timeline: [
+      {
+        when: { ar: "أول استخدام", en: "First use" },
+        outcome: {
+          ar: "ترطيب فوري وملمس أنعم.",
+          en: "Instant hydration and a softer feel.",
+        },
+      },
+      {
+        when: { ar: "بعد أسبوعين", en: "After two weeks" },
+        outcome: {
+          ar: "لون أكثر توحدًا وإشراقة واضحة.",
+          en: "More even tone and visible radiance.",
+        },
+      },
+    ],
+  },
+  guarantee: {
+    title: { ar: "الدفع عند الاستلام", en: "Cash on delivery" },
+    body: {
+      ar: "ادفع عند الاستلام، وإرجاع سهل خلال أيام.",
+      en: "Pay on delivery, with easy returns within days.",
+    },
+  },
+  comparison: {
+    ours: [
+      { ar: "تركيبة خفيفة سريعة الامتصاص.", en: "Light, fast-absorbing formula." },
+      { ar: "نتائج مرئية خلال أسبوعين.", en: "Visible results within two weeks." },
+    ],
+    usual: [
+      { ar: "ملمس دهني يبقى طويلًا.", en: "Greasy feel that lingers." },
+      { ar: "نتائج بطيئة وغير ثابتة.", en: "Slow and inconsistent results." },
+    ],
+  },
 };
 
 // ── Stage 11 — Upsell match (we test with `emptyCatalog` so source: "empty") ─

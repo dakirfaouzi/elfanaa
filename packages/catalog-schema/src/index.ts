@@ -35,6 +35,19 @@ export type {
 // Canonical shape
 export type { UniversalProduct } from "./universal";
 
+// Rich section content (Step 4)
+export type {
+  SectionContent,
+  HowItWorksContent,
+  MechanismStep,
+  ResultsContent,
+  ResultMilestone,
+  GuaranteeContent,
+  ComparisonContent,
+  ObjectionsContent,
+  ObjectionItem,
+} from "./section-content";
+
 // Niche extensions
 export type {
   BeautyWellnessExtension,

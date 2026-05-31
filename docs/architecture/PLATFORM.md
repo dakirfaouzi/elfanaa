@@ -1947,15 +1947,21 @@ architecture facts the original §26.4 bullet list did not account for:
 
 #### 26.4.3 Phased delivery
 
-- **4.0 Foundations:** canonical section contract + kind↔component mapping;
-  add `how_it_works`/`mechanism` kind; **fix the benefit-icon rendering bug**
-  (render Lucide component, never the name as text); document the landing-surface
-  ADR.
-- **4.1 Content generation:** generate the missing sections — mechanism/
-  how-it-works, ingredients (from vision/research, never invented), results/
-  expectations (drive from `NicheProfile.expectationsModel`), guarantee,
-  comparison, structured objection-handling, **stop dropping `foundersNote`**.
-  Ground every block in vision + research + targeting (product-fidelity rule).
+- **4.0 Foundations — DONE (`14c80da`).** Added `how_it_works`/`transformation`
+  SectionKinds; fixed the benefit-icon rendering bug (PascalCase Lucide tokens
+  no longer printed as text in the Studio preview); reclaimed `foundersNote`
+  end-to-end (UniversalProduct + assemble + product-to-draft rich_text section);
+  ADR-S4-1 recorded. Tests: ai-engine 72, runtime-renderer 12, studio 31.
+- **4.1 Content generation — DONE (generation side).** New `section_content`
+  pipeline stage (stage 11b) generates mechanism/how-it-works, ingredients (from
+  vision/research, "omit if unknown"), results/expectations timeline, guarantee,
+  and comparison — all bilingual, product-fidelity + locale-bleed guarded.
+  Objections are reclaimed from `strategy.objections` (no extra call).
+  `SectionContent` is a canonical catalog-schema type; `assemble` now distributes
+  it onto `UniversalProduct.{ingredients, sectionContent}` and **finally consumes
+  the `structure` ordering** as `UniversalProduct.sectionOrder`. Wired through the
+  worker orchestrator (PIPELINE_STAGES + dispatch). Tests: ai-engine 78, worker 39.
+  Remaining 4.1: thread `targeting` into the `structure` stage (folded into 4.3).
 - **4.2 Dynamic mobile-first rendering:** fanaa section registry; render AI
   order; commerce shell binding; eliminate placeholder/empty sections (only
   render sections with real content).
@@ -2126,6 +2132,13 @@ above, with the **M12 storefront-render wiring** explicitly pulled in.
   competing section taxonomies, that most rich sections are never generated, and
   the benefit-icon rendering bug. Step 4 re-scoped into 5 phases incl. the
   deferred M12 storefront-render wiring, mobile-first.
+- 2026-05-31 — Step 4 **Phase 4.0** shipped (`14c80da`): taxonomy + icon-bug fix
+  + foundersNote reclaim. Step 4 **Phase 4.1** (generation side) shipped: new
+  `section_content` stage (mechanism/ingredients/results/guarantee/comparison),
+  canonical `SectionContent` type, assemble distributes it + consumes the
+  `structure` ordering (`sectionOrder`), objections reclaimed from strategy.
+  Tests: ai-engine 78, worker 39, studio 31, runtime-renderer 12. Next: 4.2
+  (fanaa dynamic mobile-first section registry) + 4.3 (awareness-aware ordering).
 
 ### 26.10 Product-identity pipeline investigation (2026-05-31)
 

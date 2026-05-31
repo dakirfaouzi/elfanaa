@@ -80,6 +80,8 @@ export type {
   ImagePostOutput,
   SocialProofInput,
   SocialProofOutput,
+  SectionContentInput,
+  SectionContentOutput,
   UpsellMatchCatalogPort,
   UpsellMatchInput,
   UpsellMatchOutput,

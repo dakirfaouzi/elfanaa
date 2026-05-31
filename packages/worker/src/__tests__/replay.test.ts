@@ -8,6 +8,7 @@ import {
   fixtureCopy,
   fixtureCreativePrompts,
   fixtureIngestJob,
+  fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
   fixtureStructureModelResponse,
@@ -80,6 +81,7 @@ describe("replayRun", () => {
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),
+      textResult(fixtureSectionContent),
     ]);
 
     const replayResult = await replayRun({
@@ -97,8 +99,9 @@ describe("replayRun", () => {
     // successful stages. Scraper/vision were done in run 1.
     expect(replayBundle.scraper.calls.length).toBe(0);
     expect(replayBundle.vision.calls.length).toBe(0);
-    // Text calls during replay = 3 (copy + creative_prompts + social_proof).
-    expect(replayBundle.text.calls.length).toBe(3);
+    // Text calls during replay = 4 (copy + creative_prompts + social_proof
+    // + section_content).
+    expect(replayBundle.text.calls.length).toBe(4);
     // Image gen was not done in run 1, so it runs now.
     expect(replayBundle.image.calls.length).toBeGreaterThan(0);
 

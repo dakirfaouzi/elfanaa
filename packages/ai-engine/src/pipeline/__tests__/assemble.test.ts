@@ -146,6 +146,57 @@ describe("assemble (stage 12)", () => {
     );
   });
 
+  it("carries the structure ordering and maps strategy objections even without a section_content input", async () => {
+    const product = await assemble({
+      input: baseInput,
+      storeConfig: fanaaStore,
+      runId: "run_assemble_order",
+    });
+
+    expect(product.sectionOrder).toEqual(["hero", "benefits"]);
+    // Objections are reclaimed from the strategy stage (no extra LLM call).
+    expect(product.sectionContent?.objections?.items).toHaveLength(2);
+    // Blocks not generated remain absent (no placeholder sections).
+    expect(product.sectionContent?.howItWorks).toBeUndefined();
+    expect(product.ingredients).toBeUndefined();
+  });
+
+  it("distributes a section_content input into ingredients + rich sections", async () => {
+    const input: AssembleInput = {
+      ...baseInput,
+      sectionContent: {
+        howItWorks: {
+          summary: { ar: "يرطب.", en: "Hydrates." },
+          steps: [
+            { title: { ar: "خطوة", en: "Step" }, body: { ar: "ا", en: "x" } },
+            { title: { ar: "خطوة", en: "Step" }, body: { ar: "ا", en: "x" } },
+          ],
+        },
+        ingredients: [
+          {
+            name: { ar: "حمض", en: "Acid" },
+            role: { ar: "يرطب.", en: "Hydrates." },
+          },
+        ],
+        guarantee: {
+          title: { ar: "ضمان", en: "Guarantee" },
+          body: { ar: "إرجاع.", en: "Returns." },
+        },
+      },
+    };
+
+    const product = await assemble({
+      input,
+      storeConfig: fanaaStore,
+      runId: "run_assemble_rich",
+    });
+
+    expect(product.ingredients?.[0]?.name.en).toBe("Acid");
+    expect(product.sectionContent?.howItWorks?.steps).toHaveLength(2);
+    expect(product.sectionContent?.guarantee?.title.en).toBe("Guarantee");
+    expect(product.sectionContent?.objections?.items).toHaveLength(2);
+  });
+
   it("falls back to the operator-uploaded supplier image when image-gen produced no hero", async () => {
     const input: AssembleInput = {
       ...baseInput,
