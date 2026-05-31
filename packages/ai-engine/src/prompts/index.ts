@@ -38,10 +38,9 @@ export {
   buildStrategyUserPrompt,
 } from "./strategy";
 
-export {
-  buildStructureSystemPrompt,
-  buildStructureUserPrompt,
-} from "./structure";
+// NOTE: the structure stage is deterministic as of Step 4 §4.3 (ADR-S4-2);
+// it no longer uses prompt builders (ordering is computed by
+// `planSectionOrder`, not generated).
 
 export { buildCopySystemPrompt, buildCopyUserPrompt } from "./copy";
 

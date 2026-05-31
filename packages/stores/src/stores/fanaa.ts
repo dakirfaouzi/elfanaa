@@ -104,10 +104,12 @@ export const fanaaStore: StoreConfig = {
     sectionLibrary: [
       "hero",
       "benefits",
+      "how_it_works",
       "ingredients",
       "lifestyle",
       "results_expectation",
       "social_proof",
+      "comparison",
       "faq",
       "guarantee",
       "cross_sell",

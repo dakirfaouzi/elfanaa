@@ -1944,6 +1944,19 @@ architecture facts the original §26.4 bullet list did not account for:
 - **Mobile-first as the design driver** (base = mobile; progressive `min-width`):
   ATF hero+price+CTA, persistent sticky mobile CTA, CTAs repeated between
   sections, social proof surfaced early, COD/trust band, scarcity, fast LCP.
+- **DECIDED (ADR-S4-2, 2026-05-31): the `structure` stage is deterministic.**
+  Section ordering/selection is computed from awareness + sophistication by a
+  pure planner (`planSectionOrder`), not an LLM. Rationale: ordering is a CRO
+  policy (Schwartz), not creative generation; determinism is required to test
+  "different awareness ⇒ different structure", removes a per-draft LLM call
+  (cost + latency), and eliminates the invalid-ordering failure path. The LLM
+  still owns all *creative* output (copy, `section_content`). Trade-off
+  accepted: ordering logic now lives in code (versioned, reviewable, testable)
+  rather than a prompt — which is the point. Selection is expressed as ordering
+  (de-prioritise), never exclusion, so the "never drop grounded content"
+  invariant from ADR-S4-1's renderer holds end-to-end. Rejected: feeding the
+  audience directive into the existing LLM structure prompt (nondeterministic,
+  untestable, still capped by the section library, and pure cost).
 
 #### 26.4.3 Phased delivery
 
@@ -1998,10 +2011,33 @@ architecture facts the original §26.4 bullet list did not account for:
     so the column is picked up automatically once present. Backfill: re-publish
     AI products to populate `cro_content` (older rows render commerce-only until
     re-published — same backfill pattern as the image pipeline).
-- **4.3 Awareness/sophistication-aware composition:** thread `targeting` into
-  `structure`; ordering + section selection by awareness (unaware → problem/
-  mechanism/education first; most-aware → offer/urgency first) and sophistication
-  (educate vs differentiate).
+- **4.3 Awareness/sophistication-aware composition — DONE (ADR-S4-2).** The
+  `structure` stage is now **deterministic**: section ordering is computed from
+  `targeting.awarenessLevel` + `sophisticationLevel` by a pure
+  `planSectionOrder` planner (`ai-engine/src/pipeline/awareness-ordering.ts`),
+  not an LLM. Rationale: ordering is a CRO *policy* (Schwartz awareness model),
+  not a creative task — making it deterministic is the only way to *test* the
+  success criterion ("different awareness ⇒ different structure"), and it
+  removes a per-draft LLM round-trip (cost/latency) plus the entire
+  "model returned an invalid ordering" failure surface.
+  - Awareness sets where the page starts: unaware → mechanism/education +
+    founder story first; problem-aware → benefit promise → mechanism → proof;
+    solution-aware → comparison/differentiation first; product-aware → proof +
+    risk-reversal first; most-aware → proof + offer, tight, minimal education.
+  - Sophistication re-weights *what evidence convinces*: beginner promotes
+    mechanism + ingredients; advanced promotes comparison + unique mechanism +
+    proof; expert promotes founder POV + comparison and demotes generic
+    benefit/hype.
+  - Selection is **ordering, not exclusion**: the planner emits every
+    store-supported section (no grounded content is ever dropped); empty
+    sections self-render to null in fanaa, and the renderer's backfill is a
+    no-op because the order is already complete. `hero` is pinned first,
+    `cross_sell`→`sticky_cta` last. Output is always a valid permutation of the
+    store `sectionLibrary` (extended with `how_it_works` + `comparison`).
+  - No-targeting drafts preserve the store default ordering exactly (legacy
+    behaviour). Worker wiring: `structure` makes no provider call; cost
+    accounting drops from 6→5 text calls/draft. Tests: ai-engine 89
+    (+8 structure, +7 planner), worker 39, stores green.
 - **4.4 QA + live validation:** unit tests for new stages/schema/registry;
   re-validate on Beef Tallow + SmileEase; confirm mobile ATF, sticky CTA,
   section richness.
@@ -2183,6 +2219,15 @@ above, with the **M12 storefront-render wiring** explicitly pulled in.
   **Deploy:** `prisma migrate deploy` + client regen (studio writes, fanaa/web
   reads); re-publish AI products to backfill `cro_content`. Next: 4.3
   (awareness/sophistication-aware ordering) + 4.4 (mobile live validation).
+- 2026-05-31 — Step 4 **Phase 4.3** shipped (ADR-S4-2). The `structure` stage is
+  now **deterministic**: a pure `planSectionOrder` planner orders/selects
+  sections from `awarenessLevel` + `sophisticationLevel` (Schwartz), replacing
+  the LLM call. Different awareness levels and sophistication levels now produce
+  meaningfully different page structures (proven by tests). `how_it_works` +
+  `comparison` added to the fanaa section library. Removed a per-draft LLM
+  round-trip (6→5 text calls). Tests: ai-engine 89 (+8 structure deterministic,
+  +7 planner), worker 39, stores green. Next: 4.4 (mobile live re-validation on
+  Beef Tallow / SmileEase).
 
 ### 26.10 Product-identity pipeline investigation (2026-05-31)
 

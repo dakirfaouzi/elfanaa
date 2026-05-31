@@ -24,7 +24,6 @@ import {
   fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
-  fixtureStructureModelResponse,
   fixtureVisionModelResponse,
   textResult,
   visionResult,
@@ -38,7 +37,7 @@ import {
  *   research        → scraper.fetch() ×1
  *   vision          → vision.analyze() ×1
  *   strategy        → text.generate() ×1
- *   structure       → text.generate() ×1
+ *   structure       → (no provider — deterministic, Step 4 §4.3 / ADR-S4-2)
  *   copy            → text.generate() ×1
  *   creativePrompts → text.generate() ×1
  *   imageGen        → image.generate() ×N (N = hero + lifestyle.length)
@@ -49,7 +48,7 @@ import {
  *                       falls through to best-sellers, then `empty`)
  *   assemble        → (no provider)
  *
- * Total: 6 text calls, 1 vision, 1 scraper, 2 image, 0 embedding.
+ * Total: 5 text calls, 1 vision, 1 scraper, 2 image, 0 embedding.
  *
  * # Returning the buffers
  *
@@ -90,7 +89,7 @@ export function createMockBundle(opts?: MockBundleOptions): MockBundle {
   const text = mockText({
     responses: [
       textResult(fixtureStrategy),
-      textResult(fixtureStructureModelResponse),
+      // structure: no text call (deterministic).
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),

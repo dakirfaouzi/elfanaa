@@ -21,7 +21,6 @@ import type {
   SectionContentOutput,
   SocialProofOutput,
   StrategyOutput,
-  StructureOutput,
   UpsellMatchOutput,
   VisionOutput,
 } from "@platform/ai-engine";
@@ -145,30 +144,10 @@ export const fixtureStrategy: StrategyOutput = {
   ],
 };
 
-// ── Stage 05 — Structure (model response shape) ──────────────────────────
-
-export const fixtureStructureModelResponse = {
-  templateId: "fanaa.generic_pdp",
-  customOrdering: [],
-  rationale: "Standard PDP covers all benefit angles.",
-};
-
-/**
- * Note: the real M5 structure stage looks up the chosen templateId in
- * `storeConfig.templates.orderings` to produce the actual `sections`
- * array — the model only returns the template ID. The fixture below is
- * a documentation reference; tests should assert on `out.templateId`
- * instead of pinning the section list (which can change with the store
- * config).
- */
-export const fixtureStructureRefDocOnly: Pick<
-  StructureOutput,
-  "templateId" | "custom" | "usedFallback"
-> = {
-  templateId: "fanaa.generic_pdp",
-  custom: false,
-  usedFallback: false,
-};
+// ── Stage 05 — Structure ─────────────────────────────────────────────────
+// The structure stage is DETERMINISTIC as of Step 4 §4.3 (ADR-S4-2): it
+// computes the section ordering from awareness/sophistication targeting and
+// makes no provider call, so there is no model-response fixture for it.
 
 // ── Stage 06 — Copy ──────────────────────────────────────────────────────
 

@@ -1,18 +1,24 @@
 import type { SectionKind } from "@platform/catalog-schema";
 import type { StrategyOutput } from "./types-strategy";
+import type { AudienceTargeting } from "../prompts/audience-directive";
 
 /**
  * Stage 05 (Section structure) input + output types.
  *
- * The stage either selects a known template ID from
- * `StoreConfig.templates.orderings` or proposes a custom ordering
- * drawn from `StoreConfig.templates.sectionLibrary`. PLATFORM.md §11
- * stage 05 failure mode: "Fallback to `StoreConfig.templates.orderings`
- * default" — implemented at the stage level (catches structurally
- * invalid ordering before propagating).
+ * As of Step 4 §4.3 (ADR-S4-2) this stage is DETERMINISTIC: it computes the
+ * section ordering from the operator's awareness/sophistication targeting via
+ * `planSectionOrder`, falling back to the store's default ordering when no
+ * awareness signal is present. No LLM call is made — ordering is a CRO policy
+ * decision, so it is reproducible (and therefore testable) rather than
+ * generated.
  */
 export interface StructureInput {
   strategy: StrategyOutput;
+  /**
+   * Operator-selected audience targeting (Step 4 §4.3). `awarenessLevel` +
+   * `sophisticationLevel` drive the ordering. Absent ⇒ store default ordering.
+   */
+  targeting?: AudienceTargeting;
 }
 
 export interface StructureOutput {

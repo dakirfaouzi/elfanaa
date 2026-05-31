@@ -11,7 +11,6 @@ import {
   fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
-  fixtureStructureModelResponse,
   textResult,
 } from "./_helpers/fixtures";
 
@@ -36,14 +35,14 @@ const FAST_RETRY = {
 
 describe("replayRun", () => {
   it("resumes from the first failed stage, reusing persisted outputs from earlier stages", async () => {
-    // ── First run: succeed up through 'structure' (3 stages of text +
-    // research + vision), then fail at 'copy' by exhausting the text
-    // provider's response queue.
+    // ── First run: succeed up through 'structure' (strategy is the only
+    // text stage before copy; structure is deterministic — no text call),
+    // then fail at 'copy' by exhausting the text provider's response queue.
     const failing = createMockBundle();
     failing.text.setResponses([
-      textResult(fixtureStrategy),           // strategy succeeds
-      textResult(fixtureStructureModelResponse), // structure succeeds
-      // copy: queue exhausted → mockText throws → strategy stage retries
+      textResult(fixtureStrategy), // strategy succeeds
+      // structure: deterministic, no text call.
+      // copy: queue exhausted → mockText throws → copy stage retries
       // exhaust (maxAttempts=1) → orchestrator records 'copy' as failed.
     ]);
 
@@ -76,8 +75,8 @@ describe("replayRun", () => {
     // should consume responses.
     const replayBundle = createMockBundle();
     replayBundle.text.setResponses([
-      // The orchestrator hydrates strategy + structure from persisted
-      // RunRecord, so copy is the first text call.
+      // The orchestrator hydrates strategy from the persisted RunRecord and
+      // structure is deterministic, so copy is the first text call.
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),

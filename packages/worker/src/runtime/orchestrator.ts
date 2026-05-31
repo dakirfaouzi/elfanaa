@@ -501,10 +501,14 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
 
     case "structure":
       requirePresent(outputs.strategy, "structure", "strategy");
+      // Deterministic stage (Step 4 §4.3 / ADR-S4-2): ordering is computed from
+      // awareness/sophistication targeting — no provider call.
       return structure({
         ...stageContext,
-        input: { strategy: outputs.strategy! },
-        providers: { text: providers.text },
+        input: {
+          strategy: outputs.strategy!,
+          targeting: job.intakeMetadata?.targeting,
+        },
       });
 
     case "copy":

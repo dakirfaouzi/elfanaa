@@ -13,7 +13,6 @@ import {
   fixtureSectionContent,
   fixtureSocialProof,
   fixtureStrategy,
-  fixtureStructureModelResponse,
   textResult,
 } from "./_helpers/fixtures";
 
@@ -101,15 +100,15 @@ describe("runPipeline — cost aggregation", () => {
       store,
     });
 
-    // 6 text + 1 vision + 1 scraper + 2 image = 10 provider calls.
-    expect(result.run.costs.length).toBe(10);
+    // 5 text + 1 vision + 1 scraper + 2 image = 9 provider calls.
+    // (structure is deterministic — no provider call — Step 4 §4.3.)
+    expect(result.run.costs.length).toBe(9);
 
     const stagesInCosts = new Set(result.run.costs.map((r) => r.stage));
     for (const stage of [
       "research",
       "vision",
       "strategy",
-      "structure",
       "copy",
       "creative_prompts",
       "image_gen",
@@ -118,6 +117,8 @@ describe("runPipeline — cost aggregation", () => {
     ]) {
       expect(stagesInCosts).toContain(stage);
     }
+    // structure produces no cost row (deterministic).
+    expect(stagesInCosts).not.toContain("structure");
 
     const expectedTotal = result.run.costs.reduce(
       (sum, r) => sum + r.costUsd,
@@ -156,7 +157,7 @@ describe("runPipeline — retry semantics", () => {
       new Error("transient_a"), // strategy attempt 1, inner 1
       new Error("transient_b"), // strategy attempt 1, inner 2 → stage throws
       textResult(fixtureStrategy), // strategy attempt 2, inner 1 → success
-      textResult(fixtureStructureModelResponse),
+      // structure: deterministic, no text call.
       textResult(fixtureCopy),
       textResult(fixtureCreativePrompts),
       textResult(fixtureSocialProof),
