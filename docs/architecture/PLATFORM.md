@@ -2403,6 +2403,73 @@ lifestyle; (c) Fanaa section components render image-first with curated-safe
 text-only fallback; (d) ordering already audience-aware (Phase 4.3) — add
 image-density as a layout signal.
 
+#### 26.4.11.1 Phase 4.6.1 — generation: composition + casting + grounding (DONE 2026-06-01)
+
+The first 4.6 increment targets the user's restated core problem: *not* image
+reliability (solved in 4.5/4.5.1) but **image composition + visual consistency**.
+It is the generation half — fully unit-tested — and is deliberately shipped
+BEFORE the rendering/distribution half (4.6.2) so the operator validates that
+the model actually produces premium product+human scenes before we plaster them
+across every section.
+
+**What changed (2 files + tests):**
+- `prompts/creative-prompts.ts` — the image-prompt contract is now image-led:
+  - **DEFAULT composition = product + human + context.** Scenes must show a
+    real photorealistic person using/holding/alongside the EXACT product;
+    product-only still-lifes and person-only portraits are disallowed unless an
+    `intent` explicitly asks for a pure detail/pack shot.
+  - **Audience-aware casting** — the human is cast from the audience directive
+    (gender/age/market): beauty→woman, men's→man, family→family, GCC→authentic
+    Khaleeji, tasteful/premium; falls back to the product's natural customer.
+  - **Photorealism mandate** — full-frame camera look, real skin/eyes/hands;
+    explicit anti-"obvious-AI-face" + strong per-image negatives (deformed hands,
+    extra fingers, waxy skin, uncanny eyes, text/watermark, duplicated product).
+  - **Visual consistency** — one coherent lighting/grade/wardrobe world across
+    hero + all scenes (one campaign, not a stock collage); brand palette used as
+    environment/wardrobe colour story, not overlaid graphics.
+  - **Section-intent scene plan** — asks for 1 hero + 4–5 scenes, each tagged
+    with an `intent` (`ritual`/`result`/`detail`/`context`/`proof`) so 4.6.2 can
+    map scenes onto page sections. Mobile-first vertical aspect (`4:5`/`9:16`).
+- `pipeline/image-gen.ts` — **img2img product grounding generalised from
+  hero-only to EVERY scene.** When a servable product reference exists, each
+  lifestyle/section scene runs through Kontext (`runSceneWithIdentity` +
+  `buildSceneIdentityPrompt`: "composite this EXACT product into the scene with
+  a photorealistic person") so the real product appears throughout — not just in
+  the hero. Each scene keeps the **hard text-to-image fallback** (on Kontext
+  error), so a grounded scene is never worse than the legacy described-product
+  baseline. Activates only with a servable http(s) reference (bare R2 keys →
+  text-to-image, unchanged).
+
+**Tradeoff recorded:** Kontext img2img preserves product identity but can
+occasionally produce a weaker composite than a well-prompted text-to-image scene
+(the fallback only triggers on hard error, not on a "successful-but-mediocre"
+edit). The toggle is a single branch in `image-gen.ts` — if live validation
+shows scene composites underperform, flip scenes to text-to-image-with-
+description while keeping the hero grounded. This is why 4.6.1 ships first and is
+validated before 4.6.2 builds on it.
+
+**Tests:** `creative-prompts.test.ts` (+1: composition contract present in
+system/user prompts) and `image-gen.test.ts` (+2: scenes grounded img2img on the
+reference; per-scene text-to-image fallback on Kontext failure). ai-engine full
+suite + worker 39 green; ai-engine typecheck clean.
+
+**Validation checklist (before 4.6.2):** deploy worker/studio; generate a NEW
+product WITH an uploaded product photo (so the reference is servable). Confirm on
+the draft/preview: (1) hero = exact product, premium; (2) lifestyle scenes now
+show a **photorealistic, audience-matched person WITH the product in context**
+(not product-only, not person-only); (3) faces look real (no obvious-AI tells);
+(4) scenes share one consistent look; (5) the product in scenes is recognisably
+the uploaded product. Report any scene that is product-only / person-only / has
+an AI face — that calibrates the 4.6.1 prompt + the img2img-vs-t2i scene toggle
+before we distribute visuals across sections in 4.6.2.
+
+**Deferred to 4.6.2 (next increment):** carry `lifestyleImages[]` (array, fixing
+the lossy-single `CroContent.lifestyleImage`) end-to-end; distribute the scene
+pool across image-capable sections (how_it_works / comparison / results /
+guarantee) as image+copy, mobile-first, so the **majority of sections carry a
+visual** and the page reads as a premium visual sales page; curated-safe
+text-only fallback preserved.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

@@ -168,4 +168,30 @@ describe("creative-prompts (stage 07)", () => {
     expect(t.calls[0].system).toContain("PRODUCT IDENTITY IS PARAMOUNT");
     expect(t.calls[0].system).toContain("AUDIENCE & POSITIONING DIRECTIVE");
   });
+
+  it("encodes the Phase 4.6 image-led composition contract (product+human+context, photoreal, casting, consistency)", async () => {
+    const t = mockText({ responses: [textResult(goodPrompts)] });
+
+    await creativePrompts({
+      input: {
+        strategy: dummyStrategy,
+        structure: dummyStructure,
+        copy: dummyCopy,
+        targeting: { gender: "female", market: "SA" },
+      },
+      providers: { text: t.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_creative_compose",
+    });
+
+    const system = t.calls[0].system ?? "";
+    const user = t.calls[0].prompt;
+    expect(system).toContain("PRODUCT + HUMAN + CONTEXT");
+    expect(system).toContain("CAST THE HUMAN");
+    expect(system).toContain("PHOTOREALISM IS MANDATORY");
+    expect(system).toContain("VISUAL CONSISTENCY ACROSS SCENES");
+    // User prompt carries the section-intent scene plan (image-led PDP).
+    expect(user).toContain("SCENE PLAN");
+    expect(user).toMatch(/4.5 lifestyle scenes/);
+  });
 });

@@ -162,6 +162,67 @@ describe("image-gen (stage 08)", () => {
     expect(img.calls[1].referenceImages).toBeUndefined();
   });
 
+  it("grounds lifestyle scenes img2img on the reference too (Phase 4.6 — product in-scene)", async () => {
+    const img = mockImage({
+      responses: [
+        imageResult({ url: "https://cdn.mock/hero-identity.webp" }),
+        imageResult({ url: "https://cdn.mock/scene-1.webp", width: 1024, height: 1280 }),
+        imageResult({ url: "https://cdn.mock/scene-2.webp", width: 1024, height: 1280 }),
+      ],
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: promptsThree,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_scene_identity",
+    });
+
+    expect(out.results).toHaveLength(3);
+    // Every call (hero + both scenes) routed to Kontext with the reference.
+    for (const call of img.calls) {
+      expect(call.model).toBe("fal-ai/flux-pro/kontext");
+      expect(call.referenceImages?.[0]?.src).toBe(
+        "https://cdn.elfanaa.com/studio-intake/p.jpg",
+      );
+    }
+    // Scene calls use the scene identity wrapper (composite into scene), not the
+    // hero wrapper (studio hero shot).
+    const sceneCall = img.calls.find((c) => /composite it naturally into this scene/i.test(c.prompt));
+    expect(sceneCall).toBeDefined();
+  });
+
+  it("falls back to text-to-image for a scene when its Kontext attempt fails (no regression)", async () => {
+    const img = mockImage({
+      responses: [
+        imageResult({ url: "https://cdn.mock/hero.webp" }),
+        new Error("kontext_scene_unavailable"),
+        imageResult({ url: "https://cdn.mock/scene-fallback.webp", width: 1024, height: 1280 }),
+        imageResult({ url: "https://cdn.mock/scene-2.webp", width: 1024, height: 1280 }),
+      ],
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: promptsThree,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_scene_fallback",
+    });
+
+    // Hero + 2 scenes all produced (one scene via fallback).
+    expect(out.results).toHaveLength(3);
+    expect(out.failed).toHaveLength(0);
+    expect(out.results.map((r) => r.url)).toContain("https://cdn.mock/scene-fallback.webp");
+  });
+
   it("does NOT use img2img when the reference is a bare R2 key (unservable)", async () => {
     const img = mockImage({
       responses: [imageResult({ url: "https://cdn.mock/hero.webp" })],

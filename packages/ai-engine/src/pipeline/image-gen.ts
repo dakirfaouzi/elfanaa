@@ -57,15 +57,30 @@ export async function imageGen(
         runId: opts.runId,
       });
 
+  // Step 4 Phase 4.6 — lifestyle/section scenes are ALSO grounded image-to-image
+  // on the real product reference (when one is servable) so the EXACT product
+  // appears in-scene with the cast human, not just in the hero. Each scene keeps
+  // the same hard text-to-image fallback, so a Kontext failure never regresses a
+  // scene below the legacy "product-described" baseline.
   const lifestyleJobs = opts.input.prompts.lifestyle.map((cp) =>
-    runOnePrompt({
-      role: "lifestyle",
-      creative: cp,
-      provider: opts.providers.image,
-      maxAttempts,
-      storeId: opts.storeConfig.id,
-      runId: opts.runId,
-    }),
+    referenceUrl
+      ? runSceneWithIdentity({
+          creative: cp,
+          referenceUrl,
+          img2imgModel: opts.input.img2imgModel ?? DEFAULT_IMG2IMG_MODEL,
+          provider: opts.providers.image,
+          maxAttempts,
+          storeId: opts.storeConfig.id,
+          runId: opts.runId,
+        })
+      : runOnePrompt({
+          role: "lifestyle",
+          creative: cp,
+          provider: opts.providers.image,
+          maxAttempts,
+          storeId: opts.storeConfig.id,
+          runId: opts.runId,
+        }),
   );
 
   const outcomes = await Promise.all([heroJob, ...lifestyleJobs]);
@@ -133,6 +148,44 @@ async function runHeroWithIdentity(opts: {
 }
 
 /**
+ * Generate a lifestyle/section scene image-to-image (identity-preserving),
+ * falling back to text-to-image on failure. Mirrors {@link runHeroWithIdentity}
+ * but uses the scene identity wrapper so the EXACT product is composited into a
+ * human + context scene (Phase 4.6). The fallback guarantees a scene is never
+ * worse than the legacy text-to-image path.
+ */
+async function runSceneWithIdentity(opts: {
+  creative: CreativePrompt;
+  referenceUrl: string;
+  img2imgModel: string;
+  provider: ImageProvider;
+  maxAttempts: number;
+  storeId: string;
+  runId: string;
+}): Promise<RunOutcome> {
+  const img2img = await runOnePrompt({
+    role: "lifestyle",
+    creative: { ...opts.creative, prompt: buildSceneIdentityPrompt(opts.creative.prompt) },
+    provider: opts.provider,
+    maxAttempts: opts.maxAttempts,
+    storeId: opts.storeId,
+    runId: opts.runId,
+    model: opts.img2imgModel,
+    referenceImages: [{ src: opts.referenceUrl }],
+  });
+  if (img2img.ok) return img2img;
+
+  return runOnePrompt({
+    role: "lifestyle",
+    creative: opts.creative,
+    provider: opts.provider,
+    maxAttempts: opts.maxAttempts,
+    storeId: opts.storeId,
+    runId: opts.runId,
+  });
+}
+
+/**
  * Wrap a text-to-image hero prompt as an identity-preserving EDIT instruction
  * for Kontext: keep the actual product pixels, only restyle the scene.
  */
@@ -143,6 +196,22 @@ function buildIdentityPrompt(heroPrompt: string): string {
     "Re-render it as a premium studio hero shot: " +
     heroPrompt +
     " Do not alter, redesign, or relabel the product itself."
+  );
+}
+
+/**
+ * Wrap a scene prompt as an identity-preserving Kontext EDIT: composite the
+ * EXACT reference product into a photorealistic human + context scene while
+ * keeping the product's shape, packaging, label and colours pixel-faithful.
+ */
+function buildSceneIdentityPrompt(scenePrompt: string): string {
+  return (
+    "Using the provided product photo as the exact reference, keep the " +
+    "product's shape, packaging, label text, logo and colours identical, and " +
+    "composite it naturally into this scene with a photorealistic person: " +
+    scenePrompt +
+    " The product must remain the same real product — do not redesign, " +
+    "relabel, duplicate, or distort it; render believable hands and anatomy."
   );
 }
 
