@@ -41,7 +41,16 @@ export interface CroContent {
 
   /** Hero first, then gallery — lets the PDP show the full gallery from the DB. */
   images?: ProductImage[];
-  /** A single editorial lifestyle image for the lifestyle/vibe block. */
+  /**
+   * The full generated scene pool (Phase 4.6.2). The storefront distributes
+   * these across image-capable sections (mechanism / results / comparison /
+   * guarantee / lifestyle / …) so the PDP becomes image-led, not text-led.
+   */
+  lifestyleImages?: ProductImage[];
+  /**
+   * First lifestyle image — retained for back-compat with the single-image
+   * lifestyle band and pre-4.6.2 rows. New rows also carry `lifestyleImages`.
+   */
   lifestyleImage?: ProductImage;
 
   benefits?: ProductBenefit[];

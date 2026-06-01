@@ -954,6 +954,28 @@ describe("synthesiseProductFromRow — cro_content projection", () => {
   // the hero. Before 4.5.1 only the hero column was resolved, so a bare-key
   // lifestyle/gallery image rendered "image pending" while the hero worked.
 
+  it("hydrates the FULL lifestyleImages scene pool (Phase 4.6.2)", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-scene-pool",
+        croContent: {
+          lifestyleImages: [
+            { src: "https://cdn.elfanaa.com/s1.png", alt: { ar: "أ", en: "ritual" } },
+            { src: "studio/d/generated/s2.png", alt: { ar: "ب", en: "result" } },
+            { src: "https://cdn.elfanaa.com/s3.png", alt: { ar: "ج", en: "detail" } },
+          ],
+        },
+      }),
+    );
+    expect(product.lifestyleImages).toHaveLength(3);
+    // Bare-key scene resolved to CDN by the 4.5.1 canonical resolver.
+    expect(product.lifestyleImages?.[1]?.src).toBe(
+      "https://cdn.elfanaa.com/studio/d/generated/s2.png",
+    );
+    // Single lifestyleImage back-compat falls back to the first scene.
+    expect(product.lifestyleImage?.src).toBe("https://cdn.elfanaa.com/s1.png");
+  });
+
   it("resolves a bare-key lifestyleImage to the public CDN (the 4.5 lifestyle bug)", () => {
     const product = synthesiseProductFromRow(
       makeDbRow({

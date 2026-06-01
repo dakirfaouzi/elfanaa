@@ -26,6 +26,7 @@ export const CroContentSchema: z.ZodType<CroContent> = z.object({
   foundersNote: LocalizedStringSchema.optional(),
 
   images: z.array(ProductImageSchema).optional(),
+  lifestyleImages: z.array(ProductImageSchema).optional(),
   lifestyleImage: ProductImageSchema.optional(),
 
   benefits: z.array(ProductBenefitSchema).optional(),

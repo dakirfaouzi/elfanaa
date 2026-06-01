@@ -4,9 +4,10 @@ import { Check, X } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import { SectionFigure } from "@/components/product/SectionFigure";
+import type { Product, ProductImage } from "@/lib/types";
 
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * Us-vs-the-usual-way comparison (Step 4 §4.1).
@@ -16,7 +17,7 @@ type Props = { product: Product };
  * cards on mobile (ours first — it's the one we want read), side-by-side from
  * `sm`. Renders nothing unless the pipeline grounded both columns.
  */
-export function ProductComparison({ product }: Props) {
+export function ProductComparison({ product, image }: Props) {
   const { locale } = useLocale();
   const content = product.sectionContent?.comparison;
   if (!content || content.ours.length === 0 || content.usual.length === 0) {
@@ -33,6 +34,7 @@ export function ProductComparison({ product }: Props) {
     <section className="fn-section-y border-t border-line bg-surface">
       <Container>
         <div className="mx-auto max-w-3xl">
+          {image ? <SectionFigure image={image} className="mb-8 md:mb-10" /> : null}
           <header className="mb-8 text-center md:mb-12">
             <p className="fn-eyebrow justify-center">
               <span className="fn-rule" />

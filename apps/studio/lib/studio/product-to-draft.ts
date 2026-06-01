@@ -195,8 +195,12 @@ function buildCroContent(product: UniversalProduct): CroContent {
   if (product.subheadline) cro.subheadline = product.subheadline;
   if (product.foundersNote) cro.foundersNote = product.foundersNote;
   if (product.images.length > 0) cro.images = product.images;
-  if (product.lifestyleImages && product.lifestyleImages.length > 0)
+  if (product.lifestyleImages && product.lifestyleImages.length > 0) {
+    // Phase 4.6.2: carry the FULL scene pool so the storefront can distribute
+    // it across image-capable sections (not just the single lifestyle band).
+    cro.lifestyleImages = product.lifestyleImages;
     cro.lifestyleImage = product.lifestyleImages[0];
+  }
   if (product.benefits.length > 0) cro.benefits = product.benefits;
   if (product.reviews.length > 0) cro.reviews = product.reviews;
   if (product.faq.length > 0) cro.faq = product.faq;

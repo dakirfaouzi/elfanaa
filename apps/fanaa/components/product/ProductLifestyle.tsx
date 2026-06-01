@@ -6,9 +6,9 @@ import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
 import { getLifestyleImage } from "@/lib/product-image";
 import { SafeProductImage } from "@/components/product/SafeProductImage";
-import type { Product } from "@/lib/types";
+import type { Product, ProductImage } from "@/lib/types";
 
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * Editorial "in your home" band — alternating image / text.
@@ -20,12 +20,12 @@ type Props = { product: Product };
  * the customer has scrolled this far they are evaluating *vibe*, not
  * specs, and the headline reinforces what they already half-decided.
  */
-export function ProductLifestyle({ product }: Props) {
+export function ProductLifestyle({ product, image: assigned }: Props) {
   const { locale, t } = useLocale();
-  // Falls through `lifestyleImage` → `images[0]` → placeholder so the
-  // editorial band still renders for AI-generated products that have
-  // neither a curated lifestyle photo nor a hero gallery shot yet.
-  const image = getLifestyleImage(product);
+  // Phase 4.6.2: the distributor assigns this marquee band a dedicated scene.
+  // Falls back through `lifestyleImage` → `images[0]` → placeholder so the
+  // editorial band still renders for products without a generated scene pool.
+  const image = assigned ?? getLifestyleImage(product);
   const headline = product.headline ?? product.title;
   const subhead = product.subheadline;
 

@@ -3,9 +3,10 @@
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import { SectionFigure } from "@/components/product/SectionFigure";
+import type { Product, ProductImage } from "@/lib/types";
 
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * How-it-works / mechanism section (Step 4 §4.1).
@@ -16,7 +17,7 @@ type Props = { product: Product };
  * mobile column (the primary surface) and relaxes into more breathing room on
  * desktop. Renders nothing when the pipeline didn't ground a mechanism.
  */
-export function ProductHowItWorks({ product }: Props) {
+export function ProductHowItWorks({ product, image }: Props) {
   const { locale } = useLocale();
   const content = product.sectionContent?.howItWorks;
   if (!content || content.steps.length === 0) return null;
@@ -29,6 +30,7 @@ export function ProductHowItWorks({ product }: Props) {
     <section className="fn-section-y border-t border-line bg-bg">
       <Container>
         <div className="mx-auto max-w-3xl">
+          {image ? <SectionFigure image={image} className="mb-8 md:mb-10" /> : null}
           <header className="mb-8 md:mb-12">
             <p className="fn-eyebrow">
               <span className="fn-rule" />

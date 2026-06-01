@@ -1,11 +1,18 @@
 "use client";
 
 import { useLocale } from "@/hooks/useLocale";
-import type { Product } from "@/lib/types";
+import type { Product, ProductImage } from "@/lib/types";
 import { pickLocalized } from "@/lib/format";
+import { SectionFigure } from "@/components/product/SectionFigure";
 import { Beaker } from "lucide-react";
 
-export function ProductIngredients({ product }: { product: Product }) {
+export function ProductIngredients({
+  product,
+  image,
+}: {
+  product: Product;
+  image?: ProductImage;
+}) {
   const { locale, t } = useLocale();
 
   if (!product.ingredients || product.ingredients.length === 0) {
@@ -15,6 +22,11 @@ export function ProductIngredients({ product }: { product: Product }) {
   return (
     <section className="fn-section-y border-t border-line bg-surface">
       <div className="mx-auto max-w-5xl px-6 lg:px-8">
+        {image ? (
+          <div className="mx-auto mb-10 max-w-3xl">
+            <SectionFigure image={image} />
+          </div>
+        ) : null}
         <div className="mb-12 flex flex-col items-center text-center">
           <div className="mb-4 grid size-12 place-items-center rounded-full bg-bg text-accent ring-1 ring-accent/30 shadow-[0_6px_20px_rgba(199,162,124,0.18)]">
             <Beaker className="size-5" />

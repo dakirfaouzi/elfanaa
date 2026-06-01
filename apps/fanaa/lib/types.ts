@@ -102,6 +102,13 @@ export type Product = {
   lifestyleImage?: ProductImage;
 
   /**
+   * The generated scene pool (Phase 4.6.2). The PDP distributes these across
+   * image-capable sections so the page reads image-led. AI-published rows carry
+   * the full set; curated rows usually carry none (text-only fallback).
+   */
+  lifestyleImages?: ProductImage[];
+
+  /**
    * Benefits, NOT features. Each item is 1 emotional sentence + the
    * literal feature behind it. Rendered as 4 cards on the PDP. Icons
    * match Lucide names; the component falls back to a neutral icon if

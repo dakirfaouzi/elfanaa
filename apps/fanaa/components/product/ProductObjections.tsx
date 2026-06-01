@@ -3,9 +3,10 @@
 import { Container } from "@/components/layout/Container";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import { SectionFigure } from "@/components/product/SectionFigure";
+import type { Product, ProductImage } from "@/lib/types";
 
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * Objection-handling block (Step 4 §4.1).
@@ -15,7 +16,7 @@ type Props = { product: Product };
  * logistics. Rendered as a calm two-line card list that scans fast on mobile.
  * Renders nothing unless the pipeline grounded objection/response pairs.
  */
-export function ProductObjections({ product }: Props) {
+export function ProductObjections({ product, image }: Props) {
   const { locale } = useLocale();
   const content = product.sectionContent?.objections;
   if (!content || content.items.length === 0) return null;
@@ -28,6 +29,7 @@ export function ProductObjections({ product }: Props) {
     <section className="fn-section-y bg-bg">
       <Container>
         <div className="mx-auto max-w-3xl">
+          {image ? <SectionFigure image={image} className="mb-8 md:mb-10" /> : null}
           <header className="mb-8 md:mb-12">
             <p className="fn-eyebrow">
               <span className="fn-rule" />

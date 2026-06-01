@@ -105,6 +105,27 @@ describe("productToDraftDocument", () => {
     if (!parsed.success) console.error(parsed.error.format());
   });
 
+  it("carries the FULL lifestyle scene pool into croContent (Phase 4.6.2)", () => {
+    const doc = productToDraftDocument(
+      makeFixture({
+        lifestyleImages: [
+          { src: "stores/fanaa/products/up_test_001/scene-1.webp", alt: { ar: "أ", en: "ritual" } },
+          { src: "stores/fanaa/products/up_test_001/scene-2.webp", alt: { ar: "ب", en: "result" } },
+          { src: "stores/fanaa/products/up_test_001/scene-3.webp", alt: { ar: "ج", en: "detail" } },
+        ],
+      }),
+      { slug: "glow-serum", newId: makeIdGen() },
+    );
+    const cro = doc.croContent as {
+      lifestyleImages?: { src: string }[];
+      lifestyleImage?: { src: string };
+    };
+    expect(cro.lifestyleImages).toHaveLength(3);
+    expect(cro.lifestyleImages?.[2]?.src).toContain("scene-3.webp");
+    // Back-compat single still points at the first scene.
+    expect(cro.lifestyleImage?.src).toContain("scene-1.webp");
+  });
+
   it("populates meta with title (bilingual), description, and OG image", () => {
     const doc = productToDraftDocument(makeFixture(), {
       slug: "glow-serum",

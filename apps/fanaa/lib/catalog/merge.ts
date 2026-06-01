@@ -153,6 +153,7 @@ export function mergeCatalogProduct(
   if (snapshot.headline !== undefined) merged.headline = snapshot.headline;
   if (snapshot.subheadline !== undefined) merged.subheadline = snapshot.subheadline;
   if (snapshot.lifestyleImage !== undefined) merged.lifestyleImage = snapshot.lifestyleImage;
+  if (snapshot.lifestyleImages !== undefined) merged.lifestyleImages = snapshot.lifestyleImages;
   if (snapshot.benefits !== undefined) merged.benefits = snapshot.benefits;
   if (snapshot.faq !== undefined) merged.faq = snapshot.faq;
   if (snapshot.reviews !== undefined) merged.reviews = snapshot.reviews;
@@ -253,6 +254,7 @@ export function synthesiseProductFromRow(
     if (cro.images && cro.images.length > 1) {
       product.images = [product.images[0], ...cro.images.slice(1)];
     }
+    if (cro.lifestyleImages) product.lifestyleImages = cro.lifestyleImages;
     if (cro.lifestyleImage) product.lifestyleImage = cro.lifestyleImage;
     if (cro.benefits) product.benefits = cro.benefits;
     if (cro.reviews) product.reviews = cro.reviews;
@@ -517,6 +519,7 @@ export interface CroOverlay {
   subheadline?: LocalizedString;
   foundersNote?: LocalizedString;
   images?: ProductImage[];
+  lifestyleImages?: ProductImage[];
   lifestyleImage?: ProductImage;
   benefits?: Product["benefits"];
   reviews?: Product["reviews"];
@@ -548,7 +551,14 @@ export function coerceCroContent(value: unknown): CroOverlay | null {
       .filter((i): i is ProductImage => i !== null);
     if (imgs.length > 0) out.images = imgs;
   }
-  const lifestyle = coerceProductImage(v.lifestyleImage);
+  if (Array.isArray(v.lifestyleImages)) {
+    const scenes = v.lifestyleImages
+      .map(coerceProductImage)
+      .filter((i): i is ProductImage => i !== null);
+    if (scenes.length > 0) out.lifestyleImages = scenes;
+  }
+  const lifestyle =
+    coerceProductImage(v.lifestyleImage) ?? out.lifestyleImages?.[0] ?? null;
   if (lifestyle) out.lifestyleImage = lifestyle;
 
   const benefits = coerceBenefits(v.benefits);

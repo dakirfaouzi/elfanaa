@@ -2531,6 +2531,63 @@ person + context; scenes show the same exact product in-use with a person; no
 obvious-AI faces; one consistent look. If the hero is a different product →
 check `r2PublicBaseUrl` (servability), not the prompts.
 
+#### 26.4.11.3 Phase 4.6.2 — image-led distribution + rendering (DONE 2026-06-01)
+
+With generation validated (4.6.1: identity preserved, human present, product
+visible, consistent), the remaining gap is **composition/distribution**: the
+PDP rendered as a long text column with ~2 images, while the SugarBear benchmark
+is image-LED (a premium photo roughly every section, image→copy rhythm).
+
+**Root cause of "only 1 image on the page":** the projection was lossy. The
+pipeline generates a 4–5 scene pool, but `buildCroContent` kept only
+`lifestyleImages[0]` → `cro.lifestyleImage`, and only the lifestyle band
+rendered it. Every other section was text-only by construction. Distribution was
+therefore impossible regardless of how many scenes were generated.
+
+**Fix — carry the full pool, then distribute it (section-agnostic):**
+
+1. **Data (carry the scene pool end-to-end).** New `CroContent.lifestyleImages?:
+   ProductImage[]` (+ Zod). `buildCroContent` now sets the FULL array (keeps
+   `lifestyleImage = [0]` for back-compat). Fanaa `Product.lifestyleImages?` +
+   `CroOverlay` + `coerceCroContent` hydrate the array; `synthesiseProductFromRow`
+   assigns it. The 4.5.1 canonical resolver already normalises every nested
+   `src` (including the new array) at hydration — no extra image-resolution code.
+2. **Distribution (`ProductSections.assignSectionImages`).** A single
+   `IMAGE_PRIORITY` list (lifestyle → how_it_works → results → comparison →
+   social_proof → founders_note → guarantee → objections → ingredients) receives
+   the pool in order: highest-converting visual moments get the scenes first, one
+   **distinct** scene each (no cheap repetition), and once the pool is exhausted
+   the remaining sections degrade to **text-only** (curated-safe). FAQ + benefits
+   never receive an image. Only render-keys actually present in the resolved
+   order are eligible.
+3. **Rendering (`SectionFigure` + per-section `image?` prop).** One shared
+   `SectionFigure` (mobile-first portrait 4:5, `fn-photo-frame`, cream backdrop,
+   `SafeProductImage`) gives every image-led section the same premium frame and
+   the same graceful-degrade behaviour (slow/broken decode → brand placeholder,
+   never a black void). Image-capable section components (how_it_works, results,
+   comparison, guarantee, objections, ingredients, social_proof, founders_note,
+   lifestyle) accept an optional `image` and render it **above** the copy
+   (image-first on mobile); with no image they render exactly as before.
+
+**Net effect vs. before:** an AI product with a 5-scene pool now renders the
+hero (product+human) PLUS ~5 image-led content sections distributed down the
+page — a majority of content sections become image+copy — instead of one
+lifestyle image in a text column. Identity/casting/quality are unchanged because
+the SAME generated scenes are reused; this phase is purely projection +
+distribution + rendering. Curated rows (no pool) are unaffected.
+
+**Tests:** studio `product-to-draft` asserts the full `lifestyleImages` array is
+projected (+ back-compat single); fanaa `catalog-merge` asserts the array
+hydrates and resolves bare keys via the canonical resolver; new fanaa
+`section-image-distribution` asserts priority order, distinct-per-section, FAQ
+exclusion, gallery fallback, empty-pool, and order-gating. fanaa 84 green,
+studio 37 green; typecheck clean across catalog-schema/studio/fanaa.
+
+**Future (4.6.3, not in scope):** carry each scene's `intent`
+(ritual/result/detail/context/proof) into `ProductImage` so assignment becomes
+SEMANTIC (a "result" scene → results section) rather than positional, and add
+side-by-side image/copy layouts on desktop.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

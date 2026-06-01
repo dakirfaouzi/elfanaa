@@ -5,9 +5,10 @@ import { Container } from "@/components/layout/Container";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
-import type { Product, ProductReview } from "@/lib/types";
+import { SectionFigure } from "@/components/product/SectionFigure";
+import type { Product, ProductImage, ProductReview } from "@/lib/types";
 
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * Reviews — qualitative + quantitative.
@@ -22,7 +23,7 @@ type Props = { product: Product };
  * Falls back gracefully if the product has only an aggregated rating
  * but no reviews authored yet.
  */
-export function ProductReviews({ product }: Props) {
+export function ProductReviews({ product, image }: Props) {
   const { locale, t } = useLocale();
   const reviews = product.reviews ?? [];
   const aggregate = product.rating;
@@ -32,6 +33,11 @@ export function ProductReviews({ product }: Props) {
   return (
     <section className="fn-section-y bg-bg">
       <Container>
+        {image ? (
+          <div className="mb-10 max-w-3xl md:mb-12">
+            <SectionFigure image={image} aspectClassName="aspect-[5/4]" />
+          </div>
+        ) : null}
         <header className="mb-10 max-w-2xl md:mb-14">
           <p className="fn-eyebrow">
             <span className="fn-rule" />

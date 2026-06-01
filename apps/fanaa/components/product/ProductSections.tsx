@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { Product } from "@/lib/types";
+import type { Product, ProductImage } from "@/lib/types";
 import { ProductBenefits } from "./ProductBenefits";
 import { ProductHowItWorks } from "./ProductHowItWorks";
 import { ProductIngredients } from "./ProductIngredients";
@@ -33,7 +33,7 @@ import { ProductFAQ } from "./ProductFAQ";
  * Every child section is self-guarding (returns null when its content is
  * absent), so this orchestrator only decides ORDER, never visibility.
  */
-type Props = { product: Product };
+type Props = { product: Product; image?: ProductImage };
 
 /**
  * Multiple catalog SectionKinds can map to the same physical fanaa section
@@ -92,6 +92,57 @@ const DEFAULT_ORDER: string[] = [
   "faq",
 ];
 
+/**
+ * Image-led distribution (Phase 4.6.2) — which render-keys can host a generated
+ * scene, in PRIORITY order (highest-converting visual moments first). The scene
+ * pool is assigned down this list so that, when there are fewer scenes than
+ * sections, the marquee moments (lifestyle, mechanism, results, comparison,
+ * social proof) get the images and lower-priority blocks degrade to text-only.
+ * FAQ is intentionally excluded — it stays text.
+ */
+const IMAGE_PRIORITY: string[] = [
+  "lifestyle",
+  "how_it_works",
+  "results",
+  "comparison",
+  "social_proof",
+  "founders_note",
+  "guarantee",
+  "objections",
+  "ingredients",
+];
+
+/**
+ * Assign the generated scene pool to image-capable sections so the page becomes
+ * image-led. Distinct image per section (no cheap repetition); once the pool is
+ * exhausted the remaining sections render text-only (curated-safe). Only keys
+ * actually in the render order are eligible.
+ */
+export function assignSectionImages(
+  product: Product,
+  order: string[],
+): Record<string, ProductImage> {
+  const pool =
+    product.lifestyleImages && product.lifestyleImages.length > 0
+      ? product.lifestyleImages
+      : (product.images ?? []).slice(1); // gallery minus hero, as a fallback pool
+  if (pool.length === 0) return {};
+
+  const present = new Set(order);
+  const assignment: Record<string, ProductImage> = {};
+  let i = 0;
+  for (const key of IMAGE_PRIORITY) {
+    if (i >= pool.length) break;
+    if (!present.has(key)) continue;
+    const img = pool[i];
+    if (img) {
+      assignment[key] = img;
+      i += 1;
+    }
+  }
+  return assignment;
+}
+
 function resolveOrder(product: Product): string[] {
   const aiKeys = (product.sectionOrder ?? [])
     .map((kind) => KIND_TO_KEY[kind])
@@ -111,12 +162,13 @@ function resolveOrder(product: Product): string[] {
 
 export function ProductSections({ product }: Props) {
   const order = resolveOrder(product);
+  const sectionImages = assignSectionImages(product, order);
   return (
     <>
       {order.map((key) => {
         const Section = KEY_TO_COMPONENT[key];
         if (!Section) return null;
-        return <Section key={key} product={product} />;
+        return <Section key={key} product={product} image={sectionImages[key]} />;
       })}
     </>
   );
