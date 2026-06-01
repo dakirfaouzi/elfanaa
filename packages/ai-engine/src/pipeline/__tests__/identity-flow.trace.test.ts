@@ -299,6 +299,7 @@ describe("SmileEase identity-flow evidence", () => {
     );
     expect(heroCall.model).toContain("kontext");
     expect(heroCall.referenceImages?.[0]?.src).toBe(RESOLVED_URL);
-    expect(heroCall.prompt).toContain("keep the");
+    // Phase 4.6.1: the hero edit carries the hard identity lock.
+    expect(heroCall.prompt).toContain("SINGLE SOURCE OF TRUTH");
   });
 });

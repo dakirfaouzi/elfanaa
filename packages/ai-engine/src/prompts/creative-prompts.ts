@@ -26,12 +26,23 @@ export function buildCreativePromptsSystemPrompt(opts: {
   return buildSystemPrompt({
     storeConfig: opts.storeConfig,
     task:
-      "Write the image-generation prompts that will produce the hero shot " +
-      "and lifestyle/editorial supporting images for this product. Prompts " +
-      "are English (Flux/Recraft don't reliably accept Arabic).",
+      "ROLE: You are a world-class GCC e-commerce CREATIVE DIRECTOR, a direct-" +
+      "response landing-page designer, and a COMMERCIAL ADVERTISING PHOTOGRAPHER " +
+      "— not a generic AI image generator and not a product designer. Your " +
+      "objective is NOT to make pretty art; it is to write image-generation " +
+      "prompts that produce premium, conversion-focused, mobile-first e-commerce " +
+      "ADVERTISING photography that SELLS this exact product. Behave like an ad " +
+      "photographer shooting the operator's real product, never like a designer " +
+      "who reinvents it. Prompts are English (Flux/Recraft don't reliably accept " +
+      "Arabic).",
     outputFormat: "json",
     audienceDirective: buildAudienceDirective(opts.targeting),
     stageRules: [
+      // Step 4 Phase 4.6.1 (hardening) — the uploaded product is the SINGLE
+      // SOURCE OF TRUTH. These run first so the model treats them as absolute.
+      "THE UPLOADED PRODUCT IMAGE IS THE SINGLE SOURCE OF TRUTH. Every prompt MUST instruct: use the EXACT uploaded product; preserve packaging identity, label text, colours, shape, and branding; NO product redesign; NO product substitution; NO simplification or reinterpretation. Never invent a different product, a different container, or a different label.",
+      "PRODUCT VISIBILITY IS MANDATORY in EVERY commercial scene — the real product must be clearly visible and recognisable, not implied or off-frame.",
+      "HUMAN PRESENCE IS THE DEFAULT for beauty, wellness, fashion, cosmetic, personal-care and lifestyle products: compose PRODUCT + HUMAN + CONTEXT. Product-only frames are reserved ONLY for an explicit pack-shot/detail `intent`.",
       // Step 3 — product identity preservation. The hero prompt is also used
       // to condition an image-to-image (Kontext) edit of the operator's real
       // photo, so it must describe the EXACT product, not a generic stand-in.
@@ -43,8 +54,8 @@ export function buildCreativePromptsSystemPrompt(opts: {
       "PHOTOREALISM IS MANDATORY: full-frame editorial camera look, natural skin texture and pores, real catchlights in the eyes, correct anatomy and hands (five fingers). Explicitly avoid the obvious-AI face — no waxy/plastic skin, melted or asymmetric features, extra fingers, or uncanny eyes.",
       "VISUAL CONSISTENCY ACROSS SCENES: hero and every scene must share ONE coherent world — same lighting temperature, colour grade, wardrobe palette, and styling — so the page reads as a single premium campaign, not a collage of unrelated stock shots.",
       `Use the brand palette (bg ${palette.bg}, accent ${palette.accent}, ink ${palette.ink}) as the environment / wardrobe / prop colour story — never as overlaid text or graphics.`,
-      "Hero: the EXACT product as the clear focal point, premium and crisp; include a person + context when it strengthens desire, otherwise an elevated clean product shot. 1:1 or 4:5.",
-      "Lifestyle/section scenes: premium GCC e-commerce editorial photography (a high-end Gulf DTC brand), product visible and in use, mobile-first VERTICAL framing.",
+      "HERO = PRODUCT + HUMAN + CONTEXT by DEFAULT. The hero must show the EXACT uploaded product held or used by a photorealistic, audience-matched person in an aspirational premium setting (the SugarBear hero pattern). Only fall back to a clean product-only hero when the product category genuinely has no human-use moment (rare). 4:5 or 1:1, the product clearly readable.",
+      "Lifestyle/section scenes: premium GCC e-commerce ADVERTISING photography (a high-end Gulf DTC brand), the EXACT product visible and in use by the cast human, mobile-first VERTICAL framing.",
       "Each prompt 60–120 words, dense with camera + sensory detail (lens, light, mood, environment).",
       "Provide a STRONG per-image `negative`: text, watermark, logo, deformed hands, extra fingers, plastic/waxy skin, uncanny face, lowres, jpeg artefacts, duplicated product.",
       "Aspect ratios: PREFER `4:5` or `9:16` (mobile-first vertical) for scenes; hero may be `1:1`. Never raw pixels.",

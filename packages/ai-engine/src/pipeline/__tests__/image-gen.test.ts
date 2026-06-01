@@ -132,15 +132,12 @@ describe("image-gen (stage 08)", () => {
     expect(img.calls[0].referenceImages?.[0]?.src).toBe(
       "https://cdn.elfanaa.com/studio-intake/p.jpg",
     );
-    expect(img.calls[0].prompt).toMatch(/keep the product's shape/i);
+    expect(img.calls[0].prompt).toMatch(/single source of truth/i);
   });
 
-  it("falls back to text-to-image hero when the Kontext img2img attempt fails (no regression)", async () => {
+  it("falls back to the operator's REAL product photo (no substitution) when Kontext fails", async () => {
     const img = mockImage({
-      responses: [
-        new Error("kontext_unavailable"),
-        imageResult({ url: "https://cdn.mock/hero-fallback.webp" }),
-      ],
+      responses: [new Error("kontext_unavailable")],
     });
 
     const out = await imageGen({
@@ -155,11 +152,15 @@ describe("image-gen (stage 08)", () => {
     });
 
     expect(out.results).toHaveLength(1);
-    expect(out.results[0]?.url).toBe("https://cdn.mock/hero-fallback.webp");
-    // First call: Kontext (failed). Second call: default text-to-image, no reference.
+    // Phase 4.6.1: NEVER invent a hero text-to-image. Pass the real product
+    // photo through instead so the uploaded product identity is preserved.
+    expect(out.results[0]?.url).toBe("https://cdn.elfanaa.com/studio-intake/p.jpg");
+    expect(out.results[0]?.model).toBe("reference_passthrough");
+    expect(out.results[0]?.costUsd).toBe(0);
+    // Only ONE provider call (the failed Kontext) — we did NOT call the image
+    // model a second time to invent a substitute product.
+    expect(img.calls).toHaveLength(1);
     expect(img.calls[0].model).toBe("fal-ai/flux-pro/kontext");
-    expect(img.calls[1].model).toBeUndefined();
-    expect(img.calls[1].referenceImages).toBeUndefined();
   });
 
   it("grounds lifestyle scenes img2img on the reference too (Phase 4.6 — product in-scene)", async () => {
@@ -190,10 +191,15 @@ describe("image-gen (stage 08)", () => {
         "https://cdn.elfanaa.com/studio-intake/p.jpg",
       );
     }
-    // Scene calls use the scene identity wrapper (composite into scene), not the
-    // hero wrapper (studio hero shot).
-    const sceneCall = img.calls.find((c) => /composite it naturally into this scene/i.test(c.prompt));
+    // Scene calls use the scene identity wrapper (composite product into scene),
+    // and every call carries the shared identity lock.
+    const sceneCall = img.calls.find((c) =>
+      /composite this exact product naturally into a premium advertising scene/i.test(c.prompt),
+    );
     expect(sceneCall).toBeDefined();
+    for (const call of img.calls) {
+      expect(call.prompt).toMatch(/single source of truth/i);
+    }
   });
 
   it("falls back to text-to-image for a scene when its Kontext attempt fails (no regression)", async () => {

@@ -135,16 +135,42 @@ async function runHeroWithIdentity(opts: {
   });
   if (img2img.ok) return img2img;
 
-  // Hard fallback: text-to-image hero with the original prompt (no reference,
-  // default model). This is exactly today's working path.
-  return runOnePrompt({
-    role: "hero",
-    creative: opts.creative,
-    provider: opts.provider,
-    maxAttempts: opts.maxAttempts,
-    storeId: opts.storeId,
-    runId: opts.runId,
-  });
+  // NO PRODUCT SUBSTITUTION (Phase 4.6.1): when the identity-preserving edit
+  // fails we DO NOT invent a hero text-to-image (that would substitute a
+  // different product, violating "the uploaded product is the single source of
+  // truth"). Instead we pass the operator's REAL product photo through as the
+  // hero. It is identity-perfect (if not premium); the persist layer re-hosts
+  // it durably like any generated image. Inventing a product is worse than a
+  // plain real product shot.
+  return referencePassthroughHero(opts.creative, opts.referenceUrl);
+}
+
+/**
+ * Build a hero result that IS the operator's uploaded product photo (no
+ * generation). Used as the identity-safe fallback when img2img fails — never
+ * substitute a different product. Nominal dimensions come from the requested
+ * aspect ratio; the persist/re-host layer treats the URL like any other image.
+ */
+function referencePassthroughHero(
+  creative: CreativePrompt,
+  referenceUrl: string,
+): RunOutcome {
+  const { w, h } = aspectToPx(creative.aspectRatio);
+  return {
+    ok: true,
+    result: {
+      role: "hero",
+      intent: creative.intent,
+      prompt: "[identity-safe fallback] operator's uploaded product photo",
+      url: referenceUrl,
+      width: w,
+      height: h,
+      costUsd: 0,
+      model: "reference_passthrough",
+      providerId: "reference_passthrough",
+      attempts: 1,
+    },
+  };
 }
 
 /**
@@ -186,32 +212,49 @@ async function runSceneWithIdentity(opts: {
 }
 
 /**
- * Wrap a text-to-image hero prompt as an identity-preserving EDIT instruction
- * for Kontext: keep the actual product pixels, only restyle the scene.
+ * Identity-lock preamble shared by every Kontext edit (Phase 4.6.1). The
+ * provided photo is the single source of truth; the model is a commercial
+ * advertising photographer shooting THAT product, not a designer reinventing
+ * it. Kept verbatim across hero + scenes so the constraint never weakens.
+ */
+const IDENTITY_LOCK =
+  "The product in the provided reference photo is the SINGLE SOURCE OF TRUTH. " +
+  "Keep its exact shape, container, packaging, label text, logo, branding and " +
+  "colours pixel-faithful. Do NOT redesign, relabel, substitute, simplify, " +
+  "duplicate, or invent a different product. You are a commercial advertising " +
+  "photographer shooting this real product, not a product designer.";
+
+/**
+ * Wrap the hero prompt as an identity-preserving Kontext EDIT that composites a
+ * photorealistic, audience-appropriate person USING/HOLDING the exact product
+ * in a premium aspirational setting (Phase 4.6.1: product + human + context is
+ * the default hero, not a product-only studio shot).
  */
 function buildIdentityPrompt(heroPrompt: string): string {
   return (
-    "Using the provided product photo as the exact reference, keep the " +
-    "product's shape, packaging, label text, logo and colours identical. " +
-    "Re-render it as a premium studio hero shot: " +
+    IDENTITY_LOCK +
+    " Re-photograph this exact product as a premium e-commerce ADVERTISING " +
+    "hero: a photorealistic, audience-appropriate person naturally holding or " +
+    "using it in an aspirational premium setting, the product clearly visible " +
+    "and readable. " +
     heroPrompt +
-    " Do not alter, redesign, or relabel the product itself."
+    " Natural skin texture and believable hands/anatomy; no obvious-AI face."
   );
 }
 
 /**
  * Wrap a scene prompt as an identity-preserving Kontext EDIT: composite the
  * EXACT reference product into a photorealistic human + context scene while
- * keeping the product's shape, packaging, label and colours pixel-faithful.
+ * keeping the product pixel-faithful (Phase 4.6.1).
  */
 function buildSceneIdentityPrompt(scenePrompt: string): string {
   return (
-    "Using the provided product photo as the exact reference, keep the " +
-    "product's shape, packaging, label text, logo and colours identical, and " +
-    "composite it naturally into this scene with a photorealistic person: " +
+    IDENTITY_LOCK +
+    " Composite this exact product naturally into a premium advertising scene " +
+    "with a photorealistic, audience-appropriate person using or holding it: " +
     scenePrompt +
-    " The product must remain the same real product — do not redesign, " +
-    "relabel, duplicate, or distort it; render believable hands and anatomy."
+    " The product stays clearly visible and recognisable; believable hands and " +
+    "anatomy; no obvious-AI face."
   );
 }
 

@@ -2470,6 +2470,67 @@ guarantee) as image+copy, mobile-first, so the **majority of sections carry a
 visual** and the page reads as a premium visual sales page; curated-safe
 text-only fallback preserved.
 
+#### 26.4.11.2 Phase 4.6.1 — hardening: identity lock + hero human + persona (DONE 2026-06-01)
+
+First live validation of 4.6.1 confirmed reliability is solved but surfaced
+three composition gaps. Diagnosis (which layer owns each):
+
+| Gap | Owning layer | Why |
+|---|---|---|
+| (1) Hero not preserving exact uploaded product | **generation (4.6.1)** | hero only grounds when `resolveReferenceImage` returns a SERVABLE url; the img2img wrapper said "Re-render as a premium **studio** hero shot" (invites drift); and the failure fallback was **text-to-image, which INVENTS a product** (substitution) |
+| (2) Hero has no human subject | **generation (4.6.1)** | hero rule made the human OPTIONAL ("when it strengthens desire"); the img2img wrapper biased a product-only studio shot |
+| (3) Page still mostly text | **rendering (4.6.2)** | sections are text-led; only the lifestyle band shows one image — distribution is the 4.6.2 job, gated on (1)+(2) |
+
+So (1) and (2) are NOT solved by 4.6.2 — they are generation-layer and were
+fixed here BEFORE distribution. (3) remains 4.6.2.
+
+**Pipeline locations where the requirements are now HARD constraints:**
+- `prompts/creative-prompts.ts` **system prompt** — (a) the model is reframed
+  as a *GCC e-commerce creative director / direct-response designer / commercial
+  advertising photographer / CRO designer* whose objective is images that SELL,
+  not art; (b) the uploaded product is declared the SINGLE SOURCE OF TRUTH with
+  the 7-point lock (exact product, preserve packaging/label/colours/shape/
+  branding, no redesign, no substitution); (c) product visibility mandatory in
+  every scene; (d) **HERO = product + human + context by DEFAULT** (product-only
+  reserved for an explicit pack-shot intent).
+- `pipeline/image-gen.ts` **Kontext edit wrappers** (the FINAL instruction to
+  the image model) — a shared `IDENTITY_LOCK` preamble on BOTH hero
+  (`buildIdentityPrompt`) and scene (`buildSceneIdentityPrompt`) wrappers; the
+  hero wrapper now composites a photorealistic, audience-matched person using
+  the exact product (not a studio still-life).
+- `pipeline/image-gen.ts` **no-substitution fallback** — when the hero img2img
+  fails, we NO LONGER invent a hero text-to-image. `referencePassthroughHero`
+  passes the operator's REAL uploaded photo through as the hero
+  (`model: "reference_passthrough"`), so identity is never substituted; the
+  persist layer re-hosts it durably like any image. Scenes keep the
+  text-to-image fallback (a described product in a human scene beats dropping
+  the scene), with the faithful identity attributes still supplied.
+
+**Operator diagnostic for gap (1) — verify the reference is actually servable.**
+A hero that looks like a *completely different* product (e.g. a white tube from
+an amber-jar upload) means the img2img reference was NOT used → text-to-image
+path. Root cause is almost always servability: `resolveReferenceImage` →
+`resolvePublicImageUrl` returns `undefined` when `storeConfig.r2PublicBaseUrl`
+is missing or is the **private** `*.r2.cloudflarestorage.com` S3 endpoint, or
+when `job.uploadedImages[0]` is absent. Confirm in the worker env that
+`r2PublicBaseUrl` is the **public CDN** (`cdn.elfanaa.com`) and that the intake
+upload reached the job. With the new fallback, this case now yields the REAL
+product photo (passthrough) instead of an invented hero — but for a premium
+product+human hero, the reference MUST be servable so Kontext can run.
+
+**Tests:** `image-gen.test.ts` updated — hero/scene edits carry the identity
+lock; hero failure → real-photo passthrough (one provider call, no invented
+substitute). `creative-prompts.test.ts` asserts the composition contract.
+`identity-flow.trace.test.ts` updated to the new lock wording. ai-engine 92
+green; typecheck clean.
+
+**Re-validation checklist (before 4.6.2):** generate a NEW product WITH a
+servable uploaded photo. Confirm: hero is the EXACT uploaded product (packaging/
+label/colours/shape identical), now WITH a photorealistic audience-matched
+person + context; scenes show the same exact product in-use with a person; no
+obvious-AI faces; one consistent look. If the hero is a different product →
+check `r2PublicBaseUrl` (servability), not the prompts.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
