@@ -1,5 +1,5 @@
 /**
- * Studio-facing labels + descriptions for the 11-stage AI pipeline.
+ * Studio-facing labels + descriptions for the 12-stage AI pipeline.
  *
  * # Why this lives in `apps/studio/lib/studio/` and not `@platform/worker`
  *
@@ -36,8 +36,8 @@
  */
 
 /**
- * Canonical 11-stage list. Indices line up with the operator-facing
- * "Stage X of 11" count (1-indexed in the UI, 0-indexed here).
+ * Canonical 12-stage list. Indices line up with the operator-facing
+ * "Stage X of 12" count (1-indexed in the UI, 0-indexed here).
  *
  * MUST stay in sync with `PIPELINE_STAGES` from `@platform/worker`.
  * The unit test in `__tests__/pipeline-stages.test.ts` enforces this.
@@ -52,6 +52,7 @@ export const STAGE_ORDER = [
   "image_gen",
   "image_post",
   "social_proof",
+  "section_content",
   "upsell_match",
   "assemble",
 ] as const;
@@ -69,6 +70,7 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   image_gen: "Image generation",
   image_post: "Image post-processing",
   social_proof: "Social proof",
+  section_content: "Section content",
   upsell_match: "Upsell matching",
   assemble: "Assembly",
 };
@@ -93,6 +95,8 @@ export const STAGE_DESCRIPTIONS: Record<PipelineStage, string> = {
     "Post-process the generated images (crop, upscale, watermark, alt-text).",
   social_proof:
     "Synthesise testimonial / review / star-rating snippets aligned with the positioning.",
+  section_content:
+    "Generate the rich conversion sections (mechanism, results timeline, guarantee, comparison) grounded in research + vision.",
   upsell_match:
     "Match offer tiers + bundles + cross-sells from the catalog to the new product.",
   assemble:
@@ -114,9 +118,9 @@ export interface PipelineProgress {
   failureCount: number;
   /** Number of stages with a `skipped` step record. */
   skippedCount: number;
-  /** Total stages in the pipeline (always 11). */
+  /** Total stages in the pipeline (always 12). */
   totalCount: number;
-  /** 1-indexed "Stage N of 11" — N is the CURRENT stage (next to
+  /** 1-indexed "Stage N of 12" — N is the CURRENT stage (next to
    *  start, or the stage that just finished + 1 when running, or
    *  the LAST stage when terminal). Capped at totalCount. */
   currentOrdinal: number;
@@ -126,7 +130,7 @@ export interface PipelineProgress {
   /** Progress as a 0–1 fraction. Equals successCount / totalCount
    *  for running pipelines; 1.0 for completed pipelines; clamped
    *  to whatever steps exist for failed pipelines (so a failure at
-   *  stage 5 shows 4 / 11 ≈ 36% if 4 had already succeeded). */
+   *  stage 5 shows 4 / 12 ≈ 33% if 4 had already succeeded). */
   fraction: number;
   /** Per-stage status, keyed by stage name. Stages with no step
    *  record are reported as `"pending"`. Stages that ran but failed

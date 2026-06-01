@@ -69,10 +69,21 @@ export interface PersistGeneratedImagesArgs {
 }
 
 /**
- * Re-host every vendor-hosted image on the product into the store's R2
- * bucket and return a NEW product whose `images[].src` point at the
- * durable reference. Returns the input product unchanged when R2 is
- * not available or nothing needs re-hosting.
+ * Re-host EVERY vendor-hosted image on the product into the store's R2
+ * bucket and return a NEW product whose `images[].src` AND
+ * `lifestyleImages[].src` point at durable references. Returns the input
+ * product unchanged when R2 is not available or nothing needs re-hosting.
+ *
+ * # Why both arrays (Step 4 Phase 4.5)
+ *
+ * `assemble` puts the hero + gallery in `product.images` but the generated
+ * lifestyle shots in a SEPARATE `product.lifestyleImages` array. Before 4.5
+ * this function only iterated `images`, so every lifestyle image kept its
+ * ephemeral vendor (fal) URL and 404'd after the vendor TTL — the recurring
+ * "image pending" / broken lifestyle band. Re-hosting both arrays here, while
+ * the vendor URLs are still alive (right after generation), is the durable
+ * fix. The publish hero gate (`drafts-service`) is the second line of defence
+ * that GUARANTEES no vendor URL ever reaches the storefront.
  */
 export async function persistGeneratedImages(
   args: PersistGeneratedImagesArgs,
@@ -99,55 +110,75 @@ export async function persistGeneratedImages(
     );
   }
 
+  const ctx = {
+    draftId,
+    bucket,
+    publicBaseUrl,
+    mediaStore: persistence.mediaStore,
+  };
+
   const images = Array.isArray(product.images) ? product.images : [];
-  if (images.length === 0) return product;
+  const lifestyle = Array.isArray(product.lifestyleImages)
+    ? product.lifestyleImages
+    : [];
+  if (images.length === 0 && lifestyle.length === 0) return product;
 
-  let rewroteAny = false;
-  const nextImages: ProductImage[] = [];
-
-  for (const image of images) {
-    const rehosted = await rehostOne({
-      image,
-      draftId,
-      bucket,
-      publicBaseUrl,
-      mediaStore: persistence.mediaStore,
-    });
-    if (rehosted && rehosted !== image.src) {
-      rewroteAny = true;
-      nextImages.push({ ...image, src: rehosted });
-    } else {
-      nextImages.push(image);
+  const rehostList = async (
+    list: ProductImage[],
+  ): Promise<{ next: ProductImage[]; rewrote: boolean }> => {
+    let rewrote = false;
+    const next: ProductImage[] = [];
+    for (const image of list) {
+      const durable = await rehostImageUrl({ src: image.src, ...ctx });
+      if (durable && durable !== image.src) {
+        rewrote = true;
+        next.push({ ...image, src: durable });
+      } else {
+        next.push(image);
+      }
     }
-  }
+    return { next, rewrote };
+  };
 
-  if (!rewroteAny) return product;
-  return { ...product, images: nextImages };
+  const imagesResult = await rehostList(images);
+  const lifestyleResult = await rehostList(lifestyle);
+
+  if (!imagesResult.rewrote && !lifestyleResult.rewrote) return product;
+
+  const out: UniversalProduct = { ...product };
+  if (imagesResult.rewrote) out.images = imagesResult.next;
+  if (lifestyleResult.rewrote) out.lifestyleImages = lifestyleResult.next;
+  return out;
 }
 
 /**
- * Re-host a single image. Returns the durable reference on success, or
- * the original `src` (unchanged) on any failure / skip. Never throws.
+ * Re-host a single image SRC into durable R2 storage and return the durable
+ * reference, or `null` on any skip / failure (the caller then keeps the
+ * original src). Never throws.
+ *
+ * Skip (returns `null`, caller keeps original):
+ *   • non-HTTP(S) values (data URLs, bare R2 keys, anything already durable),
+ *   • a value already on our own public CDN base.
+ *
+ * Exported so the publish hero gate can re-attempt a last-chance re-host when
+ * it finds a foreign/vendor hero URL that slipped past persist time.
  */
-async function rehostOne(args: {
-  image: ProductImage;
+export async function rehostImageUrl(args: {
+  src: unknown;
   draftId: string;
   bucket: string;
   publicBaseUrl: string | undefined;
   mediaStore: StudioPersistence["mediaStore"];
-}): Promise<string> {
-  const { image, draftId, bucket, publicBaseUrl, mediaStore } = args;
-  const src = typeof image.src === "string" ? image.src.trim() : "";
+}): Promise<string | null> {
+  const { draftId, bucket, publicBaseUrl, mediaStore } = args;
+  const src = typeof args.src === "string" ? args.src.trim() : "";
 
-  // Only re-host vendor HTTP(S) URLs. Skip data URLs, already-durable
-  // R2 keys (`studio/...`, `studio-intake/...`), and anything already
-  // pointing at our own CDN.
-  if (!/^https?:\/\//i.test(src)) return image.src;
-  if (publicBaseUrl && src.startsWith(publicBaseUrl)) return image.src;
+  if (!/^https?:\/\//i.test(src)) return null;
+  if (publicBaseUrl && src.startsWith(publicBaseUrl)) return null;
 
   try {
     const downloaded = await downloadImage(src);
-    if (!downloaded) return image.src;
+    if (!downloaded) return null;
 
     const key = keyForUpload({
       draftId,
@@ -169,9 +200,9 @@ async function rehostOne(args: {
     // which requires SigV4 auth and is NOT browser-fetchable — persisting
     // it produces the exact "image pending" failure we just fixed. In
     // that case (and when no public base is set → the `r2://` sentinel)
-    // store the bare KEY instead: fanaa resolves keys to the public CDN
-    // at render time, so the storefront stays correct regardless of how
-    // the env is configured.
+    // store the bare KEY instead: fanaa + the Studio media proxy both
+    // resolve keys to the public CDN at render time, so the storefront
+    // stays correct regardless of how the env is configured.
     if (ref.startsWith("http") && !/r2\.cloudflarestorage\.com/i.test(ref)) {
       return ref;
     }
@@ -181,7 +212,7 @@ async function rehostOne(args: {
     console.warn(
       `[persist-generated-images] rehost_failed keeping vendor URL src=${truncate(src, 120)} error=${message}`,
     );
-    return image.src;
+    return null;
   }
 }
 

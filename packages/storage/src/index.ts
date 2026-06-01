@@ -39,6 +39,12 @@ export {
 } from "./keys";
 
 export {
+  isDurablePublicUrl,
+  resolvePublicCdnBase,
+  resolveStorageRef,
+} from "./public-url";
+
+export {
   AssetLifecycleStateSchema,
   AssetManifestSchema,
   AssetUploadIntentSchema,

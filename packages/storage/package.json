@@ -11,6 +11,7 @@
     "./contracts": "./src/contracts.ts",
     "./adapters": "./src/adapters/index.ts",
     "./keys": "./src/keys.ts",
+    "./public-url": "./src/public-url.ts",
     "./schemas": "./src/schemas.ts"
   },
   "files": ["src"],

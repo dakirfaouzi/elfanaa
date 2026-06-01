@@ -2154,6 +2154,146 @@ same backfill pattern as the image pipeline).
   storefront_catalog_product WHERE source='ai_generated'` spot check).
 - The deployed studio + web build SHAs (NavBar pill / boot banner) = `69f2f54`+.
 
+#### 26.4.8 Post-validation findings (2026-06-01) — evidence-based, blocks "Step 4 complete"
+
+Live mobile validation (390px) of two awareness-A/B PDPs against the Sugarbear
+benchmark surfaced four quality/architecture gaps. These were investigated by
+tracing the real code paths (not hypotheses). Step 4 is **technically** complete
+but **quality-incomplete** until Phases 4.5–4.8 below land.
+
+**Permanent principle (re-affirmed): MOBILE-FIRST.** ~all traffic is Meta/TikTok/
+Snapchat → mobile. The PDP is designed primarily for mobile conversion: image-first
+stacked layouts, short copy, visual hierarchy, CTA reappearing every 2–3 scrolls.
+Desktop is secondary/progressive-enhancement only.
+
+**Finding 1 — Hero/lifestyle image durability is best-effort, silent, and unverified
+(recurring black/empty hero).**
+- `persistGeneratedImages` rehosts to R2 best-effort; every failure path silently
+  "keeps the vendor URL" (`apps/studio/lib/studio/persist-generated-images.ts`).
+  fal URLs are ephemeral → they 404 after expiry. `resolveCatalogImageRef` passes
+  any `https://` through untouched, so a rotting fal URL ships to the PDP.
+- It iterates **only `product.images`** — `product.lifestyleImages` (a separate
+  array in `assemble.ts`) is **never rehosted** → lifestyle shots always rot.
+- The Studio preview renderer uses a plain `<img>` (`runtime-renderer/Media.tsx`)
+  and `apps/studio/next.config.mjs` has **no `images.remotePatterns`** and no
+  `SafeProductImage` fallback → bare keys/broken URLs render as broken/black boxes.
+- The cream "image pending" placeholder (fanaa fallback) is *not* black, so a black
+  hero means the fallback isn't firing — the stored hero is a rotten/unresolvable
+  URL, not a clean miss.
+- **Impact:** the LCP/hero conversion asset is non-deterministic and silently rots;
+  this is the recurring hero bug.
+
+**Finding 2 — Premium visual gap: PDP is text-heavy, not visual-first.**
+- The Step-4 sections (`ProductHowItWorks`, `ProductResults`, `ProductComparison`,
+  `ProductObjections`, `ProductGuarantee`, `ProductFoundersNote`) render **no image**;
+  `ProductSections` passes only `product`. Image-to-section ratio ≈ 1:8–1:10 vs
+  Sugarbear's ≈ 1:1. Step 4 delivered information architecture, not visual composition.
+
+**Finding 3 — Generated images underutilized + lossy projection.**
+- N lifestyle images are generated but `CroContent` carries only ONE `lifestyleImage`;
+  the rest never reach the storefront and are never rendered. No section other than
+  the gallery + one lifestyle band uses imagery.
+
+**Finding 4 — Research/intake depth is thin (root cause of "generic copy").**
+- Supplier URL IS crawled (firecrawl) but `research.ts` never throws — on failure it
+  silently returns `skipped` with no operator signal (Alibaba/Amazon anti-bot makes
+  this common). Only `research.markdown` reaches strategy (sliced 8k); copy reads the
+  distilled strategy brief, NOT raw research (double summarization → dilution).
+- `research.images` (supplier product/ingredient/before-after photos) is scraped then
+  **discarded** — no downstream consumer. Image-gen uses only the single uploaded
+  reference for the hero.
+- The intake form (`intake-validator.ts`) has **no structured fields** for product
+  name, benefits, ingredients, or before/after assets — that content only enters via
+  free-text `operatorNotes`. Effectively ~0% of supplied content facts are reliably
+  used. No OCR/label extraction exists.
+
+**Additional issues discovered:** silent scrape failure has no operator signal; no
+image health/observability (a publish-time HEAD check would catch every hero
+recurrence); `CroContent` is lossy by design (1 lifestyle image).
+
+**Revised roadmap — shortest path to the final vision (priority order):**
+- **Phase 4.5 — Image reliability (foundation).** Rehost ALL generated images incl.
+  `lifestyleImages` + future section images; verified-durable publish gate (never
+  persist a non-`cdn.elfanaa.com`/non-`data:` hero; block/retry on failure with a
+  clear operator error); unify the image contract across both renderers (shared
+  `resolveImageRef` + Studio `remotePatterns` + a SafeImage-equivalent in preview);
+  guarantee a non-black terminal state.
+- **Phase 4.6 — Visual composition layer.** `IMAGE + COPY` variants for every major
+  section, mobile-first image-first stacked; plumb images through
+  `CroContent`/`SectionContent`; curated-safe text-only fallback.
+- **Phase 4.7 — Typed multi-image generation.** Generate hero + mechanism +
+  transformation + lifestyle[] + ingredient + founder + proof, all identity-grounded
+  via the product reference.
+- **Phase 4.8 — Research depth.** Surface scrape-skip to the operator; consume
+  `research.images`; add structured intake (benefits/ingredients/before-after); feed
+  grounded facts to copy + image-gen; add OCR/label extraction.
+
+#### 26.4.9 Phase 4.5 — image reliability architecture (DONE 2026-06-01)
+
+Permanent, architecture-level fix for the recurring hero/lifestyle image failure
+(§26.4.8 Finding 1). Prioritised durable correctness over per-surface patches.
+
+**ADR-S4-3 — Durability is created at persist time and GUARANTEED at the publish
+boundary; rendering never trusts a vendor URL.**
+
+Three layers, defence-in-depth:
+
+1. **Re-host EVERY generated image at persist time** —
+   `apps/studio/lib/studio/persist-generated-images.ts` now iterates BOTH
+   `product.images` (hero + gallery) AND `product.lifestyleImages` (previously
+   skipped → the root cause of rotting lifestyle bands). Runs right after
+   generation while vendor (fal) URLs are still alive. Extracted a reusable
+   `rehostImageUrl()` helper (returns the durable ref or `null`).
+
+2. **Single source of truth for ref→URL resolution + durability** — new
+   `@platform/storage/public-url` module:
+   - `resolveStorageRef(raw, { cdnBase })` — turns data:/http(s)/r2://`/bare-key
+     into a fetchable URL (rewriting the private R2 S3 endpoint → public CDN), or
+     `null`.
+   - `isDurablePublicUrl(url, cdnBase)` — classifies our-CDN / inline-data as
+     durable vs. foreign/vendor (will rot).
+   - `resolvePublicCdnBase(env, fallback)` — guards against the private-endpoint
+     misconfig. fanaa keeps its behaviour-identical mirror
+     (`resolveCatalogImageRef`) because it is intentionally decoupled from the
+     workspace packages for its standalone Docker bundle; both are pinned by
+     tests (`packages/storage/src/__tests__/public-url.test.ts` +
+     `apps/fanaa/__tests__/catalog-merge.test.ts`).
+
+3. **Verified-durable hero gate at publish** —
+   `drafts-service.ts::prepareDurableHeroUrl`: resolve the draft hero; if not
+   durable, attempt one last-chance re-host; if still not durable, persist
+   `null` (deterministic placeholder, NEVER black) + a publish warning
+   (`hero_image_not_durable`). The storefront is now **structurally incapable**
+   of receiving a rotting vendor hero.
+
+**Renderer hardening (non-black terminal state):**
+- `apps/studio/next.config.mjs` gains `images.remotePatterns` for
+  `cdn.elfanaa.com` (parity with fanaa) so any next/image consumer can optimise
+  the durable host.
+- `packages/runtime-renderer/src/styles.css` paints the hero media wrapper +
+  `<img>` with the warm-sand placeholder colour, so a broken/decoding image in
+  the Studio preview reveals brand cream — never a black void (the renderer is
+  server-safe and has no client onError).
+- fanaa gallery already sits on `bg-brand-soft` and `SafeProductImage` swaps to
+  the cream placeholder on error — unchanged.
+
+**Additional weakness discovered + fixed (not image-specific):** the Studio UI
+stage mirror `STAGE_ORDER` (`pipeline-stages.ts`) had drifted from the worker's
+`PIPELINE_STAGES` since Phase 4.1 — it was missing `section_content` (11 vs 12),
+so the conformance test failed and the progress bar mislabeled stages. Re-synced
+the list, labels, descriptions, and the "Stage N of 12" copy; updated the stale
+hardcoded `11`/`2/11` expectations in `pipeline-stages.test.ts`.
+
+**Tests added/updated:** `public-url.test.ts` (16), `persist-generated-images.test.ts`
+(lifestyle rehost + skip/guard), `hero-gate.test.ts` (gate never emits vendor),
+`pipeline-stages.test.ts` (12-stage conformance). Full suites green: storage 79,
+studio 458, fanaa 128, worker 39, runtime-renderer 12.
+
+**Net effect:** hero + lifestyle images are durable end-to-end; the storefront
+can never render a black/rotten hero; the Studio preview degrades to cream, not
+black; and the image contract has a single tested spec. This unblocks Phase 4.6
+(visual composition) which assumes reliable, durable images.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

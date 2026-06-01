@@ -13,7 +13,13 @@ import {
   type StudioPublishedProductRow,
 } from "@platform/persistence";
 import { fanaaStore } from "@platform/stores";
+import {
+  isDurablePublicUrl,
+  resolvePublicCdnBase,
+  resolveStorageRef,
+} from "@platform/storage";
 import { getStudioPersistence } from "./persistence";
+import { rehostImageUrl } from "./persist-generated-images";
 
 /**
  * Drafts service — the file-light shim the Studio API routes call.
@@ -469,13 +475,35 @@ export async function publishDraft(args: {
      * `apps/studio/lib/studio/storefront-catalog-auto-seed.ts` for
      * the corresponding "skip if already present" guard.
      */
+    // ── Verified-durable hero gate (Step 4 Phase 4.5, ADR-S4-3) ──
+    //
+    // GUARANTEE: the storefront NEVER receives a rotting vendor (fal) URL or
+    // an unusable ref as its hero. We resolve the draft's hero ref, and if it
+    // is not durable (our CDN / inline data) we attempt one last-chance
+    // re-host, then fall back to `null` (→ deterministic placeholder) rather
+    // than persisting a URL that will 404 and render black. The recurring
+    // hero bug is eliminated at the data boundary, not patched per-surface.
+    const heroGate = await prepareDurableHeroUrl({
+      rawHero: extractHeroImageUrl(validated.document),
+      draftId: draft.id,
+      storeId: draft.storeId,
+      persistence,
+    });
+    if (heroGate.warning) {
+      validated.warnings.push({
+        level: "warning",
+        code: "hero_image_not_durable",
+        message: heroGate.warning,
+      });
+    }
+
     const upsertResult = await tryUpsertCatalogRow({
       persistence,
       storeId: draft.storeId,
       slug: draft.slug,
       publishedProductId: row.id,
       catalogMetadata: validated.document.catalogMetadata,
-      heroImageUrl: extractHeroImageUrl(validated.document),
+      heroImageUrl: heroGate.url,
       croContent: validated.document.croContent ?? null,
     });
     if (upsertResult.kind === "logged_failure") {
@@ -660,6 +688,79 @@ function extractHeroImageUrl(document: DraftDocument): string | null {
   const ogImage = (document.meta as { ogImage?: unknown } | undefined)?.ogImage;
   if (typeof ogImage === "string" && ogImage.trim()) return ogImage.trim();
   return null;
+}
+
+/**
+ * Public CDN fallback used when `R2_PUBLIC_BASE_URL_FANAA` is unset/misconfigured
+ * — already whitelisted in fanaa's `next.config.mjs` remotePatterns and bound to
+ * the bucket root. It is a PUBLIC URL, not a credential, so it is safe to default.
+ */
+const FANAA_PUBLIC_CDN_FALLBACK = "https://cdn.elfanaa.com";
+
+/**
+ * Verified-durable hero resolution (Step 4 Phase 4.5).
+ *
+ * Returns a hero URL that is GUARANTEED durable (our CDN or inline data) — or
+ * `null` when no durable hero is available. Never returns a vendor/foreign URL.
+ *
+ *   1. Resolve the raw ref (bare key / r2:// / absolute) to a public URL.
+ *   2. Durable already? → use it.
+ *   3. Foreign/vendor URL? → last-chance re-host (only succeeds if the vendor
+ *      URL is still alive); if that yields a durable ref → use it.
+ *   4. Otherwise → `null` + a publish warning. The storefront then renders its
+ *      deterministic "image pending" placeholder (never black/broken).
+ */
+export async function prepareDurableHeroUrl(args: {
+  rawHero: string | null;
+  draftId: string;
+  storeId: string;
+  persistence: NonNullable<ReturnType<typeof getStudioPersistence>>;
+}): Promise<{ url: string | null; warning?: string }> {
+  const { rawHero, draftId, storeId, persistence } = args;
+  if (!rawHero) return { url: null };
+
+  const r2 = persistence.config.r2;
+  const publicBaseUrl =
+    r2.driver === "r2" ? r2.publicBaseUrls[storeId] : undefined;
+  const cdnBase = resolvePublicCdnBase(publicBaseUrl, FANAA_PUBLIC_CDN_FALLBACK);
+
+  const resolved = resolveStorageRef(rawHero, { cdnBase });
+  if (isDurablePublicUrl(resolved, cdnBase)) {
+    return { url: resolved };
+  }
+
+  // `resolved` is null (unusable) or a FOREIGN/vendor URL that will rot.
+  // Try one last-chance re-host while the source may still be alive.
+  if (resolved && r2.driver === "r2") {
+    const bucket = r2.buckets[storeId];
+    if (bucket) {
+      const durable = await rehostImageUrl({
+        src: resolved,
+        draftId,
+        bucket,
+        publicBaseUrl,
+        mediaStore: persistence.mediaStore,
+      });
+      const reResolved = durable ? resolveStorageRef(durable, { cdnBase }) : null;
+      if (isDurablePublicUrl(reResolved, cdnBase)) {
+        return { url: reResolved };
+      }
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[drafts-service] hero_not_durable storeId=${storeId} draftId=${draftId} rawHero=${String(
+      rawHero,
+    ).slice(0, 120)} — persisting null hero (storefront shows placeholder)`,
+  );
+  return {
+    url: null,
+    warning:
+      "Hero image was not durable (vendor URL or unresolved ref) and could not be " +
+      "re-hosted at publish — the storefront will show the placeholder. Re-generate " +
+      "this product so the hero is re-hosted while the source image is still available.",
+  };
 }
 
 async function tryUpsertCatalogRow(args: {

@@ -31,8 +31,14 @@ describe("STAGE_ORDER conformance", () => {
     expect([...STAGE_ORDER]).toEqual([...PIPELINE_STAGES]);
   });
 
-  it("has 11 stages (per PLATFORM.md §11)", () => {
-    expect(STAGE_ORDER.length).toBe(11);
+  it("has 12 stages (per PLATFORM.md §11 + Step 4 §4.1 section_content)", () => {
+    expect(STAGE_ORDER.length).toBe(12);
+  });
+
+  it("includes the Step-4 section_content stage between social_proof and upsell_match", () => {
+    const i = STAGE_ORDER.indexOf("section_content");
+    expect(i).toBeGreaterThan(STAGE_ORDER.indexOf("social_proof"));
+    expect(i).toBeLessThan(STAGE_ORDER.indexOf("upsell_match"));
   });
 
   it("every stage has an operator-facing label", () => {
@@ -110,7 +116,7 @@ describe("computePipelineProgress — running pipeline", () => {
     const p = computePipelineProgress(steps, "running");
     expect(p.successCount).toBe(2);
     expect(p.skippedCount).toBe(1);
-    expect(p.fraction).toBeCloseTo(2 / 11, 5);
+    expect(p.fraction).toBeCloseTo(2 / 12, 5);
   });
 });
 
@@ -123,7 +129,7 @@ describe("computePipelineProgress — terminal runs", () => {
     const p = computePipelineProgress(steps, "completed");
     expect(p.fraction).toBe(1);
     expect(p.currentStage).toBe("assemble");
-    expect(p.currentOrdinal).toBe(11);
+    expect(p.currentOrdinal).toBe(12);
   });
 
   it("surfaces failure at the failed stage without fabricating progress", () => {
@@ -135,7 +141,7 @@ describe("computePipelineProgress — terminal runs", () => {
     const p = computePipelineProgress(steps, "failed");
     expect(p.successCount).toBe(2);
     expect(p.failureCount).toBe(1);
-    expect(p.fraction).toBeCloseTo(2 / 11, 5);
+    expect(p.fraction).toBeCloseTo(2 / 12, 5);
     expect(p.currentStage).toBe("strategy");
     expect(p.currentOrdinal).toBe(3);
     expect(p.perStage.strategy).toBe("failed");
@@ -157,8 +163,8 @@ describe("computePipelineProgress — defensive", () => {
     expect(Object.keys(p.perStage).sort()).toEqual([...STAGE_ORDER].sort());
   });
 
-  it("returns the canonical 11 in perStage regardless of input", () => {
+  it("returns the canonical 12 in perStage regardless of input", () => {
     const p = computePipelineProgress([], "completed");
-    expect(Object.keys(p.perStage).length).toBe(11);
+    expect(Object.keys(p.perStage).length).toBe(12);
   });
 });

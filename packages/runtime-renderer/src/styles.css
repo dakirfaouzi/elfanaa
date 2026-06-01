@@ -50,10 +50,24 @@
   padding-top: 16px;
 }
 
+.pfp-hero__media {
+  /*
+   * Non-black terminal state (Step 4 Phase 4.5). The hero media wrapper and the
+   * <img> itself carry the warm-sand placeholder colour so a broken/expired or
+   * still-decoding image reveals the brand cream — never a black void. A broken
+   * <img> paints its own background-color, so this also covers the failed-load
+   * case in the shared renderer (which has no client-side onError fallback).
+   */
+  background: #f5efe6;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
 .pfp-hero__media img,
 .pfp-hero__media video {
   border-radius: 18px;
   overflow: hidden;
+  background: #f5efe6;
 }
 
 .pfp-cta__btn {

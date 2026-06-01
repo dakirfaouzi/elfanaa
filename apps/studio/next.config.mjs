@@ -42,6 +42,19 @@ const nextConfig = {
   // Setting it equal to basePath keeps them inside the same sub-path so
   // the storefront's reverse-proxy rule only needs one rewrite entry.
   assetPrefix: basePath || undefined,
+  // ── Remote image hosts (Step 4 Phase 4.5) ──────────────────────────────────
+  // The Studio preview (`/p/<slug>`) renders generated product images. Most
+  // flow through a plain `<img>` (runtime-renderer) or the `/api/studio/media`
+  // proxy, but the products-catalog thumbnails and any next/image consumer must
+  // be allowed to optimise the durable CDN host. Mirrors fanaa's allowlist so a
+  // re-hosted `https://cdn.elfanaa.com/<key>` hero never 400s in the optimizer.
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "cdn.elfanaa.com" },
+    ],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
 };
 
 export default nextConfig;

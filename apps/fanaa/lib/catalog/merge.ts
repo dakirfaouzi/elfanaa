@@ -890,6 +890,14 @@ function resolveCatalogImageCdnBase(): string {
  * Turn whatever is stored in `hero_image_url` into a value
  * `next/image` can render, or `null` when it's unusable.
  *
+ * NOTE (Step 4 Phase 4.5): the canonical spec for this resolution lives in
+ * `@platform/storage/public-url` (`resolveStorageRef`), which the Studio
+ * publish hero gate uses. fanaa is intentionally decoupled from the workspace
+ * schema/storage packages (it mirrors types locally for a standalone Docker
+ * bundle — see lib/types.ts), so this is a behaviour-identical MIRROR, pinned
+ * by both `apps/fanaa/__tests__/catalog-merge.test.ts` and
+ * `packages/storage/src/__tests__/public-url.test.ts`. Keep the two in sync.
+ *
  * The publish pipeline can store any of these shapes:
  *   • absolute `http(s)://…`        → use as-is (already a CDN/vendor URL)
  *   • inline `data:…`               → use as-is (placeholder/data URI)
