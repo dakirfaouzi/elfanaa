@@ -2294,6 +2294,115 @@ can never render a black/rotten hero; the Studio preview degrades to cream, not
 black; and the image contract has a single tested spec. This unblocks Phase 4.6
 (visual composition) which assumes reliable, durable images.
 
+#### 26.4.10 Phase 4.5.1 — canonical, section-agnostic image architecture (DONE 2026-06-01)
+
+4.5 made the BYTES durable (re-host all) and gated the HERO. Live validation then
+showed: **hero PASS, lifestyle still "image pending"**. The user (correctly)
+rejected a lifestyle-only patch and required one durable pipeline for every
+current + future CRO image. This phase closes that.
+
+**1. Exact root cause of the lifestyle placeholder (full lifecycle trace).**
+
+| Stage | Lifestyle image | Verdict |
+|---|---|---|
+| generated | `assemble.ts` sets `product.lifestyleImages` (kept separate from `images`) | ✅ ok |
+| persisted/rehosted | 4.5 `persistGeneratedImages` re-hosts `lifestyleImages` → durable **bare R2 key** when `R2_PUBLIC_BASE_URL` resolves to the private endpoint / is unset (`mediaStore.publicUrl` returns the key, not an absolute URL) | ⚠️ stored as bare key |
+| projected | `product-to-draft.ts::buildCroContent` → `cro.lifestyleImage = lifestyleImages[0]` (bare key) | ✅ carried |
+| stored/published | `drafts-service` writes `cro_content` verbatim; the **hero gate normalised the hero column to an absolute CDN URL, but cro_content was never normalised** | ❌ key persisted raw |
+| hydrated | `merge.ts::synthesiseProductFromRow`: `synthesiseHeroImage(row)` → `resolveCatalogImageRef` (hero ✅) — **but `coerceCroContent` copies every `src` verbatim**; `cro.lifestyleImage`/`cro.images[]` bypass the resolver | ❌ **BREAK POINT** |
+| rendered | `next/image` gets a bare key → treats it as a relative path → 404 → `SafeProductImage` → cream "image pending" | ❌ symptom |
+
+**The single architectural flaw:** the hero had a resolver path (`synthesiseHeroImage`)
+and a publish normaliser (the hero gate); **every other cro_content image had
+neither.** Durability of bytes ≠ a fetchable URL — a bare key is durable but
+unrenderable until resolved. Hero worked precisely because it was the one ref
+that passed through the resolver, which masked the gap for everything else.
+
+**2. General image architecture changes (section-agnostic, future-proof).**
+
+**ADR-S4-4 — One canonical resolver at the hydration boundary + one durability
+guard at the publish boundary, applied to ALL cro_content images by structural
+walk (not by field enumeration).**
+
+- **Hydration resolver (render correctness, retroactive).**
+  `apps/fanaa/lib/catalog/merge.ts::resolveRawImageRefs` recursively walks the raw
+  `cro_content` and routes **every object with a string `src`** through the SAME
+  `resolveCatalogImageRef` used by the hero, BEFORE coercion. So `lifestyleImage`,
+  gallery `images[]`, review avatars, and any future Phase 4.6 section image
+  (mechanism / transformation / comparison / ingredient / proof) are normalised
+  identically — bare key / `r2://` / private-endpoint URL → absolute CDN. This
+  fixes already-published rows with **no re-publish** (mirrors how the hero
+  resolver always worked). Unresolvable refs keep their value so `SafeProductImage`
+  still degrades to cream — never black.
+- **Publish durability guard (storage contract, req #2).**
+  `apps/studio/lib/studio/drafts-service.ts::sanitiseCroContentImages` walks the
+  same structure at publish using the shared `@platform/storage` spec
+  (`resolveStorageRef` + `isDurablePublicUrl`): durable refs are normalised to
+  absolute CDN; **foreign/vendor/unresolvable refs are dropped to `""` and
+  counted**, raising a `cro_image_not_durable` publish warning. The storefront row
+  is now **structurally incapable of storing a temporary vendor URL in any
+  section** (hero already had the equivalent gate; both now share
+  `resolveStoreCdnBase`).
+- **Why a structural walk, not field lists.** `src` is the only image-bearing key
+  in the cro_content contract, so "resolve every `src`" is exact AND requires zero
+  edits when 4.6 adds new image sections. **Future sections inherit durability +
+  resolution automatically (req #5).**
+
+Layered with 4.5: persist re-hosts the bytes (durable) → publish guard forbids
+vendor URLs in storage → hydration resolver guarantees a fetchable URL at render.
+Three independent boundaries; a regression in any one degrades to cream, never
+black, never broken-while-another-works.
+
+**Tests:** `apps/fanaa/__tests__/catalog-merge.test.ts` (+4: bare-key lifestyle,
+bare-key gallery, private-endpoint rewrite, nested review avatar) → 78 green;
+`apps/studio/__tests__/cro-image-sanitise.test.ts` (5: normalise / keep / drop
+vendor / nested section walk / leave non-image data) → green; studio + fanaa
+typecheck clean.
+
+**Validation checklist (before 4.6):**
+- Deploy studio (publish guard) + fanaa (hydration resolver). No migration.
+- Existing AI products render lifestyle **without** re-publish (resolver is
+  retroactive). Confirm `/products/<slug>` lifestyle band shows the image, not
+  "image pending", at 390px.
+- Re-publish one product; confirm no `cro_image_not_durable` warning (all images
+  re-hosted) and the stored `cro_content` `src`s are absolute `cdn.elfanaa.com`
+  URLs.
+- Negative check: any black tile anywhere = regression (must be cream placeholder
+  at worst).
+
+#### 26.4.11 Phase 4.6 — image-led visual composition (REVISED 2026-06-01, SugarBear benchmark)
+
+Target restated: **image-led, mobile-first PDP**, NOT text-heavy CRO. Benchmark =
+SugarBear (`assets/...SugarBear...png`): frequent real-person+product imagery,
+image+copy compositions, repeated visual breaks, text as the minority.
+
+**Composition contract (mobile-first, 390px):**
+- Most sections are `IMAGE + COPY` (image on top, copy below — stacked, not
+  side-by-side); text-only sections are the minority (FAQ, fine print).
+- **Hero = product + human model + context** together (not a floating product),
+  unless a strong reason not to.
+- Image-bearing sections: hero, lifestyle, mechanism/how-it-works, transformation
+  (before/after), benefits, comparison, proof/testimonials, ingredient.
+
+**Image generation requirements (feeds Phase 4.7 typed multi-image gen):**
+- Photorealistic people — **no obvious AI faces**; model demographics matched to
+  the product (beauty → women, men's → men, family → family, wellness →
+  appropriate lifestyle model), inferred from `AudienceTargeting`
+  (gender/age/market) + product category.
+- Product composited **into the scene** wherever relevant (identity-grounded via
+  the uploaded reference, same img2img path that fixed Step 3 identity loss).
+- Every generated section image flows through the **4.5.1 durable pipeline with no
+  extra wiring** — it lands in `cro_content` under some `{ src }`, so the publish
+  guard + hydration resolver already cover it. **This is the explicit guarantee
+  that 4.6 produces image-rich PDPs without re-opening the image-reliability work.**
+
+**Delivery sketch:** (a) extend `SectionContent` with optional per-section
+`image`/`images` (`{ src, alt }`) fields; (b) `section_content` + a typed
+multi-image gen stage produce them, persisted + re-hosted exactly like hero/
+lifestyle; (c) Fanaa section components render image-first with curated-safe
+text-only fallback; (d) ordering already audience-aware (Phase 4.3) — add
+image-density as a layout signal.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

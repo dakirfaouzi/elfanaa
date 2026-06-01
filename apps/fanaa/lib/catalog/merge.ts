@@ -233,7 +233,15 @@ export function synthesiseProductFromRow(
 
   // Step 4 — hydrate the rich CRO surface from the publish-time projection so
   // AI-generated products render a full page without a hand-authored snapshot.
-  const cro = coerceCroContent(row.croContent);
+  //
+  // CANONICAL IMAGE RESOLUTION (Phase 4.5.1): resolve EVERY nested image ref in
+  // cro_content through the one resolver BEFORE coercion, so lifestyleImage,
+  // gallery images, review avatars, and any future Phase 4.6 section image are
+  // normalised identically to the hero. Before this, only the hero column was
+  // resolved (synthesiseHeroImage) — every other cro image kept its bare R2 key
+  // / vendor URL and rendered "image pending". Section-agnostic + future-proof:
+  // a new image-bearing section needs zero extra wiring here.
+  const cro = coerceCroContent(resolveRawImageRefs(row.croContent));
   if (cro) {
     if (cro.title) product.title = cro.title;
     if (cro.description) product.description = cro.description;
@@ -909,6 +917,35 @@ function resolveCatalogImageCdnBase(): string {
  * stage rewrites them to absolute URLs. Resolving here means every
  * already-published row renders without a re-publish.
  */
+/**
+ * Recursively resolve EVERY image ref nested anywhere in a raw cro_content
+ * JSON value through {@link resolveCatalogImageRef} (Phase 4.5.1).
+ *
+ * "Section-agnostic" means: we don't enumerate fields. Any object that carries
+ * a string `src` — `images[]`, `lifestyleImage`, review `avatar`s, and every
+ * future Phase 4.6 section image (mechanism / transformation / comparison /
+ * ingredient / proof …) — has its `src` normalised to a fetchable CDN URL with
+ * NO per-section code. An unresolvable ref keeps its original value so the
+ * downstream `SafeProductImage` still swaps to the placeholder (never a black
+ * tile). `src` is the ONLY image-bearing key in the cro_content contract, so
+ * the walk can't touch non-image data.
+ */
+function resolveRawImageRefs(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(resolveRawImageRefs);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      if (key === "src" && typeof v === "string") {
+        out[key] = resolveCatalogImageRef(v) ?? v;
+      } else {
+        out[key] = resolveRawImageRefs(v);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
 export function resolveCatalogImageRef(raw: string): string | null {
   const value = raw.trim();
   if (!value) return null;

@@ -497,6 +497,28 @@ export async function publishDraft(args: {
       });
     }
 
+    // ── Section-agnostic cro_content image durability (Phase 4.5.1) ──
+    //
+    // GUARANTEE: no section (lifestyle, gallery, or any future Phase 4.6 image
+    // block) can persist a temporary vendor URL. Every nested image ref is
+    // normalised to our CDN or dropped — one walk, all sections.
+    const croCounter = { dropped: 0 };
+    const sanitisedCro =
+      validated.document.croContent != null
+        ? sanitiseCroContentImages(
+            validated.document.croContent,
+            resolveStoreCdnBase(persistence, draft.storeId),
+            croCounter,
+          )
+        : null;
+    if (croCounter.dropped > 0) {
+      validated.warnings.push({
+        level: "warning",
+        code: "cro_image_not_durable",
+        message: `${croCounter.dropped} section image(s) were not durable (vendor URL / unresolved) and were dropped — the storefront shows the placeholder there. Re-generate this product so they are re-hosted.`,
+      });
+    }
+
     const upsertResult = await tryUpsertCatalogRow({
       persistence,
       storeId: draft.storeId,
@@ -504,7 +526,7 @@ export async function publishDraft(args: {
       publishedProductId: row.id,
       catalogMetadata: validated.document.catalogMetadata,
       heroImageUrl: heroGate.url,
-      croContent: validated.document.croContent ?? null,
+      croContent: sanitisedCro,
     });
     if (upsertResult.kind === "logged_failure") {
       // Surface as a publish WARNING so the UI banner can show it
@@ -698,6 +720,66 @@ function extractHeroImageUrl(document: DraftDocument): string | null {
 const FANAA_PUBLIC_CDN_FALLBACK = "https://cdn.elfanaa.com";
 
 /**
+ * The public CDN base for a store's images, guarding the private-R2-endpoint
+ * misconfig. Single helper so the hero gate AND the cro_content sanitiser agree
+ * on what "durable" means.
+ */
+function resolveStoreCdnBase(
+  persistence: NonNullable<ReturnType<typeof getStudioPersistence>>,
+  storeId: string,
+): string {
+  const r2 = persistence.config.r2;
+  const publicBaseUrl =
+    r2.driver === "r2" ? r2.publicBaseUrls[storeId] : undefined;
+  return resolvePublicCdnBase(publicBaseUrl, FANAA_PUBLIC_CDN_FALLBACK);
+}
+
+/**
+ * Sanitise EVERY image ref nested anywhere in the cro_content projection so the
+ * storefront row can never STORE a temporary vendor URL (Step 4 Phase 4.5.1,
+ * req #2). Pure + synchronous — durability of the BYTES is already guaranteed by
+ * the persist-time re-host (`persistGeneratedImages` covers images + lifestyle +
+ * any future array); this is the storage-contract guard:
+ *
+ *   • bare key / `r2://` / private-endpoint URL → normalise to absolute CDN URL.
+ *   • already-durable (our CDN / inline data)   → keep.
+ *   • foreign / vendor / unresolvable           → drop to "" + count (the
+ *     storefront then renders its deterministic placeholder; re-generate to
+ *     restore — the bytes weren't re-hosted, so we must not persist a URL that
+ *     will 404).
+ *
+ * Section-agnostic: walks any object with a string `src`, so every future
+ * Phase 4.6 image-bearing section inherits the guarantee with no extra code.
+ */
+export function sanitiseCroContentImages(
+  value: unknown,
+  cdnBase: string,
+  counter: { dropped: number },
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((v) => sanitiseCroContentImages(v, cdnBase, counter));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      if (key === "src" && typeof v === "string") {
+        const resolved = resolveStorageRef(v, { cdnBase });
+        if (isDurablePublicUrl(resolved, cdnBase)) {
+          out[key] = resolved;
+        } else {
+          out[key] = "";
+          counter.dropped += 1;
+        }
+      } else {
+        out[key] = sanitiseCroContentImages(v, cdnBase, counter);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
  * Verified-durable hero resolution (Step 4 Phase 4.5).
  *
  * Returns a hero URL that is GUARANTEED durable (our CDN or inline data) — or
@@ -722,7 +804,7 @@ export async function prepareDurableHeroUrl(args: {
   const r2 = persistence.config.r2;
   const publicBaseUrl =
     r2.driver === "r2" ? r2.publicBaseUrls[storeId] : undefined;
-  const cdnBase = resolvePublicCdnBase(publicBaseUrl, FANAA_PUBLIC_CDN_FALLBACK);
+  const cdnBase = resolveStoreCdnBase(persistence, storeId);
 
   const resolved = resolveStorageRef(rawHero, { cdnBase });
   if (isDurablePublicUrl(resolved, cdnBase)) {

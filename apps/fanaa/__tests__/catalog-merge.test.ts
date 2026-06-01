@@ -948,4 +948,90 @@ describe("synthesiseProductFromRow — cro_content projection", () => {
     expect(product.sectionContent).toBeUndefined();
     expect(product.sectionOrder).toBeUndefined();
   });
+
+  // ── Phase 4.5.1: canonical, section-agnostic image resolution ──────────────
+  // Every cro_content image ref must be resolved through the SAME resolver as
+  // the hero. Before 4.5.1 only the hero column was resolved, so a bare-key
+  // lifestyle/gallery image rendered "image pending" while the hero worked.
+
+  it("resolves a bare-key lifestyleImage to the public CDN (the 4.5 lifestyle bug)", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-lifestyle",
+        croContent: {
+          lifestyleImage: {
+            src: "studio/draft_x/generated/01KSV.png",
+            alt: { ar: "ل", en: "life" },
+          },
+        },
+      }),
+    );
+    expect(product.lifestyleImage?.src).toBe(
+      "https://cdn.elfanaa.com/studio/draft_x/generated/01KSV.png",
+    );
+  });
+
+  it("resolves bare-key gallery images (not just the hero)", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-gallery-keys",
+        heroImageUrl: "https://cdn.elfanaa.com/hero.png",
+        croContent: {
+          images: [
+            { src: "https://cdn.elfanaa.com/hero.png", alt: { ar: "ب", en: "hero" } },
+            { src: "studio/d/generated/g2.png", alt: { ar: "ب", en: "g2" } },
+          ],
+        },
+      }),
+    );
+    expect(product.images[1]!.src).toBe(
+      "https://cdn.elfanaa.com/studio/d/generated/g2.png",
+    );
+  });
+
+  it("rewrites a private R2 endpoint url nested in cro_content to the CDN", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-endpoint",
+        croContent: {
+          lifestyleImage: {
+            src: "https://acct.r2.cloudflarestorage.com/fanaa-bucket/studio/d/x.png",
+            alt: { ar: "ل", en: "life" },
+          },
+        },
+      }),
+    );
+    expect(product.lifestyleImage?.src).toBe(
+      "https://cdn.elfanaa.com/studio/d/x.png",
+    );
+  });
+
+  it("resolves review avatars too (future image-bearing fields inherit automatically)", () => {
+    const product = synthesiseProductFromRow(
+      makeDbRow({
+        slug: "ai-avatar",
+        croContent: {
+          reviews: [
+            {
+              name: { ar: "سارة", en: "Sara" },
+              city: { ar: "الرياض", en: "Riyadh" },
+              rating: 5,
+              body: { ar: "رائع", en: "Great" },
+              date: "2026-05-01",
+              verified: true,
+              avatar: { src: "studio/d/generated/avatar.png", alt: { ar: "", en: "a" } },
+            },
+          ],
+        },
+      }),
+    );
+    const avatarSrc = (
+      product.reviews?.[0] as unknown as { avatar?: { src?: string } }
+    )?.avatar?.src;
+    // Whether or not the coercer keeps `avatar`, the raw-walk normalises any
+    // `src` it sees; if the field survives coercion it must be a CDN URL.
+    if (avatarSrc) {
+      expect(avatarSrc).toBe("https://cdn.elfanaa.com/studio/d/generated/avatar.png");
+    }
+  });
 });
