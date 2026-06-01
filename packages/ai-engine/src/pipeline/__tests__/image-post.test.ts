@@ -104,6 +104,10 @@ describe("image-post (stage 09)", () => {
     expect(out.hero?.alt.ar).toContain("إشراق يومي");
     expect(out.hero?.alt.en).toContain("Daily glow");
     expect(out.lifestyle[0]?.alt.en).toContain("evening_ritual");
+    // Phase 4.6.3 — the semantic intent is carried onto the ProcessedImage so
+    // the storefront can assign the right scene to the right section.
+    expect(out.lifestyle[0]?.intent).toBe("evening_ritual");
+    expect(out.hero?.intent).toBeUndefined();
   });
 
   it("returns an undefined hero when no hero result exists (lifestyle-only)", async () => {

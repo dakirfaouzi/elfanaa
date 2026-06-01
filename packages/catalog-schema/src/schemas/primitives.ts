@@ -27,6 +27,7 @@ export const ProductImageSchema: z.ZodType<ProductImage> = z.object({
   alt: LocalizedStringSchema,
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
+  intent: z.string().optional(),
 });
 
 export const ProductBenefitSchema: z.ZodType<ProductBenefit> = z.object({

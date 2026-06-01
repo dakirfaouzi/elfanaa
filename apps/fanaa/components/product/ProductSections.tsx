@@ -113,10 +113,49 @@ const IMAGE_PRIORITY: string[] = [
 ];
 
 /**
+ * Phase 4.6.3 — SEMANTIC matching. Each generated scene carries an `intent`
+ * (mechanism / result / ingredient / proof / context / trust / detail / …). We
+ * map a section render-key to the intents that belong on it so the RIGHT scene
+ * lands on the right section (a "result" scene → results, an "ingredient" scene
+ * → ingredients) instead of a positional guess.
+ *
+ * Matching is deliberately TOLERANT (substring / synonym regex) because `intent`
+ * is a soft contract — the model may emit "before-after", "transformation", or
+ * "result" for the same idea. Sections not listed here only receive scenes via
+ * the positional fallback.
+ */
+const SECTION_INTENT_PATTERNS: Record<string, RegExp> = {
+  lifestyle: /context|lifestyle|home|aspiration|vanity|bathroom|morning|evening|ritual|routine/i,
+  how_it_works: /mechanis|process|\bhow\b|apply|applicat|step|absorb|science|works/i,
+  results: /result|transform|before|after|outcome|glow|progress|reveal|journey/i,
+  comparison: /compar|versus|\bvs\b|side[- ]?by|alternative|switch/i,
+  social_proof: /proof|testimonial|review|customer|happy|confiden|smile|satisfied|community/i,
+  founders_note: /founder|story|brand|maker|origin|craft/i,
+  guarantee: /trust|guarantee|premium|reassur|pack|unbox|gift|hold/i,
+  objections: /proof|context|confiden|reassur|honest/i,
+  ingredients: /ingredient|texture|formula|swatch|\bdrop|serum|close|detail|natural|botanic/i,
+};
+
+function intentMatchesSection(intent: string | undefined, key: string): boolean {
+  if (!intent) return false;
+  const pattern = SECTION_INTENT_PATTERNS[key];
+  return pattern ? pattern.test(intent) : false;
+}
+
+/**
  * Assign the generated scene pool to image-capable sections so the page becomes
- * image-led. Distinct image per section (no cheap repetition); once the pool is
- * exhausted the remaining sections render text-only (curated-safe). Only keys
- * actually in the render order are eligible.
+ * image-led AND each section gets the most semantically-appropriate scene
+ * (Phase 4.6.3). Two passes:
+ *
+ *   1. SEMANTIC — walk image-capable sections in priority order; give each the
+ *      first unused scene whose `intent` matches that section.
+ *   2. POSITIONAL fallback — fill any still-empty image-capable section with the
+ *      next leftover scene, so the page stays image-led even when intents don't
+ *      cover every section (preserves the 4.6.2 behaviour as the floor).
+ *
+ * Distinct scene per section (no cheap repetition); once the pool is exhausted
+ * the remaining sections render text-only (curated-safe). Only keys actually in
+ * the render order are eligible; FAQ/benefits are never imaged.
  */
 export function assignSectionImages(
   product: Product,
@@ -129,17 +168,35 @@ export function assignSectionImages(
   if (pool.length === 0) return {};
 
   const present = new Set(order);
+  const eligible = IMAGE_PRIORITY.filter((key) => present.has(key));
   const assignment: Record<string, ProductImage> = {};
-  let i = 0;
-  for (const key of IMAGE_PRIORITY) {
-    if (i >= pool.length) break;
-    if (!present.has(key)) continue;
-    const img = pool[i];
-    if (img) {
-      assignment[key] = img;
-      i += 1;
+  const used = new Set<number>();
+
+  // Pass 1 — semantic: the right scene for the right section.
+  for (const key of eligible) {
+    const idx = pool.findIndex(
+      (img, i) => !used.has(i) && intentMatchesSection(img.intent, key),
+    );
+    if (idx >= 0) {
+      assignment[key] = pool[idx]!;
+      used.add(idx);
     }
   }
+
+  // Pass 2 — positional fallback: keep the page image-led.
+  const leftover = pool
+    .map((_, i) => i)
+    .filter((i) => !used.has(i));
+  let next = 0;
+  for (const key of eligible) {
+    if (assignment[key]) continue;
+    if (next >= leftover.length) break;
+    const idx = leftover[next]!;
+    assignment[key] = pool[idx]!;
+    used.add(idx);
+    next += 1;
+  }
+
   return assignment;
 }
 

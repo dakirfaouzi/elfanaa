@@ -66,6 +66,9 @@ function toProcessedImage(
     alt: buildAltText({ headline, role, intent: r.intent }),
     width: r.width,
     height: r.height,
+    // Phase 4.6.3 — carry the semantic intent forward so the storefront can
+    // assign the scene to its matching section (mechanism → how_it_works, …).
+    ...(r.intent ? { intent: r.intent } : {}),
   };
 }
 

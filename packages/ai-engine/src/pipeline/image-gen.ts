@@ -191,7 +191,7 @@ async function runSceneWithIdentity(opts: {
 }): Promise<RunOutcome> {
   const img2img = await runOnePrompt({
     role: "lifestyle",
-    creative: { ...opts.creative, prompt: buildSceneIdentityPrompt(opts.creative.prompt) },
+    creative: { ...opts.creative, prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent) },
     provider: opts.provider,
     maxAttempts: opts.maxAttempts,
     storeId: opts.storeId,
@@ -244,14 +244,31 @@ function buildIdentityPrompt(heroPrompt: string): string {
 
 /**
  * Wrap a scene prompt as an identity-preserving Kontext EDIT: composite the
- * EXACT reference product into a photorealistic human + context scene while
- * keeping the product pixel-faithful (Phase 4.6.1).
+ * EXACT reference product into a premium advertising scene while keeping the
+ * product pixel-faithful (Phase 4.6.1).
+ *
+ * Phase 4.6.3 — intent-aware: `ingredient`/`detail` intents render a premium
+ * MACRO of the exact product + its ingredient/texture (a hand may hold it, but a
+ * full human is optional), since a forced full-body human weakens a close-up
+ * ingredient shot. Every other intent keeps the product + human composite.
  */
-function buildSceneIdentityPrompt(scenePrompt: string): string {
+function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string {
+  const isMacro = intent ? /ingredient|detail|texture|swatch|macro/i.test(intent) : false;
+  if (isMacro) {
+    return (
+      IDENTITY_LOCK +
+      " Re-photograph this exact product as a premium close-up advertising MACRO " +
+      "that showcases its texture / key ingredient (a hand may hold or dispense " +
+      "it, but a full person is optional): " +
+      scenePrompt +
+      " Crisp tactile detail, believable hands if present; no obvious-AI artefacts."
+    );
+  }
   return (
     IDENTITY_LOCK +
     " Composite this exact product naturally into a premium advertising scene " +
-    "with a photorealistic, audience-appropriate person using or holding it: " +
+    "with a photorealistic, audience-appropriate person using or holding it in a " +
+    "candid, natural pose: " +
     scenePrompt +
     " The product stays clearly visible and recognisable; believable hands and " +
     "anatomy; no obvious-AI face."

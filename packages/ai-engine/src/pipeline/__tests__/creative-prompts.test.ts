@@ -190,8 +190,15 @@ describe("creative-prompts (stage 07)", () => {
     expect(system).toContain("CAST THE HUMAN");
     expect(system).toContain("PHOTOREALISM IS MANDATORY");
     expect(system).toContain("VISUAL CONSISTENCY ACROSS SCENES");
-    // User prompt carries the section-intent scene plan (image-led PDP).
+    // Phase 4.6.3 — product-aware casting + natural product interaction.
+    expect(system).toContain("PRODUCT-AWARE CASTING");
+    expect(system).toContain("NATURAL PRODUCT INTERACTION");
+    // User prompt carries the section-aware intent scene plan (right scene →
+    // right section), with intents that map to PDP sections.
     expect(user).toContain("SCENE PLAN");
-    expect(user).toMatch(/4.5 lifestyle scenes/);
+    expect(user).toMatch(/the RIGHT scene for the RIGHT section/i);
+    for (const intent of ["mechanism", "result", "ingredient", "proof", "context", "trust"]) {
+      expect(user).toContain(`'${intent}'`);
+    }
   });
 });

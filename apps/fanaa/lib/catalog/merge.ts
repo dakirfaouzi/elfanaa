@@ -502,10 +502,15 @@ function locArray(value: unknown): LocalizedString[] | undefined {
 
 function coerceProductImage(value: unknown): ProductImage | null {
   if (!value || typeof value !== "object") return null;
-  const v = value as { src?: unknown; alt?: unknown };
+  const v = value as { src?: unknown; alt?: unknown; intent?: unknown };
   if (typeof v.src !== "string" || v.src.trim().length === 0) return null;
   const alt = loc(v.alt) ?? { ar: "", en: "" };
-  return { src: v.src, alt };
+  const img: ProductImage = { src: v.src, alt };
+  // Phase 4.6.3 — carry the semantic intent so section-aware assignment works.
+  if (typeof v.intent === "string" && v.intent.trim().length > 0) {
+    img.intent = v.intent;
+  }
+  return img;
 }
 
 /**

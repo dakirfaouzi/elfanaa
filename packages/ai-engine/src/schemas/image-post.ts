@@ -19,6 +19,7 @@ export const ImagePostOutputSchema: z.ZodType<ImagePostOutput> = z.object({
       alt: LocalizedStringSchema,
       width: z.number().int().positive(),
       height: z.number().int().positive(),
+      intent: z.string().optional(),
     })
     .optional(),
   gallery: z.array(
@@ -27,6 +28,7 @@ export const ImagePostOutputSchema: z.ZodType<ImagePostOutput> = z.object({
       alt: LocalizedStringSchema,
       width: z.number().int().positive(),
       height: z.number().int().positive(),
+      intent: z.string().optional(),
     }),
   ),
   lifestyle: z.array(
@@ -35,6 +37,7 @@ export const ImagePostOutputSchema: z.ZodType<ImagePostOutput> = z.object({
       alt: LocalizedStringSchema,
       width: z.number().int().positive(),
       height: z.number().int().positive(),
+      intent: z.string().optional(),
     }),
   ),
   /** True when the worker stage performs real Sharp work — always false in M5. */

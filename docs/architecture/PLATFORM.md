@@ -2583,10 +2583,75 @@ hydrates and resolves bare keys via the canonical resolver; new fanaa
 exclusion, gallery fallback, empty-pool, and order-gating. fanaa 84 green,
 studio 37 green; typecheck clean across catalog-schema/studio/fanaa.
 
-**Future (4.6.3, not in scope):** carry each scene's `intent`
-(ritual/result/detail/context/proof) into `ProductImage` so assignment becomes
-SEMANTIC (a "result" scene → results section) rather than positional, and add
-side-by-side image/copy layouts on desktop.
+**Follow-up (done in 4.6.3):** carry each scene's `intent` into `ProductImage`
+so assignment becomes SEMANTIC (a "result" scene → results section) rather than
+positional — see §26.4.11.4. Still future: side-by-side image/copy layouts on
+desktop.
+
+#### 26.4.11.4 Phase 4.6.3 — semantic assignment + audience/product-aware casting (DONE 2026-06-01)
+
+4.6.2 made the page image-led but distribution was **positional** — a section
+often got a generic lifestyle scene instead of a section-specific visual. 4.6.3
+shifts the goal from "more images" to "the **right** image for the right
+section," plus sharper casting and realism. Two layers:
+
+**1. Generation — section-aware scenes + better casting/realism**
+(`prompts/creative-prompts.ts`, `pipeline/image-gen.ts`):
+- **Section-aware scene plan.** The creative-prompts user prompt now requests 1
+  hero + 5 scenes, each tagged with a section `intent` from a canonical set that
+  maps 1:1 to PDP sections: `mechanism`→how-it-works, `result`→results,
+  `ingredient`→ingredients, `proof`→social-proof, `context`→lifestyle,
+  `trust`→guarantee. Distinct intent per scene; always include `result`+`proof`.
+- **Product-aware casting.** New hard rule: infer the believable customer from
+  the product's PROMISE, never default to a 20-something model — anti-ageing/
+  firming/menopause→35–55; acne/first-serum→18–25; hair-loss/beard→age-
+  appropriate man; baby/family→parent. "Vary the casting per product; never
+  reuse one generic woman."
+- **Natural product interaction + realism.** New rule: correct grip, plausibly
+  handled cap/dropper/pump, believable product scale, candid in-the-moment pose
+  (not a stiff label-to-camera presentation), commercial-advertising realism.
+- **Intent-aware img2img wrapper.** `buildSceneIdentityPrompt(prompt, intent)`:
+  `ingredient`/`detail` intents render a premium product+texture MACRO (human
+  optional) instead of forcing a full person into a close-up; all other intents
+  keep the product + human composite. Identity lock unchanged (hard requirement).
+
+**2. Data + rendering — carry `intent`, then match semantically:**
+- **Carry the intent (the missing link).** `intent` flowed creative-prompts →
+  image-gen, but `image-post.toProcessedImage` DROPPED it (used only for alt
+  text), so `ProductImage` never had it and the renderer could only guess
+  positionally. Added optional `intent` to `ProductImage` (+schema),
+  `ProcessedImage` (+schema), emitted it in `image-post`; `assemble` →
+  `UniversalProduct.lifestyleImages` → studio `buildCroContent` →
+  `cro.lifestyleImages` → fanaa `coerceProductImage` all carry it through (the
+  4.5.1 canonical resolver still normalises `src`; `intent` is a sibling key).
+- **Semantic matching (`ProductSections.assignSectionImages`).** Two passes:
+  (1) **semantic** — each image-capable section in priority order takes the first
+  unused scene whose `intent` matches that section (tolerant regex over synonyms:
+  "before-after"/"transformation"/"result" all → results); (2) **positional
+  fallback** — fill any still-empty section with the next leftover scene, so the
+  page stays image-led even when intents don't cover everything (4.6.2 behaviour
+  as the floor). Distinct scene per section; FAQ/benefits never imaged.
+
+**Net effect vs. 4.6.2:** the ingredient scene lands on ingredients, the
+transformation on results, the testimonial on social-proof, the macro texture
+on ingredients — a coherent visual story instead of generic lifestyle shots
+scattered by position. Casting is age/product-appropriate (an anti-ageing serum
+no longer shows a 22-year-old). Product identity remains a hard, unchanged
+requirement.
+
+**Tests:** ai-engine `creative-prompts` (section-aware intents + casting/realism
+rules present), `image-post` (intent carried onto ProcessedImage); fanaa
+`catalog-merge` (intent survives hydration), `section-image-distribution`
+(semantic routing, synonym tolerance, semantic-first-then-positional, no reuse).
+ai-engine 92 green, fanaa 88 green, studio 32 green; typecheck clean across
+catalog-schema/ai-engine/studio/fanaa.
+
+**Validation (regenerate a NEW product):** confirm each section shows a
+section-appropriate scene (mechanism on how-it-works, transformation on results,
+ingredient macro on ingredients, confident customer on social-proof); casting
+matches the product's real buyer age/gender/market; product identity preserved
+in every frame; one coherent campaign look. Existing rows predate `intent` and
+fall back to positional until regenerated.
 
 ### 26.5 Architecture decisions (Step 3)
 

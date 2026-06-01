@@ -23,6 +23,15 @@ export type ProductImage = {
   alt: LocalizedString;
   width?: number;
   height?: number;
+  /**
+   * Semantic role of a generated scene (Phase 4.6.3), e.g. `mechanism`,
+   * `result`, `ingredient`, `proof`, `context`, `trust`, `detail`. Lets the
+   * storefront assign the RIGHT scene to the right section instead of a
+   * positional guess. A free string (soft contract with the creative-prompts
+   * stage); the renderer matches it tolerantly. Absent for curated/gallery
+   * images, which fall back to positional distribution.
+   */
+  intent?: string;
 };
 
 // ── Value content ────────────────────────────────────────────────────────

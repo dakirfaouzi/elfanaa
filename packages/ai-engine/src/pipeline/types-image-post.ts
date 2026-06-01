@@ -25,6 +25,11 @@ export interface ProcessedImage {
   alt: LocalizedString;
   width: number;
   height: number;
+  /**
+   * Semantic scene role carried from the creative-prompts `intent` (Phase
+   * 4.6.3) so the storefront can assign the right scene to the right section.
+   */
+  intent?: string;
 }
 
 export interface ImagePostOutput {

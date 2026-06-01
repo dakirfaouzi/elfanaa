@@ -86,3 +86,67 @@ describe("assignSectionImages (Phase 4.6.2 distribution)", () => {
     expect(a.lifestyle).toBeUndefined();
   });
 });
+
+/**
+ * Phase 4.6.3 — semantic matching. A scene's `intent` decides its section: the
+ * RIGHT scene for the RIGHT section, with a positional fallback so the page
+ * stays image-led when intents don't cover every section.
+ */
+function scene(intent: string, tag = intent): ProductImage {
+  return { src: `https://cdn.elfanaa.com/${tag}.png`, alt: { ar: "", en: "" }, intent };
+}
+
+describe("assignSectionImages (Phase 4.6.3 semantic matching)", () => {
+  it("routes each intent to its matching section regardless of pool order", () => {
+    const p = product({
+      lifestyleImages: [
+        scene("proof"),
+        scene("ingredient"),
+        scene("mechanism"),
+        scene("result"),
+        scene("context"),
+      ],
+    });
+    const a = assignSectionImages(p, FULL_ORDER);
+    expect(a.social_proof?.src).toContain("proof");
+    expect(a.ingredients?.src).toContain("ingredient");
+    expect(a.how_it_works?.src).toContain("mechanism");
+    expect(a.results?.src).toContain("result");
+    expect(a.lifestyle?.src).toContain("context");
+  });
+
+  it("matches tolerantly on synonyms (before-after / transformation → results)", () => {
+    expect(
+      assignSectionImages(product({ lifestyleImages: [scene("before-after")] }), FULL_ORDER)
+        .results?.src,
+    ).toContain("before-after");
+    expect(
+      assignSectionImages(product({ lifestyleImages: [scene("transformation")] }), FULL_ORDER)
+        .results?.src,
+    ).toContain("transformation");
+  });
+
+  it("semantic first, then positional fallback for unmatched sections", () => {
+    // One semantic 'result' scene + two intent-less scenes.
+    const p = product({
+      lifestyleImages: [scene("result"), img(1), img(2)],
+    });
+    const a = assignSectionImages(p, FULL_ORDER);
+    // 'result' goes semantically to results (not positionally to lifestyle).
+    expect(a.results?.src).toContain("result");
+    // The two plain scenes backfill the top positional priorities (lifestyle,
+    // how_it_works) and are distinct.
+    expect(a.lifestyle?.src).toMatch(/scene-[12]/);
+    expect(a.how_it_works?.src).toMatch(/scene-[12]/);
+    const used = Object.values(a).map((i) => i.src);
+    expect(new Set(used).size).toBe(used.length);
+  });
+
+  it("does not reuse a scene across semantic + positional passes", () => {
+    const p = product({ lifestyleImages: [scene("result"), scene("proof")] });
+    const a = assignSectionImages(p, FULL_ORDER);
+    const used = Object.values(a).map((i) => i.src);
+    expect(new Set(used).size).toBe(used.length);
+    expect(used).toHaveLength(2);
+  });
+});

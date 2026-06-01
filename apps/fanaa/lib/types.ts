@@ -17,6 +17,12 @@ export type LocalizedString = Record<Locale, string>;
 export type ProductImage = {
   src: string;
   alt: LocalizedString;
+  /**
+   * Semantic scene role (Phase 4.6.3) — `mechanism` | `result` | `ingredient`
+   * | `proof` | `context` | `trust` | `detail` | …. Drives section-aware image
+   * assignment in `ProductSections`. Absent on curated/gallery images.
+   */
+  intent?: string;
 };
 
 export type ProductVariant = {

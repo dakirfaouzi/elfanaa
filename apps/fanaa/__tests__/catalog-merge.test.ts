@@ -960,8 +960,8 @@ describe("synthesiseProductFromRow — cro_content projection", () => {
         slug: "ai-scene-pool",
         croContent: {
           lifestyleImages: [
-            { src: "https://cdn.elfanaa.com/s1.png", alt: { ar: "أ", en: "ritual" } },
-            { src: "studio/d/generated/s2.png", alt: { ar: "ب", en: "result" } },
+            { src: "https://cdn.elfanaa.com/s1.png", alt: { ar: "أ", en: "ritual" }, intent: "context" },
+            { src: "studio/d/generated/s2.png", alt: { ar: "ب", en: "result" }, intent: "result" },
             { src: "https://cdn.elfanaa.com/s3.png", alt: { ar: "ج", en: "detail" } },
           ],
         },
@@ -974,6 +974,11 @@ describe("synthesiseProductFromRow — cro_content projection", () => {
     );
     // Single lifestyleImage back-compat falls back to the first scene.
     expect(product.lifestyleImage?.src).toBe("https://cdn.elfanaa.com/s1.png");
+    // Phase 4.6.3 — the semantic intent survives hydration for section-aware
+    // assignment; a scene without an intent stays undefined.
+    expect(product.lifestyleImages?.[0]?.intent).toBe("context");
+    expect(product.lifestyleImages?.[1]?.intent).toBe("result");
+    expect(product.lifestyleImages?.[2]?.intent).toBeUndefined();
   });
 
   it("resolves a bare-key lifestyleImage to the public CDN (the 4.5 lifestyle bug)", () => {
