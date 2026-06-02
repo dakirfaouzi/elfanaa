@@ -31,7 +31,7 @@ export function buildSectionContentSystemPrompt(opts: {
     audienceDirective: buildAudienceDirective(opts.targeting),
     stageRules: [
       "PRODUCT FIDELITY: every section MUST describe the EXACT product from the vision + research inputs (its real category, form factor, and label). NEVER drift to a generic store-typical product.",
-      "GROUNDING (hard): only assert what the inputs support. OMIT any block you cannot ground — do NOT invent ingredients, mechanisms, clinical claims, or timelines. An omitted block is better than a fabricated one. Set a block to null/absent when unsupported.",
+      "GROUNDING (hard): only assert what the inputs support. OMIT any block you cannot ground — do NOT invent ingredients, mechanisms, clinical claims, or timelines. An omitted block is better than a fabricated one. To omit a block, LEAVE ITS KEY OUT of the JSON entirely (do NOT send the key with a null or empty value).",
       "INGREDIENTS: include ONLY ingredients/components actually evidenced by the visible label text or research. If none are evidenced, omit `ingredients` entirely. Never invent INCI names.",
       "HOW IT WORKS: explain the real mechanism in 2–5 plain steps a buyer understands; tie it to the product's actual form factor and use.",
       "RESULTS: give an honest, non-medical expectations timeline (e.g. first use → week 1 → week 4). No guarantees of cure; no fabricated statistics.",

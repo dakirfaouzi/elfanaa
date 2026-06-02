@@ -2714,6 +2714,55 @@ obvious-AI frames (4.6.4d, cost/latency tradeoff), and desktop side-by-side
 image/copy refinements. `intent` remains a soft contract; existing rows fall back
 to positional + text until regenerated.
 
+#### 26.4.11.6 Section-content resilience — `ingredients: null` must never fail a run (DONE 2026-06-02)
+
+**Symptom.** A live run failed at stage 11b (`section_content`):
+`anthropic_schema_validation_failed → ZodError [{ path:["ingredients"],
+expected:"array", received:"null" }]`. The whole PDP generation aborted at 75 %
+(10/11 stages green) over a single optional block.
+
+**Root cause (exact).** `SectionContentOutputSchema.ingredients` was
+`z.array(...).min(1).max(10).optional()`. Zod `.optional()` accepts `undefined`
+but **rejects `null`**. The model behaved *correctly* — it couldn't ground a
+concrete ingredient list (the operator note was a vague "multi-ingredient blend",
+the Amazon supplier page exposes no structured INCI list) so it returned
+`ingredients: null` to signal "omit". The prompt itself even said *"Set a block
+to null/absent when unsupported"* — so we told it to emit the value the schema
+then rejected. Stage runs with `maxRetries: 0`, so one strict-schema miss =
+fatal. Everything *downstream* already degraded gracefully (`assemble` guards
+`ingredients.length > 0 ? … : undefined`; `research` never throws → returns
+`skipped`); the schema was the **only** hard-failure point.
+
+**Permanent fix (graceful degradation at the schema boundary).** Each block is
+now wrapped in `softBlock = (s) => s.optional().catch(undefined)`. Any
+unparseable value for a block — `null`, `[]` (violates `.min(1)`), or a
+malformed object — is **dropped to `undefined`** (the block is simply omitted)
+instead of throwing. Required nested fields are still enforced *within* a block
+that is present and well-formed, so this loosens nothing about quality — it only
+makes "couldn't ground it" non-fatal. Prompt updated: omit = leave the key OUT
+(not `null`/empty). Regression tests assert null/empty/malformed blocks degrade
+to omissions while well-formed siblings survive. ADR-S4-6.
+
+**Research-extraction reality (answering the operator questions).** Stage 02
+`research` is a best-effort Firecrawl scrape → it hands the **raw markdown
+excerpt** (capped 2 000 chars) to the section-content LLM, which extracts
+ingredients/benefits/usage from that text + vision + operator notes. There is
+**no dedicated structured extractor**. Consequences:
+- Amazon / Alibaba pages are JS-heavy and anti-bot; scrapes often return thin or
+  blocked markdown, and ingredients there usually live **inside product images**
+  (not crawlable text). So ingredient extraction from supplier URLs is **low-
+  reliability by design** and must be treated as optional, never required.
+- Vision reads the *packaging label*, which is the most reliable ingredient
+  source when the label lists them — but many products don't print a full list.
+
+**Recommended operator workflow (Intake).** Because URL extraction is
+unreliable, the durable lever is operator-provided structured data: paste a
+concrete ingredient list / key actives into operator notes (or a future
+dedicated `ingredients` intake field) when the value matters. Absent that, the
+page now generates successfully and simply **omits** the ingredients section
+(and any other unground-able block) rather than failing — which is the intended
+behaviour.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

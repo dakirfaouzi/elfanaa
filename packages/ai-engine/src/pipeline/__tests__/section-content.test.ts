@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fanaaStore } from "@platform/stores";
 import { sectionContent } from "../section-content";
+import { SectionContentOutputSchema } from "../../schemas/section-content";
 import { PipelineError } from "../types";
 import type { StrategyOutput } from "../types-strategy";
 import type { SectionContentOutput } from "../types-section-content";
@@ -91,6 +92,46 @@ describe("sectionContent (stage 11b)", () => {
     expect(out.howItWorks?.summary.ar).toBe("يرطب البشرة بعمق.");
     expect(t.calls).toHaveLength(2);
     expect(t.calls[1]!.system).toContain("WRONG language");
+  });
+
+  it("degrades a null ingredients to an omitted block (never fatal)", () => {
+    // Reproduces the production failure: the model honestly returned
+    // `ingredients: null` (couldn't ground a concrete list) and the strict
+    // `.optional()` schema threw `expected array, received null`, killing the
+    // whole run. The fault-tolerant schema must now drop it instead.
+    const parsed = SectionContentOutputSchema.parse({
+      ...clean,
+      ingredients: null,
+    });
+
+    expect(parsed.ingredients).toBeUndefined();
+    expect(parsed.howItWorks?.steps).toHaveLength(2);
+    expect(parsed.guarantee?.title.en).toBe("Cash on delivery");
+  });
+
+  it("degrades empty / malformed blocks to omissions without throwing", () => {
+    const parsed = SectionContentOutputSchema.parse({
+      howItWorks: { summary: { ar: "ا", en: "x" }, steps: [] }, // too few steps → drop
+      ingredients: [], // violates .min(1) → drop
+      results: null, // null → drop
+      guarantee: { title: 123 }, // malformed → drop
+      comparison: undefined, // absent → drop
+    });
+
+    expect(parsed.ingredients).toBeUndefined();
+    expect(parsed.results).toBeUndefined();
+    expect(parsed.guarantee).toBeUndefined();
+    expect(parsed.comparison).toBeUndefined();
+  });
+
+  it("keeps a well-formed block while dropping a broken sibling", () => {
+    const parsed = SectionContentOutputSchema.parse({
+      ingredients: null,
+      guarantee: clean.guarantee,
+    });
+
+    expect(parsed.ingredients).toBeUndefined();
+    expect(parsed.guarantee?.title.en).toBe("Cash on delivery");
   });
 
   it("throws after a persistent locale bleed", async () => {
