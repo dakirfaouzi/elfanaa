@@ -59,7 +59,8 @@ describe("assignSectionImages (Phase 4.6.2 distribution)", () => {
     const p = product({ lifestyleImages: [img(1), img(2), img(3), img(4), img(5), img(6), img(7), img(8), img(9), img(10)] });
     const a = assignSectionImages(p, FULL_ORDER);
     expect(a.faq).toBeUndefined();
-    expect(a.benefits).toBeUndefined(); // benefits not in IMAGE_PRIORITY
+    // Phase 4.6.4a — benefits is now an image-capable creative section.
+    expect(a.benefits).toBeDefined();
   });
 
   it("falls back to gallery (images minus hero) when no scene pool exists", () => {

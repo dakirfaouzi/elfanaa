@@ -112,16 +112,24 @@ function ReviewCard({
   locale: "ar" | "en";
   verifiedLabel: string;
 }) {
+  const name = pickLocalized(review.name, locale);
+  const initials = name.trim().slice(0, 1).toUpperCase() || "★";
   return (
     <li className="flex flex-col gap-3 rounded-md border border-line bg-surface p-5">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold text-ink">
-            {pickLocalized(review.name, locale)}
-          </p>
-          <p className="text-[11px] text-muted">
-            {pickLocalized(review.city, locale)} · {formatDate(review.date, locale)}
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-accent/15 text-[15px] font-semibold text-accent ring-1 ring-accent/25"
+            aria-hidden
+          >
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-semibold text-ink">{name}</p>
+            <p className="text-[11px] text-muted">
+              {pickLocalized(review.city, locale)} · {formatDate(review.date, locale)}
+            </p>
+          </div>
         </div>
         <RatingStars value={review.rating} size="sm" />
       </div>

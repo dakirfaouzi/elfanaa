@@ -104,12 +104,13 @@ const IMAGE_PRIORITY: string[] = [
   "lifestyle",
   "how_it_works",
   "results",
+  "ingredients",
+  "benefits",
   "comparison",
   "social_proof",
   "founders_note",
   "guarantee",
   "objections",
-  "ingredients",
 ];
 
 /**
@@ -134,6 +135,7 @@ const SECTION_INTENT_PATTERNS: Record<string, RegExp> = {
   guarantee: /trust|guarantee|premium|reassur|pack|unbox|gift|hold/i,
   objections: /proof|context|confiden|reassur|honest/i,
   ingredients: /ingredient|texture|formula|swatch|\bdrop|serum|close|detail|natural|botanic/i,
+  benefits: /benefit|problem|solution|concern|pain|relief/i,
 };
 
 function intentMatchesSection(intent: string | undefined, key: string): boolean {
