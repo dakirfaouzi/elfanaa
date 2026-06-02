@@ -193,11 +193,11 @@ describe("creative-prompts (stage 07)", () => {
     // Phase 4.6.3 — product-aware casting + natural product interaction.
     expect(system).toContain("PRODUCT-AWARE CASTING");
     expect(system).toContain("NATURAL PRODUCT INTERACTION");
-    // User prompt carries the section-aware intent scene plan (right scene →
-    // right section), with intents that map to PDP sections.
-    expect(user).toContain("SCENE PLAN");
-    expect(user).toMatch(/the RIGHT scene for the RIGHT section/i);
-    for (const intent of ["mechanism", "result", "ingredient", "proof", "context", "trust"]) {
+    // Phase 4.6.4b — purpose-built shot list: the asset must depict its section,
+    // with intents that map to PDP sections (incl. the new 'benefit' creative).
+    expect(user).toContain("SHOT LIST");
+    expect(user).toMatch(/the asset must DEPICT its job/i);
+    for (const intent of ["mechanism", "result", "ingredient", "benefit", "proof", "context"]) {
       expect(user).toContain(`'${intent}'`);
     }
   });

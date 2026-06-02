@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fanaaStore } from "@platform/stores";
-import { imageGen } from "../image-gen";
+import { buildSceneIdentityPrompt, imageGen } from "../image-gen";
 import type {
   CreativePromptsOutput,
 } from "../types-creative-prompts";
@@ -27,6 +27,38 @@ const promptsThree: CreativePromptsOutput = {
     { prompt: "Lifestyle evening.", aspectRatio: "4:5", intent: "evening" },
   ],
 };
+
+describe("buildSceneIdentityPrompt (Phase 4.6.4b asset-aware wrapper)", () => {
+  it("always carries the identity lock", () => {
+    for (const intent of ["ingredient", "mechanism", "proof", "result", "context", undefined]) {
+      expect(buildSceneIdentityPrompt("scene", intent)).toMatch(/SINGLE SOURCE OF TRUTH/i);
+    }
+  });
+
+  it("renders a MACRO for ingredient/detail (full person optional)", () => {
+    const p = buildSceneIdentityPrompt("droplet swatch", "ingredient");
+    expect(p).toMatch(/MACRO/);
+    expect(p).toMatch(/full person is optional/i);
+  });
+
+  it("renders an APPLICATION moment for mechanism", () => {
+    expect(buildSceneIdentityPrompt("apply to under-eye", "mechanism")).toMatch(
+      /APPLICATION \/ USAGE moment/i,
+    );
+  });
+
+  it("renders a customer PORTRAIT for proof", () => {
+    expect(buildSceneIdentityPrompt("confident customer", "proof")).toMatch(/PORTRAIT/);
+  });
+
+  it("renders an OUTCOME end-state for result", () => {
+    expect(buildSceneIdentityPrompt("radiant skin", "result")).toMatch(/OUTCOME end-state/i);
+  });
+
+  it("falls back to a product + human composite for context/unknown intents", () => {
+    expect(buildSceneIdentityPrompt("at home", "context")).toMatch(/person using or holding it/i);
+  });
+});
 
 describe("image-gen (stage 08)", () => {
   it("returns one result per prompt on the happy path", async () => {

@@ -2653,6 +2653,67 @@ matches the product's real buyer age/gender/market; product identity preserved
 in every frame; one coherent campaign look. Existing rows predate `intent` and
 fall back to positional until regenerated.
 
+#### 26.4.11.5 Phase 4.6.4 — section-native creatives + purpose-built assets (4.6.4a+b DONE 2026-06-02)
+
+**Critical-review finding (the reframe).** 4.6.3 routed the right *scene* to the
+right section, but live validation (Arabic eye-cream PDP vs. the ingredient /
+before-after / how-to / problem benchmark creatives) showed the remaining gap is
+the **artifact type**: the benchmark "section creatives" are **composed marketing
+graphics** (ingredient call-out medallions, before/after grids, numbered how-to
+steps, problem diagrams, persona/testimonial cards), while our pipeline ships a
+single photographic scene per section. A "result" photo of a smiling woman is
+still not a *results creative*.
+
+**Decisive constraint — Arabic-safe compositing.** The page is Arabic-first RTL
+with native Saudi copy; diffusion models cannot render reliable Arabic (or even
+English) text. Therefore section creatives are composed **at the render layer**
+(React/CSS call-outs, numbers, labels, framing) over **clean text-free image
+assets** — text is NEVER baked into a generated image. ADR-S4-5.
+
+**4.6.4a — section-native render creatives (no new generation, Arabic-safe):**
+rebuilt the uniform "one figure above copy" sections into creatives composed from
+the structured Arabic content we already generate:
+- Ingredients → infographic: product/ingredient visual anchor + ingredient
+  call-out medallions (name + role) from `product.ingredients`.
+- How-it-works → large numbered usage journey (1·2·3·4) from `howItWorks.steps`,
+  visual as a sticky rail (mobile-first hero).
+- Results → art-directed OUTCOME panel (result caption chip) + honest time-anchored
+  progression from `results.timeline`. **No literal medical before/after**
+  (unreliable to generate + GCC COD claims risk) — explicit product decision.
+- Benefits → now image-capable: featured problem/solution visual + iconified
+  benefit medallions.
+- Social proof → testimonial cards gain avatar medallions (customer initials).
+Distribution: `ingredients`/`benefits` promoted in `IMAGE_PRIORITY`; `benefit`
+added to the semantic intent patterns. Commit `f18b33d`.
+
+**4.6.4b — purpose-built assets (generation layer):** so the IMAGE ITSELF depicts
+its section. Kept the clean single-word intent tokens (no compound strings, to
+avoid renderer substring-collisions) and made each one a purpose-built asset:
+- creative-prompts SHOT LIST: 1 hero + 6 scenes, each intent now specifies WHAT
+  the asset must depict — `mechanism`=application/usage moment, `result`=outcome
+  end-state, `ingredient`=product+texture macro (person optional), `benefit`=
+  problem→solution beat (NEW), `proof`=confident customer portrait, `context`=
+  aspirational home setting. Always include result+proof+ingredient.
+- `image-gen.buildSceneIdentityPrompt` is now **asset-aware**: branches per intent
+  into macro / application / portrait / outcome / composite wrappers (identity
+  lock preserved verbatim on every branch).
+- Casting/realism v2: hard age-read enforcement (ageing/mature product MUST read
+  40+, youthful flawless cast = failure), low-artefact framing rule (crop at the
+  wrist / single grip / macro to cut AI-hand failures), and a **hero art-direction**
+  rule (luxury ad campaign with negative space for the headline, not a person
+  holding a bottle).
+
+**Tests:** ai-engine `creative-prompts` (SHOT LIST + asset-depict contract + new
+`benefit` intent), `image-gen` (asset-aware wrapper branches + identity lock on
+all), fanaa `section-image-distribution` (benefits now image-capable). ai-engine
+98 green, fanaa 88 green; typecheck + lint clean.
+
+**Still future (not in 4.6.4a/b):** before/after spike (4.6.4c — gated on
+feasibility + GCC claims compliance), a vision QA/regeneration loop to auto-reject
+obvious-AI frames (4.6.4d, cost/latency tradeoff), and desktop side-by-side
+image/copy refinements. `intent` remains a soft contract; existing rows fall back
+to positional + text until regenerated.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

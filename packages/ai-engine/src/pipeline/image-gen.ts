@@ -252,9 +252,11 @@ function buildIdentityPrompt(heroPrompt: string): string {
  * full human is optional), since a forced full-body human weakens a close-up
  * ingredient shot. Every other intent keeps the product + human composite.
  */
-function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string {
-  const isMacro = intent ? /ingredient|detail|texture|swatch|macro/i.test(intent) : false;
-  if (isMacro) {
+export function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string {
+  const i = intent ?? "";
+  // Phase 4.6.4b — the wrapper is asset-aware so each scene DEPICTS its section's
+  // job (the image itself communicates the section, not a generic lifestyle shot).
+  if (/ingredient|detail|texture|swatch|macro/i.test(i)) {
     return (
       IDENTITY_LOCK +
       " Re-photograph this exact product as a premium close-up advertising MACRO " +
@@ -262,6 +264,37 @@ function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string 
       "it, but a full person is optional): " +
       scenePrompt +
       " Crisp tactile detail, believable hands if present; no obvious-AI artefacts."
+    );
+  }
+  if (/mechanism|apply|applicat|step|usage|how/i.test(i)) {
+    return (
+      IDENTITY_LOCK +
+      " Show a believable APPLICATION / USAGE moment: an audience-matched person's " +
+      "hands applying or dispensing this exact product onto the relevant area, the " +
+      "active step clearly visible (educational, close framing, cropped at the wrist " +
+      "to keep hands clean): " +
+      scenePrompt +
+      " Product clearly visible and readable; realistic hands; no obvious-AI artefacts."
+    );
+  }
+  if (/proof|testimonial|portrait|customer|review/i.test(i)) {
+    return (
+      IDENTITY_LOCK +
+      " Shoot a confident real-customer PORTRAIT: a photorealistic, audience-matched " +
+      "person holding/using this exact product with direct eye contact and an " +
+      "authentic, satisfied expression (testimonial energy): " +
+      scenePrompt +
+      " Product clearly visible; natural skin and hands; no obvious-AI face."
+    );
+  }
+  if (/result|outcome|after|transform/i.test(i)) {
+    return (
+      IDENTITY_LOCK +
+      " Capture the achievable OUTCOME end-state: an audience-matched person visibly " +
+      "radiant and satisfied (the after the buyer wants), this exact product present " +
+      "in frame: " +
+      scenePrompt +
+      " Product clearly visible; natural skin and hands; no obvious-AI face."
     );
   }
   return (
