@@ -1,5 +1,6 @@
-import type { ImageProvider } from "../providers/contracts";
+import type { ImageProvider, VisionProvider } from "../providers/contracts";
 import { ImageGenOutputSchema } from "../schemas/image-gen";
+import { assessImage, type ImageQaVerdict } from "./image-qa";
 import type { StageContext } from "./types";
 import type {
   AspectRatio,
@@ -28,59 +29,102 @@ import {
 export async function imageGen(
   opts: {
     input: ImageGenInput;
-    providers: { image: ImageProvider };
+    providers: { image: ImageProvider; vision?: VisionProvider };
   } & StageContext,
 ): Promise<ImageGenOutput> {
   const maxAttempts = opts.input.maxAttemptsPerPrompt ?? 3;
 
+  // Phase 4.6.4d — vision QA gate. Active only when a vision provider is wired
+  // and not explicitly disabled. `maxRegens` bounds the added cost.
+  const qa: QaContext | undefined =
+    opts.providers.vision && opts.input.qa?.enabled !== false
+      ? {
+          provider: opts.providers.vision,
+          maxRegens: Math.max(0, opts.input.qa?.maxRegens ?? 1),
+          referenceUrl: undefined, // set below once resolved
+          storeId: opts.storeConfig.id,
+          runId: opts.runId,
+        }
+      : undefined;
+
+  const storeId = opts.storeConfig.id;
+  const runId = opts.runId;
+  const img2imgModel = opts.input.img2imgModel ?? DEFAULT_IMG2IMG_MODEL;
+
   // Step 3 (ADR-S3-3): when a servable reference photo is supplied, generate
-  // the hero image-to-image (Kontext) so it preserves the real product's
-  // identity, with a hard fallback to text-to-image so a Kontext failure can
-  // never regress hero quality below today's working baseline.
+  // image-to-image (Kontext) so it preserves the real product's identity, with a
+  // hard fallback to text-to-image. Phase 4.6.4d wraps each producer in a vision
+  // QA loop that regenerates off-type / unrealistic / black frames.
   const referenceUrl = resolveServableReference(opts.input.referenceImage?.src);
-  const heroJob = referenceUrl
-    ? runHeroWithIdentity({
-        creative: opts.input.prompts.hero,
-        referenceUrl,
-        img2imgModel: opts.input.img2imgModel ?? DEFAULT_IMG2IMG_MODEL,
-        provider: opts.providers.image,
-        maxAttempts,
-        storeId: opts.storeConfig.id,
-        runId: opts.runId,
-      })
-    : runOnePrompt({
-        role: "hero",
-        creative: opts.input.prompts.hero,
-        provider: opts.providers.image,
-        maxAttempts,
-        storeId: opts.storeConfig.id,
-        runId: opts.runId,
-      });
+  if (qa) qa.referenceUrl = referenceUrl;
+
+  const heroJob = produceWithQa({
+    qa,
+    role: "hero",
+    intent: opts.input.prompts.hero.intent,
+    referenceUrl,
+    produce: (correction) =>
+      referenceUrl
+        ? runHeroWithIdentity({
+            creative: opts.input.prompts.hero,
+            referenceUrl,
+            img2imgModel,
+            provider: opts.providers.image,
+            maxAttempts,
+            storeId,
+            runId,
+            correction,
+          })
+        : runOnePrompt({
+            role: "hero",
+            creative: appendCorrection(opts.input.prompts.hero, correction),
+            provider: opts.providers.image,
+            maxAttempts,
+            storeId,
+            runId,
+          }),
+    // Hero hard-fail is identity-safe: pass the operator's real product photo
+    // through rather than publish a black / wrong-product hero.
+    onHardFail: (last) =>
+      referenceUrl
+        ? referencePassthroughHero(opts.input.prompts.hero, referenceUrl)
+        : last,
+  });
 
   // Step 4 Phase 4.6 — lifestyle/section scenes are ALSO grounded image-to-image
-  // on the real product reference (when one is servable) so the EXACT product
-  // appears in-scene with the cast human, not just in the hero. Each scene keeps
-  // the same hard text-to-image fallback, so a Kontext failure never regresses a
-  // scene below the legacy "product-described" baseline.
+  // on the real product reference (when one is servable). Each scene keeps the
+  // text-to-image fallback AND the QA loop.
   const lifestyleJobs = opts.input.prompts.lifestyle.map((cp) =>
-    referenceUrl
-      ? runSceneWithIdentity({
-          creative: cp,
-          referenceUrl,
-          img2imgModel: opts.input.img2imgModel ?? DEFAULT_IMG2IMG_MODEL,
-          provider: opts.providers.image,
-          maxAttempts,
-          storeId: opts.storeConfig.id,
-          runId: opts.runId,
-        })
-      : runOnePrompt({
-          role: "lifestyle",
-          creative: cp,
-          provider: opts.providers.image,
-          maxAttempts,
-          storeId: opts.storeConfig.id,
-          runId: opts.runId,
-        }),
+    produceWithQa({
+      qa,
+      role: "lifestyle",
+      intent: cp.intent,
+      referenceUrl,
+      produce: (correction) =>
+        referenceUrl
+          ? runSceneWithIdentity({
+              creative: cp,
+              referenceUrl,
+              img2imgModel,
+              provider: opts.providers.image,
+              maxAttempts,
+              storeId,
+              runId,
+              correction,
+            })
+          : runOnePrompt({
+              role: "lifestyle",
+              creative: appendCorrection(cp, correction),
+              provider: opts.providers.image,
+              maxAttempts,
+              storeId,
+              runId,
+            }),
+      // A scene that can't clear a HARD failure (black / product absent / wrong
+      // product) is DROPPED — the section renders text-only rather than show a
+      // broken image. SOFT failures are tolerated (better than an empty band).
+      onHardFail: () => dropScene(cp),
+    }),
   );
 
   const outcomes = await Promise.all([heroJob, ...lifestyleJobs]);
@@ -109,6 +153,112 @@ type RunOutcome =
   | { ok: true; result: ImageGenResult }
   | { ok: false; failure: ImageGenFailure };
 
+/** Phase 4.6.4d — resolved QA context shared across producers. */
+interface QaContext {
+  provider: VisionProvider;
+  maxRegens: number;
+  referenceUrl?: string;
+  storeId: string;
+  runId: string;
+}
+
+/** Append corrective QA feedback to a raw prompt string. */
+function appendCorrectionStr(prompt: string, correction?: string): string {
+  if (!correction || correction.trim().length === 0) return prompt;
+  return `${prompt} CORRECTION (fix this from the previous attempt): ${correction.trim()}`;
+}
+
+/** Append corrective QA feedback to a CreativePrompt's prompt field. */
+function appendCorrection(
+  creative: CreativePrompt,
+  correction?: string,
+): CreativePrompt {
+  if (!correction || correction.trim().length === 0) return creative;
+  return { ...creative, prompt: appendCorrectionStr(creative.prompt, correction) };
+}
+
+/** Fold extra cost (QA calls, discarded regen images) into a successful result. */
+function withExtraCost(o: RunOutcome, add: number): RunOutcome {
+  if (!o.ok || add <= 0) return o;
+  return { ok: true, result: { ...o.result, costUsd: o.result.costUsd + add } };
+}
+
+/** Convert a QA hard-failed scene into a dropped (failed) outcome. */
+function dropScene(cp: CreativePrompt): RunOutcome {
+  return {
+    ok: false,
+    failure: {
+      role: "lifestyle",
+      intent: cp.intent,
+      prompt: cp.prompt,
+      errorMessage:
+        "qa_hard_fail: black/absent/wrong-product after regeneration — scene dropped (section renders text-only)",
+      attempts: 1,
+    },
+  };
+}
+
+/**
+ * Phase 4.6.4d — generate an image, then run the vision QA gate, regenerating
+ * with corrective feedback up to `qa.maxRegens` times. HARD failures that can't
+ * be cleared call `onHardFail` (hero → identity passthrough, scene → drop); SOFT
+ * failures are tolerated once the regen budget is spent (an imperfect on-section
+ * image beats an empty band). QA never throws (assessImage fails open), and all
+ * QA + discarded-regen cost is folded into the returned result.
+ */
+async function produceWithQa(opts: {
+  produce: (correction?: string) => Promise<RunOutcome>;
+  qa?: QaContext;
+  role: "hero" | "lifestyle";
+  intent?: string;
+  referenceUrl?: string;
+  onHardFail: (last: RunOutcome) => RunOutcome;
+}): Promise<RunOutcome> {
+  let outcome = await opts.produce();
+  // No QA, generation failed, or identity-safe passthrough (the real product
+  // photo needs no review) → return as-is.
+  if (
+    !opts.qa ||
+    !outcome.ok ||
+    outcome.result.providerId === "reference_passthrough"
+  ) {
+    return outcome;
+  }
+
+  let extraCost = 0;
+  const assess = (url: string): Promise<ImageQaVerdict> =>
+    assessImage({
+      provider: opts.qa!.provider,
+      imageUrl: url,
+      referenceUrl: opts.referenceUrl,
+      intent: opts.intent,
+      role: opts.role,
+      storeId: opts.qa!.storeId,
+      runId: opts.qa!.runId,
+    });
+
+  let verdict = await assess(outcome.result.url);
+  extraCost += verdict.costUsd;
+
+  let regens = 0;
+  while (verdict.verdict === "regenerate" && regens < opts.qa.maxRegens) {
+    regens++;
+    const retry = await opts.produce(verdict.feedback);
+    if (!retry.ok) break; // keep the prior (passing-ish) outcome
+    // The discarded prior image's cost stays counted via extraCost.
+    extraCost += outcome.ok ? outcome.result.costUsd : 0;
+    outcome = retry;
+    verdict = await assess(retry.result.url);
+    extraCost += verdict.costUsd;
+    if (verdict.verdict === "pass") break;
+  }
+
+  if (verdict.verdict === "regenerate" && verdict.severity === "hard") {
+    return opts.onHardFail(withExtraCost(outcome, extraCost));
+  }
+  return withExtraCost(outcome, extraCost);
+}
+
 /**
  * Generate the hero image-to-image first (identity-preserving), falling back
  * to the standard text-to-image hero if the img2img path fails. The fallback
@@ -122,10 +272,18 @@ async function runHeroWithIdentity(opts: {
   maxAttempts: number;
   storeId: string;
   runId: string;
+  /** Phase 4.6.4d — corrective QA feedback appended on a regeneration. */
+  correction?: string;
 }): Promise<RunOutcome> {
   const img2img = await runOnePrompt({
     role: "hero",
-    creative: { ...opts.creative, prompt: buildIdentityPrompt(opts.creative.prompt) },
+    creative: {
+      ...opts.creative,
+      prompt: appendCorrectionStr(
+        buildIdentityPrompt(opts.creative.prompt),
+        opts.correction,
+      ),
+    },
     provider: opts.provider,
     maxAttempts: opts.maxAttempts,
     storeId: opts.storeId,
@@ -188,12 +346,17 @@ async function runSceneWithIdentity(opts: {
   maxAttempts: number;
   storeId: string;
   runId: string;
+  /** Phase 4.6.4d — corrective QA feedback appended on a regeneration. */
+  correction?: string;
 }): Promise<RunOutcome> {
   const img2img = await runOnePrompt({
     role: "lifestyle",
     creative: {
       ...opts.creative,
-      prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+      prompt: appendCorrectionStr(
+        buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+        opts.correction,
+      ),
       negative: mergeNegative(
         mergeNegative(opts.creative.negative, SCENE_REALISM_NEGATIVE),
         assetNegativeFor(opts.creative.intent),
@@ -216,7 +379,10 @@ async function runSceneWithIdentity(opts: {
     role: "lifestyle",
     creative: {
       ...opts.creative,
-      prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+      prompt: appendCorrectionStr(
+        buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+        opts.correction,
+      ),
       negative: mergeNegative(
         mergeNegative(opts.creative.negative, SCENE_REALISM_NEGATIVE),
         assetNegativeFor(opts.creative.intent),

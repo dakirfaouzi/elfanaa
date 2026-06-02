@@ -7,7 +7,21 @@ import type {
 import {
   imageResult,
   mockImage,
+  mockVision,
+  visionResult,
 } from "./_helpers/mock-providers";
+
+const QA_CLEAN = {
+  blackOrBlank: false,
+  productVisible: true,
+  productMatchesReference: true,
+  assetTypeCorrect: true,
+  productScaleRealistic: true,
+  placementRealistic: true,
+  anatomyRealistic: true,
+};
+const QA_SOFT = { ...QA_CLEAN, assetTypeCorrect: false, feedback: "make it a true ingredient macro" };
+const QA_HARD = { ...QA_CLEAN, blackOrBlank: true, feedback: "image is black" };
 
 const promptsHeroOnly: CreativePromptsOutput = {
   hero: {
@@ -361,6 +375,111 @@ describe("image-gen (stage 08)", () => {
 
     expect(img.calls[0].model).toBeUndefined();
     expect(img.calls[0].referenceImages).toBeUndefined();
+  });
+
+  it("QA gate: regenerates a SOFT-failing image with corrective feedback, then accepts the pass", async () => {
+    const img = mockImage({
+      responses: [
+        imageResult({ url: "https://cdn.mock/hero-1.webp" }),
+        imageResult({ url: "https://cdn.mock/hero-2.webp" }),
+      ],
+    });
+    const vis = mockVision({
+      responses: [visionResult(QA_SOFT), visionResult(QA_CLEAN)],
+    });
+
+    const out = await imageGen({
+      input: { prompts: promptsHeroOnly, maxAttemptsPerPrompt: 1, qa: { enabled: true, maxRegens: 1 } },
+      providers: { image: img.provider, vision: vis.provider },
+      storeConfig: fanaaStore,
+      runId: "run_qa_regen_pass",
+    });
+
+    expect(out.results).toHaveLength(1);
+    expect(out.results[0]?.url).toBe("https://cdn.mock/hero-2.webp"); // the regen
+    expect(img.calls).toHaveLength(2); // initial + 1 corrective regen
+    expect(vis.calls).toHaveLength(2); // QA assessed both
+    // The corrective feedback was appended to the regeneration prompt.
+    expect(img.calls[1]?.prompt).toMatch(/CORRECTION/);
+  });
+
+  it("QA gate: a hero that can't clear a HARD failure falls back to the identity passthrough", async () => {
+    const img = mockImage({
+      responses: [
+        imageResult({ url: "https://cdn.mock/hero-1.webp" }),
+        imageResult({ url: "https://cdn.mock/hero-2.webp" }),
+      ],
+    });
+    const vis = mockVision({
+      responses: [visionResult(QA_HARD), visionResult(QA_HARD)],
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: promptsHeroOnly,
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+        qa: { enabled: true, maxRegens: 1 },
+      },
+      providers: { image: img.provider, vision: vis.provider },
+      storeConfig: fanaaStore,
+      runId: "run_qa_hero_passthrough",
+    });
+
+    expect(out.results).toHaveLength(1);
+    expect(out.results[0]?.url).toBe("https://cdn.elfanaa.com/studio-intake/p.jpg");
+    expect(out.results[0]?.model).toBe("reference_passthrough");
+    expect(vis.calls).toHaveLength(2); // initial + 1 regen, both hard
+  });
+
+  it("QA gate: a scene that can't clear a HARD failure is DROPPED (section renders text-only)", async () => {
+    const img = mockImage({
+      responses: [
+        new Error("hero_kontext_fail"), // hero img2img fails → identity passthrough (QA skipped)
+        imageResult({ url: "https://cdn.mock/scene-1.webp", width: 1024, height: 1280 }),
+        imageResult({ url: "https://cdn.mock/scene-2.webp", width: 1024, height: 1280 }),
+      ],
+    });
+    const vis = mockVision({
+      responses: [visionResult(QA_HARD), visionResult(QA_HARD)], // scene only (hero passthrough skips QA)
+    });
+
+    const out = await imageGen({
+      input: {
+        prompts: {
+          hero: { prompt: "hero", aspectRatio: "1:1" },
+          lifestyle: [{ prompt: "ingredient macro", aspectRatio: "4:5", intent: "ingredient" }],
+        },
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+        qa: { enabled: true, maxRegens: 1 },
+      },
+      providers: { image: img.provider, vision: vis.provider },
+      storeConfig: fanaaStore,
+      runId: "run_qa_scene_drop",
+    });
+
+    // Hero survives via identity passthrough; the scene is dropped.
+    expect(out.results).toHaveLength(1);
+    expect(out.results[0]?.model).toBe("reference_passthrough");
+    expect(out.failed).toHaveLength(1);
+    expect(out.failed[0]?.role).toBe("lifestyle");
+    expect(out.failed[0]?.errorMessage).toMatch(/qa_hard_fail/);
+    expect(vis.calls).toHaveLength(2);
+  });
+
+  it("QA gate: disabled → no vision calls (legacy behaviour)", async () => {
+    const img = mockImage({ responses: [imageResult({ url: "https://cdn.mock/hero.webp" })] });
+    const vis = mockVision({ responses: [] });
+
+    await imageGen({
+      input: { prompts: promptsHeroOnly, maxAttemptsPerPrompt: 1, qa: { enabled: false } },
+      providers: { image: img.provider, vision: vis.provider },
+      storeConfig: fanaaStore,
+      runId: "run_qa_disabled",
+    });
+
+    expect(vis.calls).toHaveLength(0);
   });
 
   it("uses the aspect-ratio mapping to size each call", async () => {

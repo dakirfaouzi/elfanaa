@@ -550,8 +550,13 @@ async function dispatchStage(opts: RunOneStageOptions): Promise<unknown> {
           // Step 3 (ADR-S3-3): condition the hero on the operator's real
           // product photo (img2img) when we can resolve a servable public URL.
           referenceImage: resolveReferenceImage(job, storeConfig),
+          // Phase 4.6.4d — vision QA gate (regenerate off-type/unrealistic/black
+          // frames). Bounded to 1 corrective regen per image for cost.
+          qa: { enabled: true, maxRegens: 1 },
         },
-        providers: { image: providers.image },
+        // Phase 4.6.4d — the same vision provider used for stage 03 powers the
+        // per-image QA review; absent provider → QA is skipped (fail-open).
+        providers: { image: providers.image, vision: providers.vision },
       });
 
     case "image_post":

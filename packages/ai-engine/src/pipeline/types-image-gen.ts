@@ -28,6 +28,21 @@ export interface ImageGenInput {
   referenceImage?: { src: string; alt?: string };
   /** Override the img2img model. Defaults to `fal-ai/flux-pro/kontext`. */
   img2imgModel?: string;
+  /**
+   * Phase 4.6.4d — vision QA gate config. QA only runs when a `vision` provider
+   * is supplied to the stage; absent provider → QA skipped (legacy behaviour).
+   */
+  qa?: ImageQaConfig;
+}
+
+export interface ImageQaConfig {
+  /** Master switch (default true when a vision provider is present). */
+  enabled?: boolean;
+  /**
+   * Max corrective REGENERATIONS per image after the first attempt (default 1).
+   * Each regen is +1 image call +1 vision call, so this bounds added cost.
+   */
+  maxRegens?: number;
 }
 
 /** Default identity-preserving image-to-image model (fal Kontext [pro]). */

@@ -2878,6 +2878,52 @@ text-dependence reduction is partly a render-layer (4.6.4a) tightening tracked
 separately. **Tests:** ai-engine 111 green (new `fal` safety-filter suite +
 image-gen placement/negative assertions); typecheck clean.
 
+#### 26.4.11.9 Phase 4.6.4d — vision QA reject→regenerate loop (DONE 2026-06-02)
+
+**Why.** 4.6.4b rounds 1–3 took prompt/negative enforcement to its ceiling, but a
+diffusion/edit model still occasionally returns the wrong asset TYPE, an oversized/
+floating/intersecting product, AI-hand artefacts, or a black frame. Deterministic
+enforcement of the operator's QA list (reject oversized, reject floating/
+intersecting, never-black, reject off-type) requires *looking at the pixels* — a
+vision QA gate. ADR-S4-8.
+
+**Design (`pipeline/image-qa.ts` + `image-gen.ts` loop).**
+- After each image is generated, a **vision provider** scores it against the
+  asset-type contract (§26.4.11.8 table) + scale/placement/anatomy/black checks,
+  returning per-criterion booleans (`ImageQaResponseSchema`). When a reference
+  product photo exists it is passed as a 2nd image so the gate can also verify
+  **identity** (`productMatchesReference`).
+- `classifyQa` maps booleans → severity: **HARD** (black/blank, product absent,
+  or wrong/substituted product) = never publish; **SOFT** (off-type, unrealistic
+  scale/placement, anatomy artefacts) = regenerate if budget, else tolerate.
+- The `image-gen` producers run inside `produceWithQa`: assess → if `regenerate`
+  and budget remains, regenerate with the model's one-line **corrective feedback
+  appended to the prompt** → reassess. On an unresolved HARD failure: **hero →
+  identity passthrough** (the real product photo, never a black/wrong hero),
+  **scene → dropped** (section renders text-only, never a broken image). SOFT
+  failures are tolerated once budget is spent (an imperfect on-section image beats
+  an empty band).
+- **Cost-bounded & fail-open.** `maxRegens` defaults to **1** (orchestrator wires
+  `qa: { enabled: true, maxRegens: 1 }`), so worst case adds ~1 vision call +
+  ≤1 (image+vision) per asset. QA runs ONLY when a vision provider is wired;
+  `assessImage` **never throws** (any vision error → PASS) so QA can never break
+  or fail a run. Identity-passthrough heroes skip QA (the real photo needs no
+  review). QA + discarded-regen cost is folded into the result for accurate
+  budget totalling.
+
+**Layering with earlier guards.** The fal `has_nsfw_concepts` guard (26.4.11.8)
+still catches most black frames at generation; QA is the second net (and the only
+one that can reject *off-type* / *bad-scale* images). Prompt/negative constraints
+remain the first line so QA has less to reject.
+
+**Tests:** `image-qa` (severity classification incl. reference-gated identity,
+instruction contract, fail-open) and `image-gen` QA integration (SOFT
+regenerate→pass with corrective prompt, hero HARD→passthrough, scene HARD→drop,
+disabled→no vision calls). ai-engine 124 green; ai-engine + worker typecheck clean.
+
+**Operator note.** QA adds latency/cost (≈1–2 extra calls per flagged image). If a
+run's image budget is tight, set `qa.enabled=false` or `maxRegens=0` to disable.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
