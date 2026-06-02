@@ -195,7 +195,7 @@ async function runSceneWithIdentity(opts: {
       ...opts.creative,
       prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
       negative: mergeNegative(
-        opts.creative.negative,
+        mergeNegative(opts.creative.negative, SCENE_REALISM_NEGATIVE),
         assetNegativeFor(opts.creative.intent),
       ),
     },
@@ -208,9 +208,20 @@ async function runSceneWithIdentity(opts: {
   });
   if (img2img.ok) return img2img;
 
+  // Text-to-image fallback — still asset-aware (same composition direction +
+  // realism negatives) so a Kontext miss degrades to the right TYPE of image,
+  // not a generic lifestyle shot. Identity is weaker here (no reference), but
+  // the per-asset framing keeps it on-section.
   return runOnePrompt({
     role: "lifestyle",
-    creative: opts.creative,
+    creative: {
+      ...opts.creative,
+      prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+      negative: mergeNegative(
+        mergeNegative(opts.creative.negative, SCENE_REALISM_NEGATIVE),
+        assetNegativeFor(opts.creative.intent),
+      ),
+    },
     provider: opts.provider,
     maxAttempts: opts.maxAttempts,
     storeId: opts.storeId,
@@ -232,6 +243,33 @@ const IDENTITY_LOCK =
   "photographer shooting this real product, not a product designer.";
 
 /**
+ * Phase 4.6.4b round 3 — SCALE + PLACEMENT realism. img2img Kontext anchors on a
+ * large product-on-white reference, so its failure mode is an OVERSIZED / FLOATING
+ * product pasted into the scene, or a product that intersects the face/body. This
+ * clause is appended to every composite wrapper to force believable scale and a
+ * physically-real placement.
+ */
+const PLACEMENT_REALISM =
+  " Keep the product at a TRUE real-world scale (a 30–60ml bottle/jar/tube is " +
+  "small in a hand and small within a wider scene) — never oversized or giant. " +
+  "The product must sit on a real surface or be held in a natural grip; it must " +
+  "NOT float, must NOT intersect or merge with the face, skin, or body, and must " +
+  "cast believable contact shadows. Composite it like a real photograph, not a " +
+  "pasted cut-out.";
+
+/**
+ * Phase 4.6.4b round 3 — the per-scene negative floor. Merged into EVERY scene's
+ * negative so the recurring compositing/anatomy artefacts are suppressed
+ * regardless of what the creative-prompts stage emitted.
+ */
+const SCENE_REALISM_NEGATIVE =
+  "oversized product, giant product, product larger than the head, floating " +
+  "product, product intersecting face, product merged with skin, duplicated " +
+  "product, pasted cut-out, deformed hands, extra fingers, fused fingers, " +
+  "missing fingers, mangled hands, waxy plastic skin, uncanny face, blurry, " +
+  "lowres, jpeg artefacts, watermark, text overlay";
+
+/**
  * Wrap the hero prompt as an identity-preserving Kontext EDIT that composites a
  * photorealistic, audience-appropriate person USING/HOLDING the exact product
  * in a premium aspirational setting (Phase 4.6.1: product + human + context is
@@ -247,7 +285,8 @@ function buildIdentityPrompt(heroPrompt: string): string {
     "unmistakable hero, held or used by a photorealistic, audience-matched person. " +
     "Composition should create desire and feel like a high-end campaign. " +
     heroPrompt +
-    " Natural skin texture and believable hands/anatomy; no obvious-AI face."
+    " Natural skin texture and believable hands/anatomy; no obvious-AI face." +
+    PLACEMENT_REALISM
   );
 }
 
@@ -262,6 +301,10 @@ function buildIdentityPrompt(heroPrompt: string): string {
  * ingredient shot. Every other intent keeps the product + human composite.
  */
 export function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string {
+  return sceneIdentityCore(scenePrompt, intent) + PLACEMENT_REALISM;
+}
+
+function sceneIdentityCore(scenePrompt: string, intent?: string): string {
   const i = intent ?? "";
   // Phase 4.6.4b round 2 — the wrapper is DECISIVELY asset-aware so each scene
   // DEPICTS its section's job. The #1 failure was every scene collapsing into "a

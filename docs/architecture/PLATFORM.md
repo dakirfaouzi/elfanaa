@@ -2812,6 +2812,72 @@ typecheck clean. Render layer (4.6.4a) unchanged — it now receives section-tru
 assets to compose. **Still next (only after this validates):** 4.6.4c before/after
 engine, 4.6.4d vision QA/regeneration loop.
 
+#### 26.4.11.8 Phase 4.6.4b round 3 — scale/placement realism, asset-type, black-frame QA (DONE 2026-06-02)
+
+**Validation finding (Retinol / Hair-Loss / Slimming PDPs).** Round 2 fixed
+*type intent*, but live output still showed creative-quality defects: ingredients
+read as product-photo-with-text (not a true ingredient macro), how-it-works had
+**oversized / floating products, products intersecting the model, AI-composite
+artefacts**, results still skewed to portraits, and occasional **black frames**.
+
+**Diagnoses.**
+1. **Oversized/floating/intersecting product** — img2img Kontext anchors on a
+   large product-on-white reference, so its native failure mode is pasting an
+   over-scaled product into the scene. Kontext also **ignores `negative_prompt`**
+   (ADR-S3-4), so the only lever on the img2img path is the POSITIVE prompt.
+2. **Black frames** — fal's safety checker returns a blank/black image *with a
+   valid URL*; `SafeProductImage`'s 404/decode fallback can't catch a
+   successfully-decoded black image, so it reached the storefront. The fal
+   adapter was ignoring fal's `has_nsfw_concepts` flag.
+
+**Fixes (generation layer + provider QA, no new vision call).**
+- **Black-frame guard (ADR-S4-7):** `fal.ts` now reads `has_nsfw_concepts`; a
+  flagged image throws → the existing per-prompt 3× retry and the scene's
+  text-to-image fallback run instead of publishing black. Extracted
+  `isFalImageSafetyFiltered` (unit-tested).
+- **Scale/placement realism:** new `PLACEMENT_REALISM` clause appended to EVERY
+  composite (hero + all scene wrappers) — true real-world product scale, no
+  oversized/floating product, no intersecting/merging with face/body, real
+  contact shadows, "a real photograph not a pasted cut-out". Because Kontext
+  ignores negatives, this lives in the POSITIVE prompt where it actually binds.
+- **Scene realism negative floor:** new `SCENE_REALISM_NEGATIVE` (oversized /
+  floating / intersecting / duplicated product + hand/anatomy artefacts) merged
+  into every scene's negative, layered with the round-2 per-asset negative. Takes
+  effect on the text-to-image fallback (Kontext drops negatives).
+- **Asset-aware fallback:** the scene text-to-image fallback now also uses the
+  asset-aware prompt + merged negatives, so a Kontext miss degrades to the right
+  TYPE of image, not a generic lifestyle shot.
+- **creative-prompts rules:** added "PRODUCT SCALE & PLACEMENT REALISM" and "THE
+  IMAGE CARRIES THE MESSAGE" (text-light creatives — the picture alone must read
+  the section); strengthened the per-image negative requirement with scale/
+  placement artefacts.
+
+**Asset-type contract (canonical — record for all future phases).**
+| intent | section | composition | NEVER |
+|---|---|---|---|
+| ingredient | ingredients | product + texture/oil/botanical MACRO still-life | model, face, portrait, lifestyle |
+| mechanism | how-it-works | hand applying product on the TARGET AREA, tight crop | full-body portrait |
+| result | results | the visible OUTCOME area, product secondary | model holding product |
+| benefit | benefits | problem→solution on the target area, product supportive | generic lifestyle portrait |
+| proof | social proof | testimonial portrait holding/using product | — (acceptable today) |
+| context | lifestyle | aspirational GCC setting with the person | — (acceptable today) |
+
+**QA rules (canonical).** (a) safety-filtered/black images are a generation
+FAILURE → retry/fallback, never published; (b) scale + placement enforced via the
+positive prompt (Kontext ignores negatives) + negative floor on the t2i path;
+(c) per-asset + scene-realism negatives suppress anatomy/compositing artefacts.
+
+**Honest ceiling (why 4.6.4d will still be needed).** Prompt/negative pressure
+*reduces* but cannot *guarantee* correct asset type, scale, placement, or hand
+realism on a diffusion/edit model. The operator's listed QA (reject oversized,
+reject floating/intersecting, never-black, off-type rejection) is fundamentally a
+**vision QA reject→regenerate loop = 4.6.4d**. Round 3 implements every guard
+achievable WITHOUT a per-image vision call (incl. the black-frame guard, which was
+cheap and high-value); deterministic enforcement of the rest is 4.6.4d. The
+text-dependence reduction is partly a render-layer (4.6.4a) tightening tracked
+separately. **Tests:** ai-engine 111 green (new `fal` safety-filter suite +
+image-gen placement/negative assertions); typecheck clean.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

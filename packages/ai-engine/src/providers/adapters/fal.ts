@@ -109,6 +109,13 @@ type FalImagePayload = {
   images: Array<{ url: string; width: number; height: number; content_type?: string }>;
   seed?: number;
   timings?: { inference: number };
+  /**
+   * fal safety-checker output (Flux/Kontext). When the checker trips, fal
+   * returns a BLANK/BLACK image and flags it here. We treat a flagged image as
+   * a generation FAILURE (Phase 4.6.4b QA) so the retry/fallback path runs and
+   * a black frame can never reach the storefront.
+   */
+  has_nsfw_concepts?: boolean[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -203,6 +210,13 @@ export function createFalAdapter(): Adapter {
       if (!first) {
         throw new Error("fal_image_empty_response");
       }
+      // Phase 4.6.4b — black-frame regression guard. A tripped safety checker
+      // returns a blank/black image with a valid URL (so SafeProductImage's
+      // 404 fallback can't catch it). Throw so the per-prompt retry + the
+      // scene's text-to-image fallback run instead of publishing a black frame.
+      if (isFalImageSafetyFiltered(payload)) {
+        throw new Error("fal_image_safety_filtered (likely black frame)");
+      }
       return {
         url: first.url,
         width: first.width,
@@ -237,6 +251,17 @@ export function createFalAdapter(): Adapter {
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * True when fal's safety checker flagged the first image (it then returns a
+ * blank/black frame with a valid URL). Phase 4.6.4b black-frame guard — exported
+ * for unit testing the decision in isolation.
+ */
+export function isFalImageSafetyFiltered(payload: {
+  has_nsfw_concepts?: boolean[];
+}): boolean {
+  return payload.has_nsfw_concepts?.[0] === true;
+}
 
 function isNotFoundError(err: unknown): boolean {
   if (typeof err === "object" && err !== null) {

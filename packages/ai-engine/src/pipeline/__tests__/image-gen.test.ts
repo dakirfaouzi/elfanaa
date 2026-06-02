@@ -67,6 +67,14 @@ describe("buildSceneIdentityPrompt (Phase 4.6.4b round 2 asset-aware wrapper)", 
   it("falls back to a product + human composite for context/unknown intents", () => {
     expect(buildSceneIdentityPrompt("at home", "context")).toMatch(/person using or holding it/i);
   });
+
+  it("appends scale + placement realism to EVERY asset (round 3)", () => {
+    for (const intent of ["ingredient", "mechanism", "proof", "result", "benefit", "context", undefined]) {
+      const p = buildSceneIdentityPrompt("scene", intent);
+      expect(p).toMatch(/TRUE real-world scale/i);
+      expect(p).toMatch(/must NOT (?:float|intersect)/i);
+    }
+  });
 });
 
 describe("assetNegativeFor (Phase 4.6.4b round 2 per-asset negatives)", () => {
@@ -301,6 +309,11 @@ describe("image-gen (stage 08)", () => {
     expect(ingredientCall!.negative).toMatch(/text, watermark/);
     expect(ingredientCall!.negative).toMatch(/model/);
     expect(ingredientCall!.negative).toMatch(/portrait/);
+    // Round 3 — the scene realism floor (scale/placement/anatomy) is merged in too.
+    expect(ingredientCall!.negative).toMatch(/oversized product/);
+    expect(ingredientCall!.negative).toMatch(/floating product/);
+    // And the positive prompt carries the placement-realism clause.
+    expect(ingredientCall!.prompt).toMatch(/TRUE real-world scale/i);
   });
 
   it("falls back to text-to-image for a scene when its Kontext attempt fails (no regression)", async () => {
