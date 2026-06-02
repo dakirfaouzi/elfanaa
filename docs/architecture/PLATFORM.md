@@ -2763,6 +2763,55 @@ page now generates successfully and simply **omits** the ingredients section
 (and any other unground-able block) rather than failing — which is the intended
 behaviour.
 
+#### 26.4.11.7 Phase 4.6.4b round 2 — asset type is authoritative (DONE 2026-06-02)
+
+**Validation finding (Retinol Cream / Hair-Loss Oil / Slimming Cream PDPs).**
+Routing, distribution, identity, and casting are validated, but ~4 of 6 section
+images still rendered as "an attractive person holding the product" (lifestyle)
+instead of section-native creatives: the ingredients image was a portrait (not a
+texture macro), how-it-works was a setting (not an application), results was a
+smiling model (not an outcome), benefits was a portrait (not a problem/solution).
+
+**Root cause (exact).** A prompt CONTRADICTION. The creative-prompts system rules
+forced `PRODUCT + HUMAN + CONTEXT` as the *default for every scene* ("HUMAN
+PRESENCE IS THE DEFAULT…", "DEFAULT COMPOSITION = PRODUCT + HUMAN + CONTEXT", "the
+EXACT product visible and in use by the cast human"), while the per-intent SHOT
+LIST direction was *soft* ("a full person is OPTIONAL", "person visibly radiant").
+The forceful global human-default overpowered the soft per-asset direction, so
+all six intents collapsed into person-holding-product variants. The img2img
+wrapper helped slightly but the lifestyle scene prompt still dominated the edit.
+
+**Fix — intent becomes the authoritative composition driver (no new infra):**
+- creative-prompts system: NEW top rule "ASSET TYPE IS AUTHORITATIVE" — the
+  `intent` dictates composition and OVERRIDES the human-default; "a person
+  holding the product" for every scene is named the #1 failure. Human presence
+  is now SCOPED: full person only for `hero`/`result`/`proof`/`context`, hands
+  only for `mechanism`/`benefit`, and NO human for `ingredient`. The old blanket
+  human-default + "in use by the cast human" lines were reframed to
+  "composition serves the section".
+- creative-prompts SHOT LIST: each intent rewritten as a MANDATORY recipe with an
+  explicit "NOT …" failure clause — `ingredient`=texture MACRO (no model/face),
+  `mechanism`=application on the target area (not a full portrait), `result`=
+  the visible outcome/after (product secondary), `benefit`=problem→solution on
+  the body area, `proof`=testimonial portrait, `context`=lifestyle. Explicit
+  "do NOT reuse 'person holding product' for all six".
+- image-gen `buildSceneIdentityPrompt` (already asset-aware) hardened decisively:
+  ingredient branch now forbids a model/face/person outright; mechanism crops
+  tight to hand+target; result keeps the product secondary; NEW `benefit` branch
+  for problem→solution. Hero wrapper pushed to a LUXURY editorial AD CAMPAIGN
+  (dramatic lighting, negative space, desire), not a snapshot.
+- image-gen NEW `assetNegativeFor(intent)` injects per-asset negatives at the
+  provider call (e.g. ingredient hard-rejects `person, model, face, portrait`),
+  merged with the base negative — a belt-and-braces guard against a model
+  creeping into a macro.
+
+**Tests:** ai-engine `image-gen` (asset-aware branches incl. new `benefit`,
+per-asset negatives, negative merged into the ingredient scene call) and
+`creative-prompts` (authoritative rule + "NO model" recipe). ai-engine 107 green;
+typecheck clean. Render layer (4.6.4a) unchanged — it now receives section-true
+assets to compose. **Still next (only after this validates):** 4.6.4c before/after
+engine, 4.6.4d vision QA/regeneration loop.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

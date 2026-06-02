@@ -193,10 +193,16 @@ describe("creative-prompts (stage 07)", () => {
     // Phase 4.6.3 — product-aware casting + natural product interaction.
     expect(system).toContain("PRODUCT-AWARE CASTING");
     expect(system).toContain("NATURAL PRODUCT INTERACTION");
+    // Phase 4.6.4b round 2 — asset type is the AUTHORITATIVE composition driver,
+    // so scenes stop collapsing into "a person holding the product".
+    expect(system).toContain("ASSET TYPE IS AUTHORITATIVE");
+    expect(system).toMatch(/ingredient.{0,40}NO model/is);
     // Phase 4.6.4b — purpose-built shot list: the asset must depict its section,
     // with intents that map to PDP sections (incl. the new 'benefit' creative).
     expect(user).toContain("SHOT LIST");
     expect(user).toMatch(/the asset must DEPICT its job/i);
+    // The recipe forbids reusing one composition for all six scenes.
+    expect(user).toMatch(/NO model, NO face/i);
     for (const intent of ["mechanism", "result", "ingredient", "benefit", "proof", "context"]) {
       expect(user).toContain(`'${intent}'`);
     }

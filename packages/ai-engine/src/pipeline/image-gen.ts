@@ -191,7 +191,14 @@ async function runSceneWithIdentity(opts: {
 }): Promise<RunOutcome> {
   const img2img = await runOnePrompt({
     role: "lifestyle",
-    creative: { ...opts.creative, prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent) },
+    creative: {
+      ...opts.creative,
+      prompt: buildSceneIdentityPrompt(opts.creative.prompt, opts.creative.intent),
+      negative: mergeNegative(
+        opts.creative.negative,
+        assetNegativeFor(opts.creative.intent),
+      ),
+    },
     provider: opts.provider,
     maxAttempts: opts.maxAttempts,
     storeId: opts.storeId,
@@ -233,10 +240,12 @@ const IDENTITY_LOCK =
 function buildIdentityPrompt(heroPrompt: string): string {
   return (
     IDENTITY_LOCK +
-    " Re-photograph this exact product as a premium e-commerce ADVERTISING " +
-    "hero: a photorealistic, audience-appropriate person naturally holding or " +
-    "using it in an aspirational premium setting, the product clearly visible " +
-    "and readable. " +
+    " Re-photograph this exact product as a LUXURY GCC e-commerce ADVERTISING " +
+    "CAMPAIGN hero — art-directed like a premium beauty/fashion ad, NOT a casual " +
+    "snapshot of someone holding a bottle: editorial dramatic lighting, a refined " +
+    "aspirational set, intentional negative space, and the EXACT product as the " +
+    "unmistakable hero, held or used by a photorealistic, audience-matched person. " +
+    "Composition should create desire and feel like a high-end campaign. " +
     heroPrompt +
     " Natural skin texture and believable hands/anatomy; no obvious-AI face."
   );
@@ -254,27 +263,31 @@ function buildIdentityPrompt(heroPrompt: string): string {
  */
 export function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): string {
   const i = intent ?? "";
-  // Phase 4.6.4b — the wrapper is asset-aware so each scene DEPICTS its section's
-  // job (the image itself communicates the section, not a generic lifestyle shot).
+  // Phase 4.6.4b round 2 — the wrapper is DECISIVELY asset-aware so each scene
+  // DEPICTS its section's job. The #1 failure was every scene collapsing into "a
+  // person holding the product"; each branch now art-directs a distinct
+  // composition and the ingredient branch forbids a model outright.
   if (/ingredient|detail|texture|swatch|macro/i.test(i)) {
     return (
       IDENTITY_LOCK +
-      " Re-photograph this exact product as a premium close-up advertising MACRO " +
-      "that showcases its texture / key ingredient (a hand may hold or dispense " +
-      "it, but a full person is optional): " +
+      " Re-photograph this exact product as a premium MACRO still-life that sells " +
+      "the formula: the product beside its hero ingredient and a texture swatch " +
+      "(oil droplets, cream smear, botanicals, powder) on a clean premium surface, " +
+      "shallow depth of field, crisp tactile detail. NO model, NO face, NO person " +
+      "in the frame — product + ingredient only: " +
       scenePrompt +
-      " Crisp tactile detail, believable hands if present; no obvious-AI artefacts."
+      " Studio-grade product photography; no obvious-AI artefacts."
     );
   }
   if (/mechanism|apply|applicat|step|usage|how/i.test(i)) {
     return (
       IDENTITY_LOCK +
-      " Show a believable APPLICATION / USAGE moment: an audience-matched person's " +
-      "hands applying or dispensing this exact product onto the relevant area, the " +
-      "active step clearly visible (educational, close framing, cropped at the wrist " +
-      "to keep hands clean): " +
+      " Show a believable APPLICATION moment ON THE TARGET AREA: an audience-matched " +
+      "person's hand dispensing or applying this exact product to the area it treats " +
+      "(face / under-eye / scalp / hairline / midsection as relevant), cropped TIGHT " +
+      "to the action — hand + product + target area only, NOT a full-body portrait: " +
       scenePrompt +
-      " Product clearly visible and readable; realistic hands; no obvious-AI artefacts."
+      " Product clearly visible and readable; realistic single hand, five fingers; no obvious-AI artefacts."
     );
   }
   if (/proof|testimonial|portrait|customer|review/i.test(i)) {
@@ -290,11 +303,23 @@ export function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): 
   if (/result|outcome|after|transform/i.test(i)) {
     return (
       IDENTITY_LOCK +
-      " Capture the achievable OUTCOME end-state: an audience-matched person visibly " +
-      "radiant and satisfied (the after the buyer wants), this exact product present " +
-      "in frame: " +
+      " Capture the OUTCOME — the visible 'after' the buyer wants: a close, flattering " +
+      "look at the IMPROVED target area (radiant skin / fuller hair / smoother contour " +
+      "as relevant) that proves the promise, with this exact product present but " +
+      "SECONDARY in frame (not the focus, not squared to camera): " +
       scenePrompt +
-      " Product clearly visible; natural skin and hands; no obvious-AI face."
+      " Photoreal, natural skin texture; no obvious-AI face."
+    );
+  }
+  if (/benefit|problem|solution|concern|relief/i.test(i)) {
+    return (
+      IDENTITY_LOCK +
+      " Dramatise the PROBLEM→SOLUTION on the relevant body area: frame the concern " +
+      "this product resolves and the moment of relief/improvement, the exact product " +
+      "present as the solution. Focus on the target area, NOT a generic posed " +
+      "portrait: " +
+      scenePrompt +
+      " Photoreal, believable anatomy; no obvious-AI face."
     );
   }
   return (
@@ -306,6 +331,33 @@ export function buildSceneIdentityPrompt(scenePrompt: string, intent?: string): 
     " The product stays clearly visible and recognisable; believable hands and " +
     "anatomy; no obvious-AI face."
   );
+}
+
+/**
+ * Asset-specific NEGATIVE additions (Phase 4.6.4b round 2). The creative-prompts
+ * stage emits a base negative; here we ADD intent-specific exclusions at the
+ * provider call so e.g. an `ingredient` macro hard-rejects a model/portrait
+ * creeping in. Returned string is appended to the scene's base negative.
+ */
+export function assetNegativeFor(intent?: string): string {
+  const i = intent ?? "";
+  if (/ingredient|detail|texture|swatch|macro/i.test(i)) {
+    return "person, model, face, portrait, full body, hands gripping, lifestyle scene";
+  }
+  if (/mechanism|apply|applicat|step|usage|how/i.test(i)) {
+    return "full body, posed portrait, face filling frame, multiple hands, product squared to camera";
+  }
+  if (/result|outcome|after|transform/i.test(i)) {
+    return "product as the focus, bottle squared to camera, stiff product-presentation pose";
+  }
+  return "";
+}
+
+/** Merge a base negative with the asset-specific additions (dedup-friendly). */
+function mergeNegative(base: string | undefined, extra: string): string {
+  const b = (base ?? "").trim();
+  if (!extra) return b;
+  return b ? `${b}, ${extra}` : extra;
 }
 
 /**

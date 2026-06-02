@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fanaaStore } from "@platform/stores";
-import { buildSceneIdentityPrompt, imageGen } from "../image-gen";
+import { assetNegativeFor, buildSceneIdentityPrompt, imageGen } from "../image-gen";
 import type {
   CreativePromptsOutput,
 } from "../types-creative-prompts";
@@ -28,35 +28,67 @@ const promptsThree: CreativePromptsOutput = {
   ],
 };
 
-describe("buildSceneIdentityPrompt (Phase 4.6.4b asset-aware wrapper)", () => {
+describe("buildSceneIdentityPrompt (Phase 4.6.4b round 2 asset-aware wrapper)", () => {
   it("always carries the identity lock", () => {
-    for (const intent of ["ingredient", "mechanism", "proof", "result", "context", undefined]) {
+    for (const intent of ["ingredient", "mechanism", "proof", "result", "benefit", "context", undefined]) {
       expect(buildSceneIdentityPrompt("scene", intent)).toMatch(/SINGLE SOURCE OF TRUTH/i);
     }
   });
 
-  it("renders a MACRO for ingredient/detail (full person optional)", () => {
+  it("renders a MACRO with NO model for ingredient/detail", () => {
     const p = buildSceneIdentityPrompt("droplet swatch", "ingredient");
     expect(p).toMatch(/MACRO/);
-    expect(p).toMatch(/full person is optional/i);
+    expect(p).toMatch(/NO model/i);
+    expect(p).toMatch(/NO person in the frame/i);
   });
 
-  it("renders an APPLICATION moment for mechanism", () => {
-    expect(buildSceneIdentityPrompt("apply to under-eye", "mechanism")).toMatch(
-      /APPLICATION \/ USAGE moment/i,
-    );
+  it("renders an application moment ON THE TARGET AREA for mechanism", () => {
+    const p = buildSceneIdentityPrompt("apply to under-eye", "mechanism");
+    expect(p).toMatch(/APPLICATION moment ON THE TARGET AREA/i);
+    expect(p).toMatch(/NOT a full-body portrait/i);
   });
 
   it("renders a customer PORTRAIT for proof", () => {
     expect(buildSceneIdentityPrompt("confident customer", "proof")).toMatch(/PORTRAIT/);
   });
 
-  it("renders an OUTCOME end-state for result", () => {
-    expect(buildSceneIdentityPrompt("radiant skin", "result")).toMatch(/OUTCOME end-state/i);
+  it("renders the OUTCOME with the product secondary for result", () => {
+    const p = buildSceneIdentityPrompt("radiant skin", "result");
+    expect(p).toMatch(/OUTCOME/);
+    expect(p).toMatch(/SECONDARY in frame/i);
+  });
+
+  it("renders a PROBLEM→SOLUTION beat on the target area for benefit", () => {
+    const p = buildSceneIdentityPrompt("slimmer waist", "benefit");
+    expect(p).toMatch(/PROBLEM.{0,3}SOLUTION/i);
+    expect(p).toMatch(/NOT a generic posed\s+portrait/i);
   });
 
   it("falls back to a product + human composite for context/unknown intents", () => {
     expect(buildSceneIdentityPrompt("at home", "context")).toMatch(/person using or holding it/i);
+  });
+});
+
+describe("assetNegativeFor (Phase 4.6.4b round 2 per-asset negatives)", () => {
+  it("hard-rejects a model/portrait for an ingredient macro", () => {
+    const n = assetNegativeFor("ingredient");
+    expect(n).toMatch(/person/);
+    expect(n).toMatch(/portrait/);
+    expect(n).toMatch(/face/);
+  });
+
+  it("rejects a full-body portrait for a mechanism application", () => {
+    expect(assetNegativeFor("mechanism")).toMatch(/full body/);
+  });
+
+  it("keeps the product secondary for a result", () => {
+    expect(assetNegativeFor("result")).toMatch(/product as the focus/);
+  });
+
+  it("is empty for person-led/unknown intents (uses the base negative only)", () => {
+    expect(assetNegativeFor("context")).toBe("");
+    expect(assetNegativeFor("proof")).toBe("");
+    expect(assetNegativeFor(undefined)).toBe("");
   });
 });
 
@@ -232,6 +264,43 @@ describe("image-gen (stage 08)", () => {
     for (const call of img.calls) {
       expect(call.prompt).toMatch(/single source of truth/i);
     }
+  });
+
+  it("injects the asset-specific negative into an ingredient scene img2img call (round 2)", async () => {
+    const img = mockImage({
+      responses: [
+        imageResult({ url: "https://cdn.mock/hero.webp" }),
+        imageResult({ url: "https://cdn.mock/ingredient.webp", width: 1024, height: 1280 }),
+      ],
+    });
+
+    await imageGen({
+      input: {
+        prompts: {
+          hero: { prompt: "hero", aspectRatio: "1:1" },
+          lifestyle: [
+            {
+              prompt: "macro of oil droplets beside the bottle",
+              negative: "text, watermark",
+              aspectRatio: "4:5",
+              intent: "ingredient",
+            },
+          ],
+        },
+        maxAttemptsPerPrompt: 1,
+        referenceImage: { src: "https://cdn.elfanaa.com/studio-intake/p.jpg" },
+      },
+      providers: { image: img.provider },
+      storeConfig: fanaaStore,
+      runId: "run_test_image_gen_asset_negative",
+    });
+
+    const ingredientCall = img.calls.find((c) => /MACRO/i.test(c.prompt));
+    expect(ingredientCall).toBeDefined();
+    // Base negative preserved AND the asset negative (no model/portrait) appended.
+    expect(ingredientCall!.negative).toMatch(/text, watermark/);
+    expect(ingredientCall!.negative).toMatch(/model/);
+    expect(ingredientCall!.negative).toMatch(/portrait/);
   });
 
   it("falls back to text-to-image for a scene when its Kontext attempt fails (no regression)", async () => {
