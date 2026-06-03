@@ -10,8 +10,12 @@ tier are LINE totals at that exact quantity, NOT unit prices.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @dataclass(frozen=True)
@@ -201,5 +205,148 @@ def known_product_ids() -> frozenset[str]:
     Exposed for cross-system checks — see `_reprice_cart` and the
     storefront/backend parity helpers. Returning a `frozenset` makes
     callers' membership checks O(1) and immutable.
+
+    NOTE: this is the CURATED set only. AI-published products live in the
+    `storefront_catalog_product` table and resolve via
+    `get_product_from_db` — they are intentionally NOT enumerated here.
     """
     return frozenset(p.id for p in PRODUCTS)
+
+
+# ── DB-backed catalog (AI-published products) ────────────────────────────────
+#
+# The hardcoded `PRODUCTS` tuple above mirrors ONLY the curated snapshot
+# (`data/products.ts`). Operator-published, AI-generated products are written
+# by the Studio publish flow into the Postgres `storefront_catalog_product`
+# table — the SAME table the Next.js storefront reads. Until this resolver
+# existed, the order re-pricer could not price any `run_*` product and every
+# AI product 404'd checkout with `product_unknown` (422).
+#
+# This is the "swap this module for an adapter" seam promised in the module
+# docstring: curated products keep their zero-DB fast path; only a miss falls
+# through to the DB.
+
+# Single-tenant deployment. Mirrors `apps/fanaa/lib/catalog/loader.ts`'s
+# `STORE_ID = "fanaa"` — both the storefront and this service read the same
+# rows from the same database.
+_STORE_ID = "fanaa"
+
+
+def _as_json(value: Any) -> Any:
+    """Decode a JSON/JSONB column value into Python.
+
+    With a raw `text()` query the asyncpg driver may hand JSONB back as a
+    string (there is no column type info to trigger SQLAlchemy's JSON
+    codec), so decode defensively and tolerate already-decoded values.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, (str, bytes)):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _coerce_offer_tiers(raw: Any, fallback_currency: str) -> tuple[OfferTier, ...]:
+    """Build `OfferTier`s from the row's `offer_tiers` JSON.
+
+    Shape mirrors `CatalogMetadata.offerTiers`:
+    `[{ "quantity": int, "total": { "amount": int, "currency": str } }]`.
+    Malformed entries are skipped rather than failing the order — a bad
+    tier should degrade to per-unit pricing, never block a sale.
+    """
+    data = _as_json(raw)
+    if not isinstance(data, list):
+        return ()
+    tiers: list[OfferTier] = []
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        qty = entry.get("quantity")
+        total = entry.get("total")
+        if not isinstance(qty, int) or not isinstance(total, dict):
+            continue
+        amount = total.get("amount")
+        if not isinstance(amount, int):
+            continue
+        currency = total.get("currency") or fallback_currency
+        tiers.append(
+            OfferTier(quantity=qty, total=Money(amount=amount, currency=currency))
+        )
+    return tuple(tiers)
+
+
+def _title_from_cro(raw: Any, slug: str, locale: str) -> str:
+    """Pull the localised product title out of the `cro_content` projection.
+
+    AI products carry their title in `cro_content.title` (a
+    `{ ar, en }` LocalizedString — see `synthesiseProductFromRow`). Falls
+    back to the slug so the ops Sheets row + receipt always show something
+    recognisable even for a row published before titles were projected.
+    """
+    cro = _as_json(raw)
+    if isinstance(cro, dict):
+        title = cro.get("title")
+        if isinstance(title, dict):
+            val = title.get(locale) or title.get("ar") or title.get("en")
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+    return slug
+
+
+def _row_to_product(row: Any) -> Product:
+    slug = row["slug"]
+    currency = row["price_currency"] or "SAR"
+    price = Money(amount=int(row["price_minor"]), currency=currency)
+    return Product(
+        # The storefront uses the row slug as the product id for AI products
+        # (`synthesiseProductFromRow`: `id = row.slug`), so the cart sends the
+        # slug and we key on it here.
+        id=slug,
+        slug=slug,
+        title_ar=_title_from_cro(row["cro_content"], slug, "ar"),
+        title_en=_title_from_cro(row["cro_content"], slug, "en"),
+        price=price,
+        offer_tiers=_coerce_offer_tiers(row["offer_tiers"], currency),
+        collection=row["collection"] or "",
+        sku=row["sku"] or "",
+        landing_path=row["landing_path"] or "",
+    )
+
+
+async def get_product_from_db(
+    session: AsyncSession, product_id: str
+) -> Optional[Product]:
+    """Resolve an AI-published product from `storefront_catalog_product`.
+
+    Pricing stays server-authoritative: the price + offer tiers come from
+    the DB row, never the client. Scoped to the live ("is_live") rows of
+    the fanaa store — identical to the storefront loader's query — so the
+    backend re-pricer and the storefront can never disagree about which
+    products are sellable.
+
+    Returns `None` when no live row matches (true catalog drift), which the
+    caller turns into the existing loud `product_unknown` 422.
+    """
+    result = await session.execute(
+        text(
+            """
+            SELECT slug, sku, price_minor, price_currency, offer_tiers,
+                   collection, landing_path, cro_content
+            FROM storefront_catalog_product
+            WHERE store_id = :store_id
+              AND slug = :slug
+              AND is_live = TRUE
+            LIMIT 1
+            """
+        ),
+        {"store_id": _STORE_ID, "slug": product_id},
+    )
+    row = result.mappings().first()
+    if row is None:
+        return None
+    return _row_to_product(row)

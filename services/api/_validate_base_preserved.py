@@ -72,13 +72,25 @@ class _Line:
 
 # ── Imports under test ────────────────────────────────────────────────
 
-from app.services.orders import _reprice_cart, OrderError  # noqa: E402
+import asyncio  # noqa: E402
+
+from app.services.orders import _reprice_cart as _reprice_cart_async, OrderError  # noqa: E402
 from app.services.catalog import (  # noqa: E402
     PRODUCTS,
     get_product,
     known_product_ids,
 )
 from app.services.webhooks import build_order_row  # noqa: E402
+
+
+def _reprice_cart(lines) -> List[dict]:
+    """Sync wrapper for the (now async) re-pricer.
+
+    This harness exercises curated-only lines with no DB session, so the
+    re-pricer never touches Postgres — `asyncio.run` is sufficient and keeps
+    every existing test body unchanged.
+    """
+    return asyncio.run(_reprice_cart_async(lines))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────

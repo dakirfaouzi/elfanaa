@@ -35,7 +35,7 @@ from app.schemas.order import (
     OrderOut,
     UpsellAcceptIn,
 )
-from app.services.catalog import Product, get_product
+from app.services.catalog import Product, get_product, get_product_from_db
 from app.services.ip_intelligence import check_ip, is_phone_whitelisted
 from app.services.pricing import line_total
 from app.services.pixels import PixelEvent, PixelUser, dispatch_purchase
@@ -111,7 +111,7 @@ async def create_order(
                 403,
             )
 
-    repriced = _reprice_cart(payload.cart.lines)
+    repriced = await _reprice_cart(payload.cart.lines, session)
     if not repriced:
         raise OrderError("empty_cart", "cart contains no valid products", 422)
 
@@ -164,8 +164,12 @@ async def create_order(
     # the upsell screen, otherwise an immediate upsell-accept would race
     # the base-order append and try to update a row that doesn't exist yet.
     # Order creation still succeeds if this step fails (try/except below).
+    # Resolve every product on the order ONCE (curated + AI from the DB) so
+    # the ops Sheets row carries the real SKU + canonical URL for AI
+    # products instead of the `FN-UNKNOWN-<id>` fallback.
+    catalog = await _resolve_catalog_map(session, order.items)
     try:
-        await _dispatch_sheets_for_order(order, payload)
+        await _dispatch_sheets_for_order(order, payload, catalog=catalog)
     except Exception:
         log.exception(
             "sheets webhook crashed — order kept",
@@ -194,6 +198,11 @@ async def accept_upsell(
     """Add a post-purchase upsell line at the locked 99 SAR price."""
     order = await _get_order_or_404(session, order_id)
     product = get_product(payload.product_id)
+    if product is None:
+        # AI-published products live in the storefront catalog table, not the
+        # curated mirror — resolve them the same way the re-pricer does so a
+        # post-purchase upsell can offer a generated product too.
+        product = await get_product_from_db(session, payload.product_id)
     if product is None:
         raise OrderError("product_not_found", "product not in catalog", 404)
 
@@ -239,7 +248,7 @@ async def accept_upsell(
     # Best-effort: the upsell is already persisted by the time we get
     # here; a Sheets outage must not roll it back.
     try:
-        await _dispatch_sheets_for_order_update(order)
+        await _dispatch_sheets_for_order_update(session, order)
     except Exception:
         log.exception(
             "sheets order_update webhook crashed — upsell accepted regardless",
@@ -301,8 +310,17 @@ async def _get_order_or_404(session: AsyncSession, order_id: str) -> Order:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _reprice_cart(lines) -> List[Dict[str, Any]]:
+async def _reprice_cart(lines, session: Optional[AsyncSession] = None) -> List[Dict[str, Any]]:
     """Recompute line totals from the catalog.
+
+    Resolution order per line:
+      1. The curated in-memory mirror (`catalog.get_product`) — zero DB,
+         O(1), unchanged behaviour for the snapshot products.
+      2. On a miss, when a `session` is supplied, the DB-backed resolver
+         (`catalog.get_product_from_db`) for AI-published `run_*` products.
+
+    `session` is optional so the in-memory parity/validation harness
+    (`_validate_base_preserved.py`) can call this with curated-only lines.
 
     The per-line `source` is forwarded ("base" / "cross_sell") so the
     Sheets row builder can place each item in the correct slot of the
@@ -331,6 +349,12 @@ def _reprice_cart(lines) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for line in lines:
         product = get_product(line.product_id)
+        if product is None and session is not None:
+            # Curated miss → resolve the AI-published product from the
+            # `storefront_catalog_product` table (same Postgres the
+            # storefront reads). This is what makes `run_*` products
+            # sellable; without it every AI product 404'd here.
+            product = await get_product_from_db(session, line.product_id)
         if product is None:
             # Loud failure — see docstring rationale.
             log.error(
@@ -338,10 +362,11 @@ def _reprice_cart(lines) -> List[Dict[str, Any]]:
                 extra={
                     "product_id": line.product_id,
                     "hint": (
-                        "Storefront sent a product id the backend cannot "
-                        "price. Mirror the storefront catalog into "
-                        "backend/app/services/catalog.py::PRODUCTS and "
-                        "redeploy the API container."
+                        "Storefront sent a product id neither the curated "
+                        "catalog mirror nor the storefront_catalog_product "
+                        "table can resolve. For curated drift, mirror "
+                        "data/products.ts into catalog.py::PRODUCTS. For an "
+                        "AI product, confirm the row is published + is_live."
                     ),
                 },
             )
@@ -403,10 +428,18 @@ def to_order_out(order: Order) -> OrderOut:
     )
 
 
-async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> None:
+async def _dispatch_sheets_for_order(
+    order: Order,
+    payload: OrderCreateIn,
+    *,
+    catalog: Optional[Dict[str, Product]] = None,
+) -> None:
     """Awaited Google Sheets append — runs BEFORE `create_order` returns
     so the operational sheet has the row by the time the customer sees
     the upsell popup. Failures are logged but never raised.
+
+    `catalog` is the pre-resolved product map (curated + AI from the DB)
+    so AI products land on the row with their real SKU / URL.
     """
     settings = get_settings()
     if not settings.google_sheets_webhook_url:
@@ -424,7 +457,9 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
     # `accept_upsell` which re-dispatches the FULL state through
     # `_dispatch_sheets_for_order_update`.
     pre_upsell_items = [it for it in order.items if it.source != "upsell"]
-    items_payload = _items_payload_for_sheets(pre_upsell_items, settings.site_url)
+    items_payload = _items_payload_for_sheets(
+        pre_upsell_items, settings.site_url, catalog
+    )
 
     # Slot-0 invariant: if the order has any line, at least one must
     # land in the base bucket. Otherwise the Sheets row reads "/N"
@@ -476,8 +511,34 @@ async def _dispatch_sheets_for_order(order: Order, payload: OrderCreateIn) -> No
         )
 
 
+async def _resolve_catalog_map(
+    session: AsyncSession, items: list[OrderItem]
+) -> Dict[str, Product]:
+    """Resolve every DISTINCT product id on the order to a `Product`.
+
+    Curated mirror first (zero DB), then the `storefront_catalog_product`
+    table for AI products. Used to enrich the ops Sheets row with the real
+    SKU + canonical URL — order persistence already succeeded by the time
+    this runs, so a resolution miss simply leaves that line on the
+    `FN-UNKNOWN-<id>` fallback rather than failing anything.
+    """
+    out: Dict[str, Product] = {}
+    for it in items:
+        pid = it.product_id
+        if pid in out:
+            continue
+        product = get_product(pid)
+        if product is None:
+            product = await get_product_from_db(session, pid)
+        if product is not None:
+            out[pid] = product
+    return out
+
+
 def _items_payload_for_sheets(
-    items: list[OrderItem], site_url: str
+    items: list[OrderItem],
+    site_url: str,
+    catalog: Optional[Dict[str, Product]] = None,
 ) -> list[Dict[str, Any]]:
     """Map ORM `OrderItem` rows to the dict shape the Sheets row
     builder expects. Each entry carries SKU / Arabic name / quantity /
@@ -485,10 +546,14 @@ def _items_payload_for_sheets(
     emit a row (no silent drop here — `_reprice_cart` already gates
     on unknown ids at order-creation time) using a deterministic
     fallback SKU so the operator can recognise the line in the sheet.
+
+    `catalog` (when provided) is the pre-resolved curated+DB product map;
+    it's preferred over the curated-only `get_product` so AI products get
+    their real SKU + URL instead of `FN-UNKNOWN-<id>`.
     """
     out: list[Dict[str, Any]] = []
     for it in items:
-        product = get_product(it.product_id)
+        product = (catalog or {}).get(it.product_id) or get_product(it.product_id)
         if product is not None:
             sku = product.resolved_sku()
             url = product.canonical_url(site_url)
@@ -526,7 +591,9 @@ def _promote_orphan_cross_sells_to_base(
             break
 
 
-async def _dispatch_sheets_for_order_update(order: Order) -> None:
+async def _dispatch_sheets_for_order_update(
+    session: AsyncSession, order: Order
+) -> None:
     """Full-state rewrite of the Sheets row after an order grows
     (post-purchase upsell accepted, additional offers accepted, …).
 
@@ -546,7 +613,10 @@ async def _dispatch_sheets_for_order_update(order: Order) -> None:
         )
         return
 
-    items_payload = _items_payload_for_sheets(list(order.items), settings.site_url)
+    catalog = await _resolve_catalog_map(session, order.items)
+    items_payload = _items_payload_for_sheets(
+        list(order.items), settings.site_url, catalog
+    )
     _promote_orphan_cross_sells_to_base(items_payload, order_id=order.id)
 
     sheets_row = build_sheets_order_update_row(

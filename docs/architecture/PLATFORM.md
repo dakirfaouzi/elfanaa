@@ -3152,6 +3152,65 @@ lint clean; fanaa 155 tests, persistence 80, builder-schema 41, studio 469 green
 column) before/with the deploy; existing rows read back `null` → heuristic
 (no behaviour change).
 
+#### 26.4.15 Checkout `product_unknown` — AI products unsellable via the FastAPI order API (DONE 2026-06-04)
+
+**Symptom.** Checkout for any AI-published product returns
+`422 {"detail":{"error":"product_unknown","message":"unknown product id: run_…"}}`.
+Pre-existing (predates the cross-sell/upsell work) — AI products were never
+orderable in two-tier production.
+
+**Investigation (PDP → Add to Cart → Checkout → Order API → Product lookup).**
+- The storefront synthesises AI products from the Postgres
+  `storefront_catalog_product` table and uses the **row `slug` as the product
+  id** (`merge.ts::synthesiseProductFromRow` → `id = row.slug`). So the cart
+  posts `productId = run_…` (a slug).
+- In production `NEXT_PUBLIC_API_BASE_URL` is set, so `apiUrl()` posts to the
+  **FastAPI** service `/orders` (the `{"detail":{…}}` body is FastAPI's
+  `HTTPException` shape — `app/api/routes/orders.py`), NOT the Next.js route.
+- **Exact failing line:** `services/api/app/services/orders.py::_reprice_cart`
+  → `get_product(line.product_id)` returns `None` → raises
+  `OrderError("product_unknown", …, 422)`. `catalog.py::get_product` searches
+  only the **hardcoded `PRODUCTS` tuple** (curated p_001–p_004).
+
+**Architectural root cause — two disconnected catalog sources of truth.** The
+storefront/PDP read the DB (`storefront_catalog_product`); the FastAPI
+order/re-pricer read a hand-maintained in-memory Python mirror that has no
+AI products. Publish writes the DB (PDP renders, add-to-cart works) but the
+order layer can't resolve the id → every `run_*` product is unsellable. (The
+Next.js standalone `/api/orders` + `/api/orders/[id]/upsell` routes were
+already bridged in Phase 2.5/2.6 via `resolveCatalogProductById`; only the
+FastAPI path was still snapshot-only.)
+
+**Fix — DB-backed fallback in the FastAPI re-pricer (the documented "swap this
+module for an adapter" seam).** FastAPI defaults to the **same Postgres**
+(`elfanaa_database/elfanaa`) the storefront reads, so the table is directly
+reachable.
+- `catalog.py::get_product_from_db(session, slug)` — queries
+  `storefront_catalog_product` (`store_id='fanaa'`, `slug=<id>`, `is_live`),
+  builds a priced `Product` from `price_minor`/`price_currency`/`offer_tiers`
+  (title from `cro_content.title`). Curated lookup stays a zero-DB fast path.
+- `orders.py::_reprice_cart` is now `async (lines, session=None)`; a curated
+  miss with a session falls through to the DB resolver, else still raises the
+  loud 422 (drift stays visible). `accept_upsell` gets the same fallback so a
+  post-purchase upsell can offer an AI product.
+- Ops-sheet correctness: `_resolve_catalog_map` resolves the order's products
+  once (curated + DB) and threads through `_items_payload_for_sheets` so AI
+  orders carry the real SKU + canonical URL instead of `FN-UNKNOWN-<id>`.
+
+**ADR-S2-OC1 — the order re-pricer resolves AI products from the storefront
+catalog table; pricing stays server-authoritative.** Price + tiers come from
+the DB row (never the client), matching the storefront loader's exact query so
+the two systems can never disagree on what is sellable. Curated products keep
+their zero-DB fast path; a true miss is still a loud 422. **Affected files:**
+`services/api/app/services/catalog.py`, `services/api/app/services/orders.py`,
+`services/api/_validate_base_preserved.py` (async wrapper),
+`services/api/_validate_ai_product_repricing.py` (new harness). Validation:
+new harness 27/27, existing base-preserved harness 19/19. **Follow-ups (non-
+blocking):** `OrderItem.product_id` / `CartLineIn.product_id` are `VARCHAR(40)`
+— current `run_*` ids (~21 chars) fit, but long slugs could clip; and
+`_order_to_payload`'s archival `url` field stays snapshot-only (admin titles
+already correct from the stored `OrderItem.title`).
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
