@@ -3029,6 +3029,58 @@ in the common case. (3) Scene replacement targets `lifestyleImages`; gallery
 extras (`croContent.images[1..]`) remain editable via the builder gallery/hero
 sections, not this panel.
 
+#### 26.4.13 Cross-sell source-of-truth fix — "Upsell Product IDs" now authoritative (DONE 2026-06-03)
+
+**Symptom.** Operator edits "Upsell Product IDs" (`CatalogMetadata.upsellIds`),
+saves + publishes, but PDP recommendations, cart-drawer cross-sells, and
+thank-you cross-sells keep showing legacy products; newly entered products never
+appear. Reproduces even with a single slug.
+
+**Investigation (end-to-end trace).** Persistence is intact: publish writes
+`catalogMetadata.upsellIds` (`drafts-service.ts`), the repo persists the
+`upsell_ids TEXT[]` column, and the hybrid loader/merge set `Product.upsellIds`.
+The defects are entirely on the **read side**:
+- **PDP** — `loadRelatedCatalogProducts` returned `all.filter(≠self).slice(0,4)`,
+  a catalog-order slice that **never read `upsellIds`**. Editing the field had
+  zero effect on the PDP "you might also like" grid.
+- **Cart drawer + thank-you** — `resolveCartCrossSells` (`data/upsells.ts`) read
+  `upsellIds` but resolved each ref via `getProductById` against the
+  **snapshot only** (`@/data/products`), and its candidate pool was snapshot
+  `products`. AI-generated targets (`run_…`) and any slug/path value missed →
+  the price-band/collection fallback always won (the legacy products seen).
+- **Input format** — operators paste paths (`/products/run_…`, `/sugarbear`),
+  not bare ids/slugs, compounding the miss.
+
+**Fix (field is now the single source of truth across all surfaces).**
+- `lib/catalog/upsell-refs.ts` (new, pure, unit-tested) — `normalizeUpsellRef`
+  reduces ids / slugs / paths / full URLs to a bare token; `resolveUpsellRefs`
+  matches by **id OR slug** against the hybrid catalog, preserves operator
+  order, dedupes, and **silently skips** unresolvable / self refs.
+- **PDP** — `loadRelatedCatalogProducts` resolves `current.upsellIds` first;
+  only falls back to the catalog-order slice when nothing resolves.
+- **Server resolver** — `loadConfiguredCrossSells(anchorRefs, …)` resolves the
+  anchors' `upsellIds` through the hybrid catalog (so AI-generated products are
+  valid cross-sell targets).
+- **Client API** — `GET /api/catalog/cross-sells?for=&exclude=&max=` exposes the
+  server resolver to the client islands. Returns `{ products }`; an empty result
+  means "fall back to the legacy heuristic", so the surface never breaks.
+- **Cart drawer + thank-you** — `useCartCrossSells` / `useOrderCrossSells`
+  fetch configured cross-sells first and fall back to the existing snapshot
+  heuristic (`resolveCartCrossSells`) only when nothing is configured/resolvable.
+
+**ADR-S2-CS1 — `upsellIds` is the single source of truth; heuristic is fallback
+only.** Configured upsells win on every surface (PDP, cart drawer, thank-you).
+The snapshot price-band/collection heuristic survives strictly as the no-config
+fallback so products without curated upsells still show sensible suggestions.
+Resolution is id-or-slug + path-tolerant and fails open (unresolvable refs are
+skipped, never error). **Affected files:** `apps/fanaa/lib/catalog/upsell-refs.ts`
+(new), `lib/catalog/loader.ts`, `app/api/catalog/cross-sells/route.ts` (new),
+`hooks/useUpsells.ts`, `components/thankyou/ThankYouCrossSells.tsx`,
+`__tests__/upsell-refs.test.ts` (new). fanaa: 150 tests green, typecheck + lint
+clean. **Operator note:** ids OR slugs are accepted; paths/URLs are tolerated;
+the post-purchase 99-SAR upsell (`lib/upsell/strategy.ts`) is a separate surface
+unchanged by this fix.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

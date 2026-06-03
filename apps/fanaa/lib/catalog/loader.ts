@@ -14,6 +14,7 @@ import {
   mergeCatalogProduct,
   synthesiseProductFromRow,
 } from "./merge";
+import { resolveUpsellRefs } from "./upsell-refs";
 
 /**
  * Storefront catalog — live (DB-backed) loader.
@@ -196,9 +197,19 @@ export async function loadCatalogProductsByIds(
 }
 
 /**
- * Related-product picker. Mirrors the sync `getRelatedProducts(id, limit)`
- * surface so the PDP swap is a one-liner. Built on top of the cached
- * full catalog so it doesn't trigger an extra DB query.
+ * Related-product picker for the PDP "you might also like" grid.
+ *
+ * # `upsellIds` is the source of truth (M12 / Step 2 cross-sell fix)
+ *
+ * The operator-edited `upsellIds` field decides which products appear. We
+ * resolve it against the FULL hybrid catalog (snapshot + DB) by id OR slug,
+ * tolerating path/URL forms (`/products/<slug>`, `/sugarbear`, …) and silently
+ * skipping unresolvable / self refs — so an AI-generated product can recommend
+ * another AI-generated product, a curated one, or both.
+ *
+ * Only when the product has no resolvable upsells do we fall back to the legacy
+ * catalog-order slice, so a product that was never configured still shows a
+ * sensible grid instead of nothing.
  */
 export async function loadRelatedCatalogProducts(
   productId: string,
@@ -207,7 +218,51 @@ export async function loadRelatedCatalogProducts(
   const all = await loadAllCatalogProducts();
   const current = all.find((p) => p.id === productId);
   if (!current) return [];
+
+  const configured = resolveUpsellRefs(current.upsellIds ?? [], all, {
+    excludeIds: [current.id],
+  });
+  if (configured.length > 0) return configured.slice(0, limit);
+
+  // Fallback: no configured upsells → legacy catalog-order slice.
   return all.filter((p) => p.id !== productId).slice(0, limit);
+}
+
+/**
+ * Resolve the configured cross-sells for a set of "anchor" products (the items
+ * currently in the cart / order), via the hybrid catalog.
+ *
+ * This is the server-side engine behind the cart-drawer + thank-you cross-sell
+ * surfaces (exposed to the client through `/api/catalog/cross-sells`). It keeps
+ * `upsellIds` authoritative everywhere:
+ *
+ *   1. Resolve each anchor ref (id-or-slug) to its live catalog product.
+ *   2. Collect every anchor's `upsellIds`, in order.
+ *   3. Resolve those refs (id-or-slug, path-tolerant) to live products,
+ *      excluding the anchors themselves + any caller-supplied `excludeIds`.
+ *
+ * Returns `[]` when nothing is configured/resolvable — the client then falls
+ * back to its legacy snapshot heuristic, so behaviour never regresses for
+ * products without curated upsells.
+ */
+export async function loadConfiguredCrossSells(
+  anchorRefs: ReadonlyArray<string>,
+  opts?: { excludeIds?: ReadonlyArray<string>; max?: number },
+): Promise<Product[]> {
+  if (anchorRefs.length === 0) return [];
+  const all = await loadAllCatalogProducts();
+
+  const anchors = resolveUpsellRefs(anchorRefs, all);
+  if (anchors.length === 0) return [];
+
+  const excludeIds = [
+    ...anchors.map((p) => p.id),
+    ...(opts?.excludeIds ?? []),
+  ];
+  const refs = anchors.flatMap((p) => p.upsellIds ?? []);
+  const resolved = resolveUpsellRefs(refs, all, { excludeIds });
+
+  return typeof opts?.max === "number" ? resolved.slice(0, opts.max) : resolved;
 }
 
 /* -------------------------------------------------------------------------- */

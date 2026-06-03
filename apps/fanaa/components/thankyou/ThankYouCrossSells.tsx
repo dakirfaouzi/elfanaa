@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Container } from "@/components/layout/Container";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useLocale } from "@/hooks/useLocale";
+import { useOrderCrossSells } from "@/hooks/useUpsells";
 import { resolveCartCrossSells } from "@/data/upsells";
 import type { Cart } from "@/lib/types";
 import type { OrderReceipt } from "@/lib/order-receipt";
@@ -34,9 +35,14 @@ export function ThankYouCrossSells({ receipt }: Props) {
     }),
     [receipt]
   );
-  const products = useMemo(
-    () => resolveCartCrossSells(synthesisedCart, 3),
-    [synthesisedCart]
+  const anchorIds = useMemo(
+    () => receipt.lines.map((l) => l.productId),
+    [receipt]
+  );
+  // Configured `upsellIds` win (resolved server-side via the hybrid catalog);
+  // the legacy synthesised-cart heuristic is the fallback.
+  const products = useOrderCrossSells(anchorIds, 3, () =>
+    resolveCartCrossSells(synthesisedCart, 3)
   );
 
   if (products.length === 0) return null;
