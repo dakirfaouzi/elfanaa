@@ -2986,14 +2986,46 @@ action); `apps/studio/app/_components/builder/SectionImagesPanel.tsx` (new panel
 publish sanitiser. builder-state 31 tests green; builder-state + studio typecheck
 clean.
 
+##### 26.4.12.1 Bug fix — replacement stored the non-fetchable `r2://` sentinel (FIXED 2026-06-03)
+
+**Symptom (all section types, not Hero-only).** Replace → file picked → preview goes
+blank/broken → replacement never persists → original returns on reload.
+
+**Root cause (single, section-agnostic).** The panel stored `upload.publicUrl` as
+the image `src`. The confirm endpoint computes `publicUrl` via
+`MediaStore.publicUrl()`, and `R2MediaStore.publicUrl()` returns the **sentinel**
+`r2://<bucket>/<key>` whenever the store has **no configured public CDN base**
+(this environment). `r2://…` is unfetchable and unpublishable:
+- **Preview** — `resolveAssetUrl("r2://…")` isn't http/data/blob and doesn't start
+  with `/`, so it's treated as a key → `/api/studio/media/r2%3A%2F%2F…`; the proxy's
+  `parseKey()` rejects it → 404 → broken `<img>` (renders its `alt`, which read as a
+  "blank" card under the `Replaced` badge).
+- **Publish** — `isDurablePublicUrl("r2://…")` is false → `sanitiseCroContentImages`
+  drops it.
+
+Generated images never hit this because they are persisted as **bare R2 keys**
+(`studio/<draftId>/<source>/<ulid>.<ext>`), which the proxy serves with or without a
+CDN and the publish gate accepts.
+
+**Fix.** Persist the **bare R2 key** (`upload.key`) — making a manual replacement
+behave **byte-for-byte like a generated asset** through preview, autosave, reload,
+publish, and storefront render. Logic lives in the pure, unit-tested
+`apps/studio/lib/studio/upload-ref.ts` (`durableUploadRef`): prefer `key`, fall back
+to a real `http(s)` `publicUrl`, and **never** return the `r2://` sentinel or an
+empty ref. The card now refuses to mutate state (shows an error + logs the confirm
+result) when no usable ref is returned, so a bad upload can no longer silently write
+a broken `src`. This also retires earlier limitation (2): replacements are now
+CDN-agnostic, exactly like generated assets. Diagnostics: `console.debug` of
+`{ confirmedKey, confirmedPublicUrl, storedSrc }` on every replace; presign/PUT/
+confirm failures already surface via `uploadFile`'s thrown `*_failed:<status>` errors
+shown on the card. Regression test: `apps/studio/__tests__/upload-ref.test.ts`.
+
 **MVP limitations (intentional).** (1) Manual replacement only — no AI regenerate,
-no version history, no media library/search/tagging. (2) Durability requires a
-configured CDN base (same constraint as generated assets); in CDN-less dev the
-publish sanitiser may drop a freshly-uploaded `src`. (3) The panel previews the
+no version history, no media library/search/tagging. (2) The panel previews the
 pool by `intent` label, not a pixel-exact mirror of fanaa's
 `assignSectionImages()` (so an unusual intent collision could map differently on
 the storefront); replacing in place + preserving `intent` keeps assignment stable
-in the common case. (4) Scene replacement targets `lifestyleImages`; gallery
+in the common case. (3) Scene replacement targets `lifestyleImages`; gallery
 extras (`croContent.images[1..]`) remain editable via the builder gallery/hero
 sections, not this panel.
 

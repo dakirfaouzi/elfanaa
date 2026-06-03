@@ -4,7 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import type { MediaRef } from "@platform/builder-schema";
 import type { BuilderAction } from "@platform/builder-state";
 import { resolveAssetUrl } from "@/lib/studio/asset-url";
-import { uploadFile, type UploadResult } from "./uploader";
+import { durableUploadRef } from "@/lib/studio/upload-ref";
+import { uploadFile } from "./uploader";
 
 /**
  * SectionImagesPanel — Draft Asset Review MVP.
@@ -71,13 +72,21 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" && v.trim().length > 0 ? v : undefined;
 }
 
+/** The minimal, validated descriptor a card hands to `apply`. */
+interface ResolvedUpload {
+  src: string;
+  assetId: string;
+  width?: number;
+  height?: number;
+}
+
 /** A single reviewable asset, abstracting hero (MediaRef) vs scene (CroImage). */
 interface ReviewItem {
   key: string;
   label: string;
   previewSrc: string;
   replaced: boolean;
-  apply: (upload: UploadResult) => void;
+  apply: (upload: ResolvedUpload) => void;
 }
 
 export function SectionImagesPanel(
@@ -100,8 +109,8 @@ export function SectionImagesPanel(
         apply: (upload) => {
           const media: MediaRef = {
             kind: "image",
-            desktopSrc: upload.publicUrl,
-            assetId: upload.id,
+            desktopSrc: upload.src,
+            assetId: upload.assetId,
             ...(upload.width ? { width: upload.width } : {}),
             ...(upload.height ? { height: upload.height } : {}),
             ...(hero.media?.alt ? { alt: hero.media.alt } : {}),
@@ -134,7 +143,7 @@ export function SectionImagesPanel(
               type: "REPLACE_CRO_IMAGE",
               bag: "lifestyleImages",
               index,
-              src: upload.publicUrl,
+              src: upload.src,
               ...(upload.width ? { width: upload.width } : {}),
               ...(upload.height ? { height: upload.height } : {}),
             });
@@ -220,7 +229,30 @@ function ReviewCard(props: {
     setError(null);
     try {
       const upload = await uploadFile({ file, draftId: props.draftId });
-      item.apply(upload);
+      const src = durableUploadRef(upload);
+      // Diagnostics for the replace pipeline (presign/PUT/confirm happen inside
+      // uploadFile and throw on failure; this logs the confirm result + the ref
+      // we will persist, which is the step that previously broke silently).
+      // eslint-disable-next-line no-console
+      console.debug("[SectionImages] replace", {
+        label: item.label,
+        confirmedKey: upload.key,
+        confirmedPublicUrl: upload.publicUrl,
+        storedSrc: src,
+      });
+      if (!src) {
+        // Never write the non-fetchable r2:// sentinel (or an empty ref) — that
+        // is the bug that produced a blank/broken preview that never persisted.
+        throw new Error(
+          `upload_returned_no_usable_ref (key="${upload.key}", publicUrl="${upload.publicUrl}")`,
+        );
+      }
+      item.apply({
+        src,
+        assetId: upload.id,
+        width: upload.width ?? undefined,
+        height: upload.height ?? undefined,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "upload_failed");
     } finally {
