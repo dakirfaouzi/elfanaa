@@ -73,6 +73,13 @@ export type Product = {
   rating?: { value: number; count: number };
   collection?: string;
   upsellIds?: string[];
+  /**
+   * Dedicated product (id/slug) shown in the 99-SAR post-purchase offer.
+   * Separate from `upsellIds` (the recommendation pool) so operators control
+   * the post-purchase offer independently. Resolved id-or-slug; undefined →
+   * the post-purchase resolver falls back to its scoring heuristic.
+   */
+  postPurchaseUpsellId?: string;
   /** Bundle pricing tiers — see lib/pricing.ts. */
   offerTiers?: OfferTier[];
 

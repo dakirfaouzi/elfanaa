@@ -25,6 +25,7 @@ function makeRow(
     stockLeft: 47,
     recentBuyers: 218,
     upsellIds: ["hydra-mist"],
+    postPurchaseUpsellId: null,
     landingPath: null,
     heroImageUrl: null,
     croContent: null,

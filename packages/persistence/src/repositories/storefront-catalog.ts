@@ -164,6 +164,7 @@ export class StorefrontCatalogProductRepository {
     stockLeft?: number | null;
     recentBuyers?: number | null;
     upsellIds?: ReadonlyArray<string>;
+    postPurchaseUpsellId?: string | null;
     landingPath?: string | null;
     heroImageUrl?: string | null;
     croContent?: unknown;
@@ -185,6 +186,7 @@ export class StorefrontCatalogProductRepository {
       stockLeft: args.stockLeft,
       recentBuyers: args.recentBuyers,
       upsellIds: args.upsellIds ? Array.from(args.upsellIds) : undefined,
+      postPurchaseUpsellId: args.postPurchaseUpsellId,
       landingPath: args.landingPath,
       heroImageUrl: args.heroImageUrl,
       croContent: args.croContent,
@@ -213,6 +215,7 @@ export class StorefrontCatalogProductRepository {
           stockLeft: writable.stockLeft ?? null,
           recentBuyers: writable.recentBuyers ?? null,
           upsellIds: writable.upsellIds ?? [],
+          postPurchaseUpsellId: writable.postPurchaseUpsellId ?? null,
           landingPath: writable.landingPath ?? null,
           heroImageUrl: writable.heroImageUrl ?? null,
           croContent: writable.croContent ?? null,

@@ -885,6 +885,7 @@ async function tryUpsertCatalogRow(args: {
       stockLeft: catalogMetadata.stockLeft,
       recentBuyers: catalogMetadata.recentBuyers,
       upsellIds: catalogMetadata.upsellIds,
+      postPurchaseUpsellId: catalogMetadata.postPurchaseUpsellId,
       landingPath: catalogMetadata.landingPath,
       heroImageUrl: args.heroImageUrl ?? null,
       croContent: args.croContent ?? null,

@@ -331,6 +331,19 @@ export function CatalogMetadataPanel(props: CatalogMetadataPanelProps) {
             disabled={props.readOnly}
             hint="UniversalProduct ids / slugs to surface as cross-sells on this PDP."
           />
+
+          {/* Dedicated 99-SAR post-purchase offer product */}
+          <TextField
+            label="Post-purchase upsell product id"
+            value={meta.postPurchaseUpsellId ?? ""}
+            onChange={(v) =>
+              props.onPatch({
+                postPurchaseUpsellId: v.trim() === "" ? null : v.trim(),
+              })
+            }
+            disabled={props.readOnly}
+            hint="Single product id / slug / path shown ONLY in the 99-SAR post-purchase offer. Separate from the cross-sell pool above. Leave blank to use the automatic pick."
+          />
         </div>
       )}
     </div>

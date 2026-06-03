@@ -139,6 +139,10 @@ export function mergeCatalogProduct(
     target: pickEnum<ProductTarget>(dbRow.target, snapshot.target),
     problems: pickProblems(dbRow.problems, snapshot.problems),
     upsellIds: pickStringArray(dbRow.upsellIds, snapshot.upsellIds),
+    postPurchaseUpsellId: pickString(
+      dbRow.postPurchaseUpsellId,
+      snapshot.postPurchaseUpsellId,
+    ),
     stockLeft: pickNumber(dbRow.stockLeft, snapshot.stockLeft),
     recentBuyers: pickNumber(dbRow.recentBuyers, snapshot.recentBuyers),
     landingPath: pickString(dbRow.landingPath, snapshot.landingPath),
@@ -227,6 +231,7 @@ export function synthesiseProductFromRow(
     target: validateProductTarget(row.target, row.slug),
     problems: validateProblems(row.problems, row.slug),
     upsellIds: row.upsellIds.length > 0 ? row.upsellIds : undefined,
+    postPurchaseUpsellId: row.postPurchaseUpsellId ?? undefined,
     stockLeft: row.stockLeft ?? undefined,
     recentBuyers: row.recentBuyers ?? undefined,
     landingPath: row.landingPath ?? undefined,

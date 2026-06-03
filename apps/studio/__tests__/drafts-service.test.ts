@@ -492,6 +492,7 @@ describe("drafts-service", () => {
         stockLeft: 12,
         recentBuyers: 7,
         upsellIds: ["barrier-cream"],
+        postPurchaseUpsellId: null,
         landingPath: null,
       };
       await updateDraftDocument({
@@ -545,6 +546,7 @@ describe("drafts-service", () => {
         stockLeft: null,
         recentBuyers: null,
         upsellIds: [],
+        postPurchaseUpsellId: null,
         landingPath: null,
       };
       await updateDraftDocument({
@@ -609,6 +611,7 @@ describe("drafts-service", () => {
         stockLeft: null,
         recentBuyers: null,
         upsellIds: [],
+        postPurchaseUpsellId: null,
         landingPath: null,
       };
       await updateDraftDocument({

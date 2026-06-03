@@ -66,6 +66,9 @@ export interface CatalogRow {
   stockLeft: number | null;
   recentBuyers: number | null;
   upsellIds: string[];
+  /** Dedicated product (id/slug) for the 99-SAR post-purchase offer. Separate
+   *  from `upsellIds`; resolved id-or-slug on the loader side. Null → heuristic. */
+  postPurchaseUpsellId: string | null;
   landingPath: string | null;
   /**
    * Durable hero image URL (CDN) re-hosted from the AI pipeline at

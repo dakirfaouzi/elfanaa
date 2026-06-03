@@ -540,6 +540,11 @@ model StorefrontCatalogProduct {
   /// these; cross-store references and curated-only upsells need to
   /// resolve lazily on the loader side.
   upsellIds          String[]          @default([]) @map("upsell_ids")
+  /// Optional dedicated product (id/slug) for the 99-SAR post-purchase upsell
+  /// offer. Separate from `upsellIds` (the recommendation pool) so operators
+  /// control the post-purchase offer independently. Resolved id-or-slug on the
+  /// loader side (no FK — may point at another AI row). Null → heuristic.
+  postPurchaseUpsellId String?         @map("post_purchase_upsell_id") @db.VarChar(120)
   /// Optional URL override. Curated products use `/products/<slug>`; AI
   /// rows default to Studio's `/p/<slug>` until a fanaa-native PDP exists.
   landingPath        String?           @map("landing_path") @db.VarChar(160)

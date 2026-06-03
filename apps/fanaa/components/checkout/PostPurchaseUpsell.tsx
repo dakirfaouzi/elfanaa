@@ -55,7 +55,7 @@ type AcceptStatus = "idle" | "submitting" | "accepted" | "error";
 export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Props) {
   const { locale, t } = useLocale();
   const format = useFormatPrice();
-  const upsell = usePostPurchaseUpsell(orderProductIds);
+  const { status: upsellStatus, upsell } = usePostPurchaseUpsell(orderProductIds);
 
   const [status, setStatus] = useState<AcceptStatus>("idle");
 
@@ -84,7 +84,7 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
   );
 
   const { secondsLeft, progress, expired } = useCountdown(POST_PURCHASE_TIMER_SECONDS, {
-    autoStart: Boolean(upsell),
+    autoStart: upsellStatus === "resolved" && Boolean(upsell),
     onExpire: () => {
       if (!upsell) return;
       track("upsell_expired", {
@@ -119,9 +119,12 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
   // Routed through `safeComplete` so we cannot double-fire if the parent
   // happens to re-render and pass a fresh `onComplete` reference.
   useEffect(() => {
-    if (!upsell) safeComplete("none");
-  }, [upsell, safeComplete]);
+    if (upsellStatus === "resolved" && !upsell) safeComplete("none");
+  }, [upsellStatus, upsell, safeComplete]);
 
+  // Still resolving the configured offer → hold the screen (do NOT skip the
+  // funnel; the skip effect only fires once upsellStatus === "resolved").
+  if (upsellStatus === "loading") return null;
   if (!upsell) return null;
 
   const { product, offerPrice, basePrice, savings, discountPercent, reason } = upsell;

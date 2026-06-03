@@ -172,6 +172,16 @@ export const CatalogMetadataSchema = z.object({
   // ── Optional: cross-sell + routing ───────────────────────────────
   upsellIds: z.array(z.string().min(1).max(80)).max(16).default([]),
   /**
+   * Optional dedicated product for the 99-SAR post-purchase upsell offer.
+   *
+   * Deliberately SEPARATE from `upsellIds`: the post-purchase offer is a
+   * distinct business surface that often wants a different product than the
+   * PDP/cart recommendation pool. A single id / slug / path (normalised at
+   * read time exactly like `upsellIds`). `null` → the post-purchase offer
+   * falls back to its scoring heuristic (legacy behaviour).
+   */
+  postPurchaseUpsellId: z.string().min(1).max(120).nullable().default(null),
+  /**
    * Optional bespoke-landing URL override (e.g. "/sugarbear"). When
    * set, fanaa's PDP route 308-redirects to this path — see
    * `apps/fanaa/app/products/[slug]/page.tsx` for the contract.
@@ -233,6 +243,7 @@ export function emptyCatalogMetadata(): CatalogMetadata {
     stockLeft: null,
     recentBuyers: null,
     upsellIds: [],
+    postPurchaseUpsellId: null,
     landingPath: null,
   };
 }

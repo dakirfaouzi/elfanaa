@@ -117,6 +117,7 @@ function makeDbRow(overrides: Partial<CatalogRow> = {}): CatalogRow {
     stockLeft: null,
     recentBuyers: null,
     upsellIds: [],
+    postPurchaseUpsellId: null,
     landingPath: null,
     heroImageUrl: null,
     croContent: null,

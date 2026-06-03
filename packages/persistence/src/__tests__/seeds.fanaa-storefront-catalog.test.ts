@@ -29,6 +29,7 @@ function makeUpsertRow(
     stockLeft: null,
     recentBuyers: null,
     upsellIds: [],
+    postPurchaseUpsellId: null,
     landingPath: null,
     heroImageUrl: null,
     croContent: null,

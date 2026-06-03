@@ -15,6 +15,10 @@ import {
   synthesiseProductFromRow,
 } from "./merge";
 import { resolveUpsellRefs } from "./upsell-refs";
+import {
+  buildConfiguredPostPurchaseUpsell,
+  type ResolvedPostPurchaseUpsell,
+} from "@/lib/upsell/strategy";
 
 /**
  * Storefront catalog — live (DB-backed) loader.
@@ -263,6 +267,43 @@ export async function loadConfiguredCrossSells(
   const resolved = resolveUpsellRefs(refs, all, { excludeIds });
 
   return typeof opts?.max === "number" ? resolved.slice(0, opts.max) : resolved;
+}
+
+/**
+ * Resolve the DEDICATED 99-SAR post-purchase offer product for an order.
+ *
+ * Distinct from {@link loadConfiguredCrossSells}: the post-purchase offer reads
+ * the order anchors' `postPurchaseUpsellId` (NOT `upsellIds`), so operators
+ * control the offer independently from the recommendation pool.
+ *
+ *   1. Resolve the order's product refs against the hybrid catalog (so an
+ *      AI-generated purchased product resolves too).
+ *   2. Take the FIRST anchor that carries a `postPurchaseUpsellId`, in order.
+ *   3. Resolve that single ref (id-or-slug, path-tolerant), excluding the
+ *      order anchors so we never re-offer a product already bought.
+ *   4. Build the 99-SAR offer via `buildConfiguredPostPurchaseUpsell` (operator
+ *      pick is authoritative; price/timer/UI logic unchanged).
+ *
+ * Returns `null` when nothing is configured/resolvable — the client then falls
+ * back to its legacy snapshot scoring heuristic, so behaviour never regresses.
+ */
+export async function loadPostPurchaseUpsell(
+  anchorRefs: ReadonlyArray<string>,
+): Promise<ResolvedPostPurchaseUpsell | null> {
+  if (anchorRefs.length === 0) return null;
+  const all = await loadAllCatalogProducts();
+
+  const anchors = resolveUpsellRefs(anchorRefs, all);
+  if (anchors.length === 0) return null;
+
+  const excludeIds = anchors.map((p) => p.id);
+  for (const anchor of anchors) {
+    const ref = anchor.postPurchaseUpsellId;
+    if (!ref) continue;
+    const [target] = resolveUpsellRefs([ref], all, { excludeIds });
+    if (target) return buildConfiguredPostPurchaseUpsell(target);
+  }
+  return null;
 }
 
 /* -------------------------------------------------------------------------- */

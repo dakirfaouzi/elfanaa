@@ -3081,6 +3081,77 @@ clean. **Operator note:** ids OR slugs are accepted; paths/URLs are tolerated;
 the post-purchase 99-SAR upsell (`lib/upsell/strategy.ts`) is a separate surface
 unchanged by this fix.
 
+#### 26.4.14 Dedicated 99-SAR post-purchase product selector (DONE 2026-06-03)
+
+**Why.** `upsellIds` became the single source of truth for the recommendation
+pool (PDP / cart / thank-you, §26.4.13), but the 99-SAR post-purchase offer is a
+distinct business surface that often wants a *different* single product. Until
+now the offer ignored operator intent entirely: `selectPostPurchaseUpsell`
+(`lib/upsell/strategy.ts`) picked from the **build-time snapshot** using a
+price-band/collection scoring heuristic, treating `upsellIds` only as a soft
++50 scoring signal — so AI-generated products / slugs / paths could never be the
+offer, and operators had no direct control.
+
+**Feature.** A new, separate operator field — **`postPurchaseUpsellId`** — that
+controls ONLY the product shown in the 99-SAR offer. A single id / slug / path,
+normalised at read time exactly like `upsellIds`. All existing 99-SAR business
+logic (fixed 99 SAR price, 12s timer, savings, credibility, offer UI) is
+unchanged; only the product **source** changes.
+
+**Source-of-truth split.**
+- `upsellIds` → PDP recommendations, cart-drawer cross-sells, thank-you
+  recommendations.
+- `postPurchaseUpsellId` → the 99-SAR post-purchase offer only.
+
+**Pipeline (mirrors the `upsellIds`/`landingPath` field path end-to-end).**
+- **Draft schema** — `CatalogMetadataSchema.postPurchaseUpsellId`
+  (`z.string().min(1).max(120).nullable().default(null)`), added to
+  `emptyCatalogMetadata()`.
+- **Studio editor** — a single-line `TextField` ("Post-purchase upsell product
+  id") directly under "Upsell product ids" in `CatalogMetadataPanel.tsx`; blank
+  → `null`.
+- **Publish** — `drafts-service.ts` maps `catalogMetadata.postPurchaseUpsellId`
+  into the catalog upsert.
+- **DB** — additive nullable column `post_purchase_upsell_id VARCHAR(120)`
+  (Prisma migration `0007_catalog_post_purchase_upsell`); mirrored in
+  `StorefrontCatalogProductRow` (persistence) + fanaa `CatalogRow` + the storefront
+  `Product` type.
+- **Merge** — `mergeCatalogProduct` (DB-over-snapshot via `pickString`) and
+  `synthesiseProductFromRow` carry the field onto `Product`.
+- **Resolver** — `loadPostPurchaseUpsell(anchorRefs)` (`lib/catalog/loader.ts`)
+  resolves the order anchors through the **hybrid catalog**, takes the FIRST
+  anchor carrying a `postPurchaseUpsellId`, resolves that ref id-or-slug
+  (excluding the anchors so a bought product is never re-offered), and builds the
+  offer via `buildConfiguredPostPurchaseUpsell`.
+- **Client** — `GET /api/catalog/post-purchase-upsell?for=` exposes the resolver;
+  `usePostPurchaseUpsell` is now async (configured-first, snapshot-heuristic
+  fallback) and returns `{ status, upsell }`. `PostPurchaseUpsell.tsx` gates on
+  `status === "resolved"` so a transient loading null never skips the funnel.
+
+**ADR-S2-PP1 — explicit post-purchase pick is authoritative and bypasses the
+credibility gate.** When `postPurchaseUpsellId` is set, the operator's pick wins
+unconditionally: `buildConfiguredPostPurchaseUpsell` intentionally skips the
+`isAnchorCredible` 1.5×–6× window (that gate governs only the automatic
+heuristic, not a deliberate override) and clamps displayed savings/percent to ≥0
+so a sub-99-SAR product never renders negative savings. The snapshot scoring
+heuristic survives strictly as the no-config fallback, so orders for products
+without a configured pick behave exactly as before. **Affected files:**
+`packages/builder-schema/src/catalog-metadata.ts`,
+`packages/db/prisma/schema.prisma` + `migrations/0007_catalog_post_purchase_upsell/`,
+`packages/persistence/src/contracts.ts` + `repositories/storefront-catalog.ts`,
+`apps/studio/lib/studio/drafts-service.ts` +
+`app/_components/builder/CatalogMetadataPanel.tsx`,
+`apps/fanaa/lib/catalog/{types,merge,loader}.ts`,
+`apps/fanaa/lib/types.ts`, `apps/fanaa/lib/upsell/strategy.ts`,
+`apps/fanaa/app/api/catalog/post-purchase-upsell/route.ts` (new),
+`apps/fanaa/hooks/useUpsells.ts`,
+`apps/fanaa/components/checkout/PostPurchaseUpsell.tsx`,
+`apps/fanaa/__tests__/post-purchase-upsell.test.ts` (new). Workspace typecheck +
+lint clean; fanaa 155 tests, persistence 80, builder-schema 41, studio 469 green.
+**Migration note:** apply `0007_catalog_post_purchase_upsell` (additive nullable
+column) before/with the deploy; existing rows read back `null` → heuristic
+(no behaviour change).
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

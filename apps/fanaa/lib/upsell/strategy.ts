@@ -131,6 +131,43 @@ export type ResolvedPostPurchaseUpsell = {
 /*                                Selection                                    */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Build a post-purchase offer for an EXPLICITLY configured product
+ * (`CatalogMetadata.postPurchaseUpsellId`).
+ *
+ * The operator's pick is authoritative: we deliberately BYPASS the
+ * anchor-credibility window (`isAnchorCredible`) here — that gate governs the
+ * automatic heuristic, not a deliberate override. The 99-SAR price, timer, and
+ * UI are unchanged; only the product source differs. Savings/percent are
+ * clamped to ≥0 so a product priced below 99 SAR never renders negative
+ * savings.
+ *
+ * `reason` is "curated" so analytics can distinguish operator-pinned offers
+ * from the heuristic.
+ */
+export function buildConfiguredPostPurchaseUpsell(
+  product: Product
+): ResolvedPostPurchaseUpsell {
+  const rawSavings = product.price.amount - POST_PURCHASE_OFFER_PRICE.amount;
+  const savings: Money = {
+    amount: Math.max(0, rawSavings),
+    currency: product.price.currency,
+  };
+  const discountPercent =
+    product.price.amount > 0
+      ? Math.max(0, Math.round((rawSavings / product.price.amount) * 100))
+      : 0;
+  return {
+    product,
+    offerPrice: POST_PURCHASE_OFFER_PRICE,
+    basePrice: product.price,
+    savings,
+    discountPercent,
+    score: 1000,
+    reason: "curated",
+  };
+}
+
 export function selectPostPurchaseUpsell(
   cartProductIds: string[]
 ): ResolvedPostPurchaseUpsell | null {

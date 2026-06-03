@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCart } from "./useCart";
 import { resolveCartCrossSells } from "@/data/upsells";
-import { selectPostPurchaseUpsell } from "@/lib/upsell/strategy";
+import {
+  selectPostPurchaseUpsell,
+  type ResolvedPostPurchaseUpsell,
+} from "@/lib/upsell/strategy";
 import type { Product } from "@/lib/types";
 
 /* -------------------------------------------------------------------------- */
@@ -117,7 +120,89 @@ export function useOrderCrossSells(
   return useConfiguredCrossSells(anchorIds, max, fallback);
 }
 
-/** Fixed-price (99 SAR) one-click post-purchase upsell, picked against the order. */
-export function usePostPurchaseUpsell(orderProductIds: string[]) {
-  return useMemo(() => selectPostPurchaseUpsell(orderProductIds), [orderProductIds]);
+/* -------------------------------------------------------------------------- */
+/*                          Post-purchase 99-SAR offer                         */
+/* -------------------------------------------------------------------------- */
+
+export interface PostPurchaseUpsellState {
+  /**
+   * `loading` while the configured offer is being resolved server-side.
+   * Consumers MUST NOT skip the funnel on a null upsell until `resolved` —
+   * otherwise a transient null during the fetch would prematurely advance the
+   * customer past the offer.
+   */
+  status: "loading" | "resolved";
+  upsell: ResolvedPostPurchaseUpsell | null;
+}
+
+/**
+ * Fetch the operator-configured 99-SAR offer (`postPurchaseUpsellId`) for an
+ * order from the hybrid catalog. Returns `null` on any error/empty result so
+ * the caller falls back to the snapshot heuristic.
+ */
+async function fetchConfiguredPostPurchaseUpsell(
+  anchorRefs: string[],
+): Promise<ResolvedPostPurchaseUpsell | null> {
+  if (anchorRefs.length === 0) return null;
+  const params = new URLSearchParams();
+  params.set("for", anchorRefs.join(","));
+  try {
+    const res = await fetch(
+      `/api/catalog/post-purchase-upsell?${params.toString()}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      upsell?: ResolvedPostPurchaseUpsell | null;
+    };
+    return data.upsell ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fixed-price (99 SAR) one-click post-purchase upsell.
+ *
+ * Resolution order:
+ *   1. Operator-pinned `postPurchaseUpsellId` resolved server-side through the
+ *      hybrid catalog (so AI-generated targets / slugs / paths all resolve).
+ *   2. Legacy snapshot scoring heuristic (`selectPostPurchaseUpsell`) when
+ *      nothing is configured/resolvable — behaviour never regresses.
+ *
+ * The 99-SAR price, timer, savings, credibility, and UI are unchanged; only the
+ * product SOURCE differs.
+ */
+export function usePostPurchaseUpsell(
+  orderProductIds: string[],
+): PostPurchaseUpsellState {
+  const anchorKey = orderProductIds.join(",");
+  const [state, setState] = useState<PostPurchaseUpsellState>({
+    status: "loading",
+    upsell: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const refs = anchorKey ? anchorKey.split(",") : [];
+    setState({ status: "loading", upsell: null });
+
+    async function run() {
+      const configured = await fetchConfiguredPostPurchaseUpsell(refs);
+      if (cancelled) return;
+      if (configured) {
+        setState({ status: "resolved", upsell: configured });
+        return;
+      }
+      // Fallback: snapshot scoring heuristic (client-safe, pure).
+      setState({ status: "resolved", upsell: selectPostPurchaseUpsell(refs) });
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [anchorKey]);
+
+  return state;
 }
