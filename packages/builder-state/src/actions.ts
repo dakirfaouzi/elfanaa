@@ -62,6 +62,27 @@ export type BuilderAction =
   | { type: "UPDATE_SECTION"; sectionId: string; patch: Partial<Section> }
   | { type: "SET_SECTION_MEDIA"; sectionId: string; slot: string; media: MediaRef | null }
 
+  /**
+   * Step 4 / Draft Asset Review MVP — replace a generated CRO scene image with
+   * an operator-uploaded one, IN PLACE inside `croContent[bag][index]`.
+   *
+   * The generated scenes (Ingredients / Results / How-It-Works / Benefits /
+   * Social-Proof / Lifestyle) live in the opaque `croContent.lifestyleImages[]`
+   * (or `images[]`) pool, not as builder sections, so they need a dedicated
+   * action. The reducer SWAPS only `src` (+ optional dims) and stamps
+   * `origin: "operator"`, preserving the existing `intent`/`alt` so the
+   * storefront's semantic section-assignment is unchanged. Hero replacement
+   * keeps using `SET_SECTION_MEDIA` (it is a builder `MediaRef`).
+   */
+  | {
+      type: "REPLACE_CRO_IMAGE";
+      bag: "lifestyleImages" | "images";
+      index: number;
+      src: string;
+      width?: number;
+      height?: number;
+    }
+
   // History controls
   | { type: "UNDO" }
   | { type: "REDO" }

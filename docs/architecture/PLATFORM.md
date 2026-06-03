@@ -2924,6 +2924,79 @@ disabled→no vision calls). ai-engine 124 green; ai-engine + worker typecheck c
 **Operator note.** QA adds latency/cost (≈1–2 extra calls per flagged image). If a
 run's image budget is tight, set `qa.enabled=false` or `maxRegens=0` to disable.
 
+#### 26.4.12 Draft Asset Review MVP — operator image replacement (DONE 2026-06-03)
+
+**Rationale.** Prompt engineering (4.6.4b) + generation-side vision QA (4.6.4d)
+drove section-image quality up, but a small residue of defects (wrong/substituted
+product, floating/oversized product, wrong format, composition artefacts) still
+slips through. Solving the last few percent via more generation has diminishing
+returns; the right lever is an **operator review layer** — let a human approve or
+replace a bad image before publish. This is **manual replacement only**: no
+regenerate button, no version history, no media library, no asset workflow, no new
+route/page (all explicitly out of scope).
+
+**Where the section images actually live (the key constraint).** The storefront's
+section scenes (Ingredients, How-It-Works, Results, Benefits, Social-Proof,
+Lifestyle) are **not** builder sections — they live in the opaque
+`croContent.lifestyleImages[]` pool and are assigned to fanaa sections at render
+time by `assignSectionImages()` via each image's `intent`. Only the **Hero** is a
+builder `MediaRef` (`sections[].media`). So per-section-card controls are
+impossible for most of them; instead a single **"Section Images" review panel**
+lives inside the Draft Editor left column (sibling of the Catalog Metadata panel —
+no new screen/route/workflow).
+
+**Workflow.** Generate PDP → open Draft → the panel shows every reviewable asset
+(Hero + each scene, each labelled by the section its `intent` feeds) with a
+preview + **Replace Image** → operator uploads a replacement (Nano Banana / GPT
+Image / Midjourney / Photoshop / photography) → autosave persists → Publish uses
+the draft's current image. No re-generation required.
+
+**Storage / durability (treated identically to generated assets).** Replacement
+uploads reuse the existing draft upload pipeline `uploadFile()` (presign →
+browser PUT → confirm), so bytes land on the same durable R2/CDN layer
+(`MediaStore`) as generated images. The returned durable `publicUrl` is written
+into the asset's `src`; downstream the renderer resolves it through the SAME
+`resolveStorageRef` / `resolveAssetUrl` contract — origin is invisible. Publish's
+`sanitiseCroContentImages()` durability-gates every `src` exactly as before.
+
+**Draft data model (additive, no migration).**
+- `croContent` is already `z.record(z.string(), z.unknown()).optional()` on the
+  JSONB `studio_draft.payload`, so replacing a scene needs **no schema/Prisma
+  change**.
+- New reducer action `REPLACE_CRO_IMAGE { bag, index, src, width?, height? }`
+  swaps ONLY `src` (+ dims) on `croContent[bag][index]` and stamps an additive
+  optional `origin: "operator"` marker, **preserving `intent`/`alt`** so semantic
+  section-assignment on the storefront is unchanged. Existing drafts (no
+  `origin`) are unaffected.
+- Hero replacement reuses the existing `SET_SECTION_MEDIA` action (it is a builder
+  `MediaRef`); the publish hero path (`extractHeroImageUrl` →
+  `prepareDurableHeroUrl`) is unchanged.
+
+**ADR-S4-9 — review as a render-time-pool panel, not per-card fields.** Because
+CRO scenes are an `intent`-tagged pool resolved at render time (not 1:1 builder
+sections), the review surface is a single panel that edits the pool in place. This
+keeps the change additive (one action + one component + one panel mount), avoids
+touching `assignSectionImages`, and keeps the existing Intake→Run→Draft→Review→
+Publish workflow intact.
+
+**Affected files.** `packages/builder-state/{actions,reducer}.ts` (additive
+action); `apps/studio/app/_components/builder/SectionImagesPanel.tsx` (new panel);
+`apps/studio/app/_components/builder/BuilderClient.tsx` (mount). Reuses
+`uploader.ts`, `asset-url.ts`, the draft assets presign/confirm routes, and the
+publish sanitiser. builder-state 31 tests green; builder-state + studio typecheck
+clean.
+
+**MVP limitations (intentional).** (1) Manual replacement only — no AI regenerate,
+no version history, no media library/search/tagging. (2) Durability requires a
+configured CDN base (same constraint as generated assets); in CDN-less dev the
+publish sanitiser may drop a freshly-uploaded `src`. (3) The panel previews the
+pool by `intent` label, not a pixel-exact mirror of fanaa's
+`assignSectionImages()` (so an unusual intent collision could map differently on
+the storefront); replacing in place + preserving `intent` keeps assignment stable
+in the common case. (4) Scene replacement targets `lifestyleImages`; gallery
+extras (`croContent.images[1..]`) remain editable via the builder gallery/hero
+sections, not this panel.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

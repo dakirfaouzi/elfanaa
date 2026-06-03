@@ -24,6 +24,7 @@ import {
 import { DraftRenderer } from "@platform/runtime-renderer";
 import { SectionEditor, sectionKindLabel } from "./editors";
 import { CatalogMetadataPanel } from "./CatalogMetadataPanel";
+import { SectionImagesPanel } from "./SectionImagesPanel";
 import { RelativeTime } from "../RelativeTime";
 import { studioPath } from "@/lib/base-path";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
@@ -274,6 +275,25 @@ export function BuilderClient(props: BuilderClientProps) {
           <CatalogMetadataPanel
             value={state.document.catalogMetadata}
             onPatch={patchCatalogMetadata}
+            readOnly={props.readOnly}
+          />
+          {/*
+           * Draft Asset Review MVP — review + manually replace generated
+           * section images (hero + the croContent scene pool) before publish,
+           * without leaving the editor or re-running generation.
+           */}
+          <SectionImagesPanel
+            draftId={props.draftId}
+            croContent={
+              state.document.croContent as Record<string, unknown> | undefined
+            }
+            heroSection={(() => {
+              const hero = state.document.sections.find(
+                (s) => s.kind === "hero",
+              );
+              return hero ? { id: hero.id, media: hero.media } : null;
+            })()}
+            dispatch={dispatch}
             readOnly={props.readOnly}
           />
           {state.document.sections.map((section) => (

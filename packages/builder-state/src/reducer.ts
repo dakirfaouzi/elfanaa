@@ -208,6 +208,41 @@ export function reducer(state: BuilderState, action: BuilderAction): BuilderStat
       return withDocument(state, { ...state.document, sections });
     }
 
+    case "REPLACE_CRO_IMAGE": {
+      // Draft Asset Review MVP — in-place swap of a generated CRO scene image.
+      // `croContent` is an opaque JSON bag (Record<string, unknown>); we touch
+      // only the targeted entry's `src` (+ dims) and stamp `origin: "operator"`,
+      // preserving `intent`/`alt` so storefront section-assignment is unchanged.
+      const cro = state.document.croContent;
+      if (!cro) return state;
+      const list = (cro as Record<string, unknown>)[action.bag];
+      if (
+        !Array.isArray(list) ||
+        action.index < 0 ||
+        action.index >= list.length
+      ) {
+        return state;
+      }
+      const existing =
+        list[action.index] && typeof list[action.index] === "object"
+          ? (list[action.index] as Record<string, unknown>)
+          : {};
+      const nextEntry: Record<string, unknown> = {
+        ...existing,
+        src: action.src,
+        origin: "operator",
+      };
+      if (action.width != null) nextEntry.width = action.width;
+      if (action.height != null) nextEntry.height = action.height;
+      const nextList = list.slice();
+      nextList[action.index] = nextEntry;
+      const nextCro: Record<string, unknown> = {
+        ...(cro as Record<string, unknown>),
+        [action.bag]: nextList,
+      };
+      return withDocument(state, { ...state.document, croContent: nextCro });
+    }
+
     // ── History ────────────────────────────────────────────────────────
     case "UNDO": {
       if (state.past.length === 0) return state;
