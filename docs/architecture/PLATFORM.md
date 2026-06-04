@@ -3254,6 +3254,30 @@ the correct images. Curated and AI products take the identical path.
 **Validation:** `fanaa` typecheck clean; lints clean. **Affected files:** the
 four above.
 
+#### 26.4.17 99-SAR upsell countdown frozen — `useCountdown` ignored deferred `autoStart` (DONE 2026-06-04)
+
+**Symptom.** On the post-purchase 99-SAR screen the 12s countdown never moved:
+frozen value, full progress bar, and no auto-advance to the thank-you page.
+
+**Root cause (regression from the §26.4.14 `postPurchaseUpsellId` work).**
+`useCountdown` consumed `autoStart` **only at mount** (`useState(autoStart)` +
+`useRef(autoStart ? Date.now() : null)`) with no effect reacting to later
+changes. When `usePostPurchaseUpsell` became **async** (configured-first
+resolver), `PostPurchaseUpsell` first renders with `upsellStatus === "loading"`
+→ `autoStart=false`, seeding the timer as not-running. When the offer resolves
+and `autoStart` flips to `true`, the hook ignored it, so the interval effect
+(`if (!running) return`) never armed. Pre-`postPurchaseUpsellId`, the resolver
+was synchronous (`useMemo`), so `autoStart` was already `true` at mount and the
+bug was latent.
+
+**Fix.** Added a deferred-autostart effect in `useCountdown`: on a `false→true`
+transition of `autoStart`, call `start()` exactly once (guarded by a ref). A
+mount with `autoStart=true` still starts via `useState`; manual
+start/pause/reset semantics are unchanged. Fix lives in the reusable hook, so
+any future async-resolved consumer benefits. **Affected file:**
+`apps/fanaa/hooks/useCountdown.ts`. **Validation:** `fanaa` typecheck clean;
+lints clean.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

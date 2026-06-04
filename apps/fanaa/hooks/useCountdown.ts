@@ -96,6 +96,23 @@ export function useCountdown(seconds: number, options: CountdownOptions = {}): C
     setRunning(false);
   };
 
+  // Deferred auto-start. `running` / `startedAtRef` are seeded only at mount,
+  // so consumers that resolve their data asynchronously (e.g. the post-purchase
+  // upsell's configured-first resolver) — which mount with `autoStart=false`
+  // and flip it to `true` once the offer arrives — would otherwise leave the
+  // timer frozen forever. Fire `start()` exactly once on the false→true
+  // transition; a mount with `autoStart=true` already started via `useState`,
+  // and manual start/pause/reset still take over afterward.
+  const autoStartedRef = useRef(autoStart);
+  useEffect(() => {
+    if (autoStart && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      start();
+    }
+    // Keyed on `autoStart` only; `start` is intentionally stable in behaviour.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
   return {
     secondsLeft: Math.ceil(remainingMs / 1000),
     progress: totalMs === 0 ? 0 : remainingMs / totalMs,
