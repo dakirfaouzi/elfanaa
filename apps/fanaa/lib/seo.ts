@@ -18,7 +18,7 @@ import type { Locale } from "@/lib/types";
  */
 
 type PageMetadataInput = {
-  /** Page-specific title segment — composed as `{title} · ELFANAA`. */
+  /** Page-specific title segment — composed as `{title} · FANAA`. */
   title?: string;
   /** Override the brand description for this page. */
   description?: string;

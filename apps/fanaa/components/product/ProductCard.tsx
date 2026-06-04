@@ -105,7 +105,7 @@ export function ProductCard({
     >
       <Link
         href={productHref(product)}
-        className="block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+        className="block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         {/*
          * Image frame — global `.fn-card-product-frame` carries the warm

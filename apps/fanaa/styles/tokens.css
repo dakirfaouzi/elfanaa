@@ -45,8 +45,11 @@
   --color-danger: 158 60 56;        /* deep rose — errors, blocked             */
 
   /* ── Layout ─────────────────────────────────────────────────────────── */
+  /* Single source of truth for the sticky header height across breakpoints.
+   * Values match the rendered Header (`h-16` / `md:68px` / `lg:80px`). */
   --header-h: 64px;
-  --header-h-lg: 76px;
+  --header-h-md: 68px;
+  --header-h-lg: 80px;
   --max-w: 1440px;
 
   /* ── Motion ─────────────────────────────────────────────────────────── */

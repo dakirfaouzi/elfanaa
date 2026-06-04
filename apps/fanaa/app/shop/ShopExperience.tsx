@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { ShopHeader } from "./ShopHeader";
@@ -96,6 +97,11 @@ export function ShopExperience({
 
   const sorted = useMemo(() => sortProducts(filtered, sort), [filtered, sort]);
 
+  const hasActiveFilters =
+    filters.productTypes.length > 0 ||
+    filters.targets.length > 0 ||
+    filters.problems.length > 0;
+
   return (
     <>
       <ShopPromo />
@@ -121,8 +127,25 @@ export function ShopExperience({
 
       <Container>
         {sorted.length === 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center py-20 text-center">
+          <div className="flex min-h-[40vh] flex-col items-center justify-center gap-5 py-20 text-center">
             <p className="text-base text-muted">{t.shop.empty}</p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => setFilters(emptyFilterState)}
+                  className="inline-flex h-11 items-center rounded-md border border-line bg-bg px-5 text-sm font-medium text-ink transition-colors hover:bg-brand-soft"
+                >
+                  {t.shop.filterClearAll}
+                </button>
+              )}
+              <Link
+                href="/shop"
+                className="inline-flex h-11 items-center rounded-md bg-ink px-5 text-sm font-medium text-bg transition-colors hover:bg-ink/90"
+              >
+                {t.shop.emptyBrowse}
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="py-8 md:py-12">

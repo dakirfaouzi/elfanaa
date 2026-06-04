@@ -63,7 +63,7 @@ export function Header() {
       )}
     >
       <Container>
-          <div className="flex h-16 items-center gap-2 md:h-[68px] md:gap-3 lg:h-[80px]">
+          <div className="flex h-[var(--header-h)] items-center gap-2 md:h-[var(--header-h-md)] md:gap-3 lg:h-[var(--header-h-lg)]">
           {/* Mobile menu trigger — 44px Apple HIG minimum touch target */}
           <button
             type="button"

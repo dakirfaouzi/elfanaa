@@ -75,6 +75,20 @@ export const siteConfig = {
     whatsapp: "+966500000000",
   },
 
+  /**
+   * Saudi business identifiers shown in the footer trust block (KSA shoppers
+   * look for these as a legitimacy signal). Env-driven so the same build can
+   * serve staging/production without a code change — and the footer renders a
+   * value ONLY when it is non-empty, so no fake "0000" placeholder ever ships.
+   *
+   *   • `vat` → 15-digit VAT registration number.
+   *   • `cr`  → Commercial Registration (السجل التجاري) number.
+   */
+  business: {
+    vat: process.env.NEXT_PUBLIC_VAT_NUMBER ?? "",
+    cr: process.env.NEXT_PUBLIC_CR_NUMBER ?? "",
+  },
+
   social: {
     instagram: "https://instagram.com/elfanaa",
     tiktok: "https://tiktok.com/@elfanaa",

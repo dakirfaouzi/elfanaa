@@ -22,7 +22,7 @@ import "./globals.css";
  *
  * **Amiri** is the classical-Naskh display face the brand wordmark
  * "فناء" is lettered in. Pair with Cormorant Garamond's editorial
- * register so the Latin wordmark "ELFANAA" carries the same gravitas.
+ * register so the Latin wordmark "FANAA" carries the same gravitas.
  * Both display faces stay restricted to brand & headline surfaces so
  * the UI workhorses (Inter / Tajawal) stay quiet.
  */

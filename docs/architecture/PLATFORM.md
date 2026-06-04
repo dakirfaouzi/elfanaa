@@ -3430,6 +3430,80 @@ helpers can't drift.
 reducer toggle/no-op, and schema round-trip); IDE lints clean. (`next lint`
 still unconfigured for studio — pre-existing.)
 
+#### 26.4.21 Storefront Phase 1 — Foundation & Trust (DONE 2026-06-04)
+
+First execution phase from the Storefront Foundation Audit roadmap. Advisory
+input from the UI/UX Pro Max skill; Fanaa's RTL Arabic-first mobile-first GCC
+system stays authoritative. **All additive — no DB / schema / migration /
+storefront-data-contract changes.** Decisions confirmed with the operator:
+newsletter captures to Google Sheets now (ESP-swappable seam); policy pages +
+VAT/CR ship as Arabic-first scaffolds with config/env-driven business numbers.
+
+1. **Policy pages + localized 404.** The footer already linked `/faq`,
+   `/shipping`, `/privacy`, `/terms` but the routes didn't exist (4 × 404).
+   Added all four via one reusable client component
+   `components/sections/legal/PolicyPage.tsx` (editorial RTL layout; prose
+   `sections[]` mode + native-`<details>` `faqs[]` accordion mode) driven by a
+   new localized content source `data/legal.ts` (clearly marked
+   `PLACEHOLDER — pending legal review`). The shipping doc carries the returns
+   policy (footer "الشحن والإرجاع" already points here). `not-found.tsx` is now a
+   client component reading `t.notFound.*` (renders inside `LocaleProvider` via
+   `Providers`), so the 404 is Arabic-first like the rest of the store.
+2. **Footer trust block.** Added env-driven `siteConfig.business.{vat,cr}`
+   (`NEXT_PUBLIC_VAT_NUMBER` / `NEXT_PUBLIC_CR_NUMBER`) rendered **only when
+   present** (no fake placeholder ships). Added the Snapchat icon (inline glyph
+   — lucide has no brand mark; `siteConfig.social.snapchat` already existed) and
+   a new `components/layout/PaymentMarks.tsx` row (mada / Visa / Mastercard /
+   Apple Pay / COD as monochrome asset-free marks — avoids shipping third-party
+   trademark logos and clashing with the cream palette).
+3. **Newsletter wiring (Sheets now, ESP-swappable).** Footer form was a no-op
+   `onSubmit`. New `POST /api/newsletter` → `lib/newsletter/index.ts::subscribe()`
+   with a `NewsletterProvider` seam; default `sheetsProvider` appends a
+   `{ kind: "subscriber", email, source, ts }` row to a **separate**
+   `NEWSLETTER_SHEETS_WEBHOOK_URL` Apps Script (API key falls back to
+   `GOOGLE_SHEETS_API_KEY`), and **no-ops cleanly when unset** (mirrors the
+   orders dispatcher). Email validated server-side; hidden `company` honeypot
+   drops bots silently. Footer is now a stateful client form
+   (`idle/submitting/sent/error/invalid`) with ar+en messages.
+4. **Announcement-bar mobile trust + shop empty-state CTA.** Mobile previously
+   showed only the free-shipping pillar; it now **rotates** through all three
+   pillars (free shipping → 14-day returns → COD) every 3.8s, while `sm+` keeps
+   the static density row. The shop empty state gained a `Clear filters`
+   (resets to `emptyFilterState`, shown only when filters are active) + a
+   `Browse all products` link.
+5. **Token cleanups.** (a) `tailwind.config.ts` `accent` is now a ramp
+   (`DEFAULT`/`deep`/`soft`) so components can use `text-accent-deep` /
+   `bg-accent-soft` instead of raw `text-[rgb(var(--color-accent-deep))]`
+   (additive; `accent` + `accent/<alpha>` unchanged; verified no pre-existing
+   bare usage activates). (b) Added a canonical `rounded-card` (18px) matching
+   `.fn-card-product-frame` and applied it to `ProductCard`'s wrapper. (c)
+   Header height is now token-driven (`--header-h` / `--header-h-md` /
+   `--header-h-lg` = 64/68/80px) — the tokens were dead and out of sync with the
+   hardcoded header; values are pixel-identical so zero visual change. (d)
+   Favicon stroke `#BA6E5C` → brand accent `#C7A27C`. (e) Reconciled the two
+   stale code comments that called the visible Latin wordmark "ELFANAA" (it
+   renders "FANAA" from `siteConfig.name`; `elfanaa.com` / namespace stay).
+
+**Affected files (new):** `apps/fanaa/data/legal.ts`,
+`apps/fanaa/components/sections/legal/PolicyPage.tsx`,
+`apps/fanaa/app/{faq,shipping,privacy,terms}/page.tsx`,
+`apps/fanaa/components/layout/PaymentMarks.tsx`,
+`apps/fanaa/lib/newsletter/index.ts`, `apps/fanaa/app/api/newsletter/route.ts`.
+**(modified):** `apps/fanaa/app/not-found.tsx`,
+`apps/fanaa/lib/i18n/dictionaries.ts` (notFound + footer payments/vat/cr +
+subscribe messages + shop.emptyBrowse, ar+en), `apps/fanaa/data/site.ts`,
+`apps/fanaa/components/layout/{Footer,AnnouncementBar,Header}.tsx`,
+`apps/fanaa/app/shop/ShopExperience.tsx`, `apps/fanaa/tailwind.config.ts`,
+`apps/fanaa/styles/tokens.css`, `apps/fanaa/app/icon.svg`,
+`apps/fanaa/components/product/ProductCard.tsx`, `apps/fanaa/lib/seo.ts`,
+`apps/fanaa/app/layout.tsx`, `apps/fanaa/.env.example`.
+**Operator dependency (external):** create a second Apps Script/sheet and set
+`NEWSLETTER_SHEETS_WEBHOOK_URL`; set `NEXT_PUBLIC_VAT_NUMBER` /
+`NEXT_PUBLIC_CR_NUMBER` when available; replace `data/legal.ts` placeholder copy
+after legal review.
+**Validation:** `fanaa` typecheck clean; `fanaa` 155/155 tests pass; IDE lints
+clean on all touched files. (`next lint` still unconfigured — pre-existing.)
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

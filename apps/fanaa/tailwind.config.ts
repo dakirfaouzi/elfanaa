@@ -46,7 +46,15 @@ const config: Config = {
           ink: "rgb(var(--color-brand-ink) / <alpha-value>)",
           soft: "rgb(var(--color-brand-soft) / <alpha-value>)",
         },
-        accent: "rgb(var(--color-accent) / <alpha-value>)",
+        // `accent` exposes the full rose-gold ramp so components can use
+        // `text-accent-deep` / `bg-accent-soft` instead of reaching for raw
+        // `text-[rgb(var(--color-accent-deep))]`. `accent` (DEFAULT) and its
+        // alpha variants (`accent/15`, …) are unchanged.
+        accent: {
+          DEFAULT: "rgb(var(--color-accent) / <alpha-value>)",
+          deep: "rgb(var(--color-accent-deep) / <alpha-value>)",
+          soft: "rgb(var(--color-accent-soft) / <alpha-value>)",
+        },
         success: "rgb(var(--color-success) / <alpha-value>)",
         warning: "rgb(var(--color-warning) / <alpha-value>)",
         danger: "rgb(var(--color-danger) / <alpha-value>)",
@@ -57,6 +65,10 @@ const config: Config = {
         md: "10px",
         lg: "16px",
         xl: "24px",
+        // Canonical product-card radius — matches `.fn-card-product-frame`
+        // in luxury.css. Use `rounded-card` for product/grid cards so the
+        // card surface and its image frame stay in lockstep.
+        card: "18px",
       },
       boxShadow: {
         card: "0 1px 2px rgba(15, 15, 15, 0.04), 0 4px 16px rgba(15, 15, 15, 0.06)",
