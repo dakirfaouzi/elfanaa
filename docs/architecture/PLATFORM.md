@@ -3320,6 +3320,63 @@ clean; 469/469 tests pass; IDE lints clean. (`next lint` is not configured for
 the studio app — pre-existing; it prompts to scaffold ESLint and was not set up
 as part of this sprint.)
 
+#### 26.4.19 Studio Draft Management & Navigation — Sprint 2 (DONE 2026-06-04)
+
+Operator-scale navigation + error legibility for the drafts list and editor.
+Advisory input from the UI/UX Pro Max skill (instant filtering with a real
+"no results" state, smooth-scroll anchor nav with an active indicator, error
+messages with a recovery path + `role="alert"`); Fanaa's RTL Arabic-first
+mobile-first GCC system stays authoritative. **No DB / schema / migration /
+storefront / breaking changes** — all five items are additive client UI over
+data `listDrafts()` already returns and state the builder already holds.
+
+1. **Draft search / filter / sort** — new client component
+   `_components/drafts/DraftsBrowser.tsx`. The drafts list (`app/drafts/page.tsx`)
+   stays a server component (owns data-fetch + the totals strip) and now hands
+   the full `DraftListItem[]` to `DraftsBrowser`, which does *instant* in-browser
+   work (small, operator-scale set — no new API/round-trip):
+   - **Search** (case-insensitive substring) across `title`, `slug`, `id`.
+   - **Filter chips** Draft / Published / Running / Failed (+ All), each with a
+     live count, mapped through the canonical `bucketStatus()` so the status
+     model is reused, not duplicated. (`archived` shows under All.)
+   - **Sort** Last updated (default) / Newest / Oldest / Published date
+     (never-published sorts last on the published view).
+   - A real **"No drafts match"** empty state with a *Clear filters* action
+     instead of a blank table.
+2. **Section Navigator** — `SectionNavigator` in `BuilderClient.tsx`. A sticky
+   (`top:116`), horizontally-scrollable chip strip at the top of the editor
+   column lists every document section by label (`sectionKindLabel`); clicking a
+   chip smooth-scrolls (honours `prefers-reduced-motion`) to its
+   `#builder-section-<id>` anchor. Each `SectionBlock` now carries that `id` and
+   `scrollMarginTop:168` so the jump clears the sticky toolbar + nav. The active
+   chip is tracked by an `IntersectionObserver` scroll-spy (re-attaches only when
+   the section set changes; picks the visible section nearest the toolbar).
+   Hidden sections render dimmed. Shown only when there are ≥2 sections.
+3. **Human-friendly errors** — new pure helper `lib/studio/error-messages.ts`
+   (`friendlyError(raw)`): a first-match pattern table + HTTP-status fallback
+   that maps the machine strings Studio surfaced (`save_failed:409:…`,
+   `upload_returned_no_usable_ref`, `upload_failed`, `load_failed`,
+   `intake_failed`, `mode_unavailable`, `conflict`, `product_unknown`,
+   `network_error`, bare `(5xx/4xx)`) to plain, recovery-oriented sentences;
+   always returns a non-empty generic for the unknown case. Applied at the
+   builder publish-failure + save-failed pill (`BuilderClient`), section-image
+   replace + asset-picker upload/library load (`SectionImagesPanel`,
+   `AssetPickerDialog`), and the create-draft + intake forms (`NewDraftForm`,
+   `IntakeForm`). **The raw string is preserved internally** — logged via
+   `console.error` and/or kept on the element `title=` for forensics — so
+   operators see plain copy while technical detail stays available. Error
+   banners gained `role="alert"`.
+
+**Affected files:** `apps/studio/lib/studio/error-messages.ts` (new),
+`__tests__/error-messages.test.ts` (new), `_components/drafts/DraftsBrowser.tsx`
+(new), `app/drafts/page.tsx`, `_components/builder/BuilderClient.tsx`,
+`_components/builder/SectionImagesPanel.tsx`,
+`_components/builder/AssetPickerDialog.tsx`,
+`_components/builder/NewDraftForm.tsx`, `_components/IntakeForm.tsx`.
+**Validation:** `studio` typecheck clean; 478/478 tests pass (9 new for
+`friendlyError`); IDE lints clean. (`next lint` still unconfigured for studio —
+pre-existing, unchanged by this sprint.)
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

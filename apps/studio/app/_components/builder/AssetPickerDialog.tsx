@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { MediaKind, MediaRef } from "@platform/builder-schema";
 import { uploadFile, type UploadProgress } from "./uploader";
 import { studioPath } from "@/lib/base-path";
+import { friendlyError } from "@/lib/studio/error-messages";
 
 /**
  * AssetPickerDialog — shared modal for picking a media asset.
@@ -190,7 +191,12 @@ function LibraryTab(props: {
   }, [props.draftId, props.allowed]);
 
   if (loading) return <p className="text-dim">Loading library…</p>;
-  if (error) return <p className="banner danger">Could not load library: {error}</p>;
+  if (error)
+    return (
+      <p className="banner danger" role="alert" title={error}>
+        {friendlyError(error)}
+      </p>
+    );
   if (rows.length === 0) {
     return (
       <p className="empty-card">
@@ -267,7 +273,10 @@ function UploadTab(props: {
         setError("Upload cancelled.");
         return;
       }
-      setError(err instanceof Error ? err.message : "upload_failed");
+      const raw = err instanceof Error ? err.message : "upload_failed";
+      // eslint-disable-next-line no-console
+      console.error("[AssetPicker] upload failed", raw);
+      setError(friendlyError(raw));
     }
   }
 
@@ -317,7 +326,11 @@ function UploadTab(props: {
           </div>
         </div>
       ) : null}
-      {error ? <p className="banner danger">{error}</p> : null}
+      {error ? (
+        <p className="banner danger" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

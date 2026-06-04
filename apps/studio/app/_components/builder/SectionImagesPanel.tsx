@@ -5,6 +5,7 @@ import type { MediaRef } from "@platform/builder-schema";
 import type { BuilderAction } from "@platform/builder-state";
 import { resolveAssetUrl } from "@/lib/studio/asset-url";
 import { durableUploadRef } from "@/lib/studio/upload-ref";
+import { friendlyError } from "@/lib/studio/error-messages";
 import { uploadFile } from "./uploader";
 
 /**
@@ -347,7 +348,12 @@ function ReviewCard(props: {
         height: upload.height ?? undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "upload_failed");
+      const raw = err instanceof Error ? err.message : "upload_failed";
+      // Keep the technical detail in the console for forensics; show the
+      // operator a friendly sentence.
+      // eslint-disable-next-line no-console
+      console.error("[SectionImages] replace failed", { label: item.label, raw });
+      setError(raw);
     } finally {
       setBusy(false);
     }
@@ -465,8 +471,12 @@ function ReviewCard(props: {
         {busy ? "Uploading…" : "Replace Image"}
       </button>
       {error ? (
-        <span style={{ fontSize: 10, color: "var(--danger, #dc2626)" }}>
-          {error}
+        <span
+          role="alert"
+          title={error}
+          style={{ fontSize: 10, color: "var(--danger, #dc2626)" }}
+        >
+          {friendlyError(error)}
         </span>
       ) : null}
     </div>

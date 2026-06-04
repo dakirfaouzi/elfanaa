@@ -1,15 +1,9 @@
 import Link from "next/link";
 import { NavBar } from "../_components/NavBar";
 import { EmptyState } from "../_components/EmptyState";
-import { RelativeTime } from "../_components/RelativeTime";
+import { DraftsBrowser } from "../_components/drafts/DraftsBrowser";
 import { listDrafts, type DraftListItem } from "@/lib/studio/drafts-service";
-import {
-  bucketStatus,
-  statusGlyphKind,
-  statusLabel,
-  statusTagClass,
-} from "@/lib/studio/draft-status-options";
-import { StatusIcon } from "../_components/StatusIcon";
+import { bucketStatus } from "@/lib/studio/draft-status-options";
 
 export const dynamic = "force-dynamic";
 
@@ -125,80 +119,7 @@ export default async function DraftsPage() {
         ) : null}
 
         {result.ok && result.value.length > 0 ? (
-          <section className="section-card">
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    textAlign: "start",
-                    borderBottom: "1px solid var(--border)",
-                  }}
-                >
-                  <th style={th}>Title</th>
-                  <th style={th}>Slug</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Updated</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.value.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="drafts-row"
-                    style={{ borderBottom: "1px solid var(--border)" }}
-                  >
-                    <td style={td}>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          letterSpacing: "-0.01em",
-                        }}
-                      >
-                        {d.title}
-                      </span>
-                    </td>
-                    <td style={td}>
-                      <code className="code" title={d.slug}>
-                        {d.slug}
-                      </code>
-                    </td>
-                    <td style={td}>
-                      <span className={statusTagClass(d.status)}>
-                        <StatusIcon kind={statusGlyphKind(d.status)} />
-                        {statusLabel(d.status)}
-                      </span>
-                    </td>
-                    <td style={td}>
-                      <RelativeTime
-                        value={d.updatedAt}
-                        liveRefreshMs={30_000}
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-dim)",
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      />
-                    </td>
-                    <td style={{ ...td, textAlign: "end" }}>
-                      <Link
-                        href={`/drafts/${encodeURIComponent(d.id)}`}
-                        className="btn btn-small"
-                      >
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <DraftsBrowser drafts={result.value} />
         ) : null}
       </main>
     </div>
@@ -280,15 +201,3 @@ function DraftCountsStrip({ drafts }: { drafts: DraftListItem[] }) {
     </div>
   );
 }
-
-const th: React.CSSProperties = {
-  padding: "10px 8px",
-  fontWeight: 600,
-  color: "var(--text-dim)",
-  fontSize: 11,
-  textTransform: "uppercase",
-  letterSpacing: 0.14,
-};
-const td: React.CSSProperties = {
-  padding: "10px 8px",
-};

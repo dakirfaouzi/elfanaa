@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { studioPath } from "@/lib/base-path";
+import { friendlyError } from "@/lib/studio/error-messages";
 
 /**
  * NewDraftForm — small client component that POSTs to the create
@@ -71,7 +72,10 @@ export function NewDraftForm() {
       }
       router.push(`/drafts/${encodeURIComponent(id)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error.");
+      const raw = err instanceof Error ? err.message : "unknown_error";
+      // eslint-disable-next-line no-console
+      console.error("[NewDraftForm] create failed", raw);
+      setError(friendlyError(raw));
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +112,11 @@ export function NewDraftForm() {
           Used in the storefront URL: <code className="code">/p/{effectiveSlug || "your-slug"}</code>
         </small>
       </div>
-      {error ? <p className="banner danger">{error}</p> : null}
+      {error ? (
+        <p className="banner danger" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div style={{ display: "flex", gap: 8 }}>
         <button
           type="submit"

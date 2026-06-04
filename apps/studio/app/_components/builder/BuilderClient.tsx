@@ -29,6 +29,7 @@ import { PublishConfirmModal } from "./PublishConfirmModal";
 import { RelativeTime } from "../RelativeTime";
 import { StatusIcon, type StatusGlyphKind } from "../StatusIcon";
 import { studioPath } from "@/lib/base-path";
+import { friendlyError } from "@/lib/studio/error-messages";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
 import { resolveDocumentSrcs } from "@/lib/studio/resolve-document-srcs";
 
@@ -137,6 +138,9 @@ export function BuilderClient(props: BuilderClientProps) {
   // Default `false` matches SSR + first client paint, so reading the
   // stored value in an effect cannot cause a hydration mismatch.
   const [previewVisible, setPreviewVisible] = useState(false);
+  // Section Navigator (Sprint 2) — the section currently nearest the top
+  // of the viewport, tracked by a scroll-spy IntersectionObserver below.
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const expectedVersionRef = useRef(props.initialPayloadVersion);
 
   useEffect(() => {
@@ -160,6 +164,66 @@ export function BuilderClient(props: BuilderClientProps) {
       return next;
     });
   }
+
+  // ── Section Navigator (Sprint 2) ──────────────────────────────────
+  // Build a flat list of {id,label,enabled} for the jump-nav, and a
+  // stable key so the scroll-spy observer re-attaches only when the set
+  // of sections actually changes (add / remove / reorder).
+  const navItems = useMemo(
+    () =>
+      state.document.sections.map((s) => ({
+        id: s.id,
+        label: sectionKindLabel(s.kind),
+        enabled: s.enabled !== false,
+      })),
+    [state.document.sections],
+  );
+  const sectionAnchorKey = navItems.map((s) => s.id).join("|");
+
+  function jumpToSection(id: string) {
+    setActiveSectionId(id);
+    const el = document.getElementById(`builder-section-${id}`);
+    if (!el) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }
+
+  useEffect(() => {
+    if (sectionAnchorKey === "") return;
+    const ids = sectionAnchorKey.split("|");
+    const els = ids
+      .map((id) => document.getElementById(`builder-section-${id}`))
+      .filter((el): el is HTMLElement => el != null);
+    if (els.length === 0) return;
+
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        // Active = the visible section whose top is nearest the toolbar.
+        let best: string | null = null;
+        let bestTop = Number.POSITIVE_INFINITY;
+        for (const el of els) {
+          if (!visible.has(el.id)) continue;
+          const top = el.getBoundingClientRect().top;
+          if (top < bestTop) {
+            bestTop = top;
+            best = el.id;
+          }
+        }
+        if (best) setActiveSectionId(best.replace("builder-section-", ""));
+      },
+      { rootMargin: "-150px 0px -55% 0px", threshold: [0, 0.25, 0.6, 1] },
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [sectionAnchorKey]);
 
   // Autosave scheduler.
   const scheduler = useMemo(() => {
@@ -196,8 +260,13 @@ export function BuilderClient(props: BuilderClientProps) {
           savedAt,
           savedDocumentVersion: version,
         }),
-      onError: (err) =>
-        dispatch({ type: "MARK_SAVE_ERROR", message: err.message }),
+      onError: (err) => {
+        // Keep the raw message in the console for forensics; the pill shows
+        // a friendly sentence derived from it.
+        // eslint-disable-next-line no-console
+        console.error("[Builder] autosave failed", err);
+        dispatch({ type: "MARK_SAVE_ERROR", message: err.message });
+      },
     });
   }, [props.draftId, props.readOnly]);
 
@@ -326,7 +395,14 @@ export function BuilderClient(props: BuilderClientProps) {
           setPublishIssues(json.issues);
           setPublishMessage("Resolve the issues below before publishing.");
         } else {
-          setPublishMessage(json?.message ?? `Publish failed (${resp.status}).`);
+          // eslint-disable-next-line no-console
+          console.error("[Builder] publish failed", {
+            status: resp.status,
+            message: json?.message,
+          });
+          setPublishMessage(
+            friendlyError(json?.message ?? `publish failed (${resp.status})`),
+          );
         }
         return;
       }
@@ -379,6 +455,13 @@ export function BuilderClient(props: BuilderClientProps) {
         data-preview={previewVisible ? "on" : "off"}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {navItems.length > 1 ? (
+            <SectionNavigator
+              items={navItems}
+              activeId={activeSectionId}
+              onJump={jumpToSection}
+            />
+          ) : null}
           {/*
            * M12 / Step 2 / Phase 2.3 — Catalog metadata panel.
            *
@@ -611,7 +694,7 @@ function SavePill({ state }: { state: BuilderState }) {
     return (
       <span
         className="tag tag-danger"
-        title={state.lastError ?? "Unknown save error"}
+        title={friendlyError(state.lastError)}
       >
         <DotIndicator color="var(--danger)" />
         Save failed
@@ -675,6 +758,79 @@ function DotIndicator({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Section navigator (Sprint 2)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * SectionNavigator — sticky jump-list of the document's sections.
+ *
+ * Clicking a chip smooth-scrolls to the matching `#builder-section-<id>`
+ * anchor; the chip for the section nearest the top is highlighted via the
+ * scroll-spy observer in `BuilderClient`. Horizontally scrollable so a
+ * long section list never forces the editor column wider (skill: avoid
+ * horizontal page scroll — the overflow is contained to this strip).
+ */
+function SectionNavigator(props: {
+  items: Array<{ id: string; label: string; enabled: boolean }>;
+  activeId: string | null;
+  onJump: (id: string) => void;
+}) {
+  return (
+    <nav
+      aria-label="Jump to section"
+      style={{
+        position: "sticky",
+        top: 116,
+        zIndex: 4,
+        display: "flex",
+        gap: 6,
+        overflowX: "auto",
+        padding: "8px 10px",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        scrollbarWidth: "thin",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "var(--text-faint)",
+          fontWeight: 700,
+          alignSelf: "center",
+          whiteSpace: "nowrap",
+          paddingInlineEnd: 4,
+        }}
+      >
+        Sections
+      </span>
+      {props.items.map((item) => {
+        const active = item.id === props.activeId;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => props.onJump(item.id)}
+            aria-current={active ? "true" : undefined}
+            title={item.enabled ? item.label : `${item.label} (hidden)`}
+            className={active ? "btn btn-small btn-accent" : "btn btn-small"}
+            style={{
+              whiteSpace: "nowrap",
+              fontWeight: active ? 700 : 500,
+              opacity: item.enabled ? 1 : 0.55,
+            }}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Section block
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -693,9 +849,13 @@ function SectionBlock(props: {
   const disabled = props.section.enabled === false;
   return (
     <div
+      id={`builder-section-${props.section.id}`}
       className="section-block"
       data-collapsed={props.collapsed}
       data-disabled={disabled}
+      // Clear the sticky toolbar + section navigator when jumped to via
+      // the Section Navigator (Sprint 2).
+      style={{ scrollMarginTop: 168 }}
     >
       <div className="section-block-head">
         <span className="kind">{sectionKindLabel(props.section.kind)}</span>

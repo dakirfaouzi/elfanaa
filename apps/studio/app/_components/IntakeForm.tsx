@@ -22,6 +22,7 @@ import { TargetingControls } from "./intake/TargetingControls";
 import { CostBreakdownCard } from "./intake/CostBreakdownCard";
 import { OfferBuilder } from "./intake/OfferBuilder";
 import { renderTargetingAsNotes } from "@/lib/studio/intake/serialize-targeting";
+import { friendlyError } from "@/lib/studio/error-messages";
 import {
   computeLandedCost,
   renderCostBreakdownAsNotes,
@@ -435,7 +436,13 @@ export function IntakeForm(props: { defaultStoreId: string }) {
       )}
 
       {error && !issues.length && (
-        <div style={{ color: "var(--danger)", fontSize: 13 }}>Error: {error}</div>
+        <div
+          role="alert"
+          title={error}
+          style={{ color: "var(--danger)", fontSize: 13 }}
+        >
+          {friendlyError(error)}
+        </div>
       )}
 
       {/* ─── Sticky dispatch footer ──────────────────────────── */}
