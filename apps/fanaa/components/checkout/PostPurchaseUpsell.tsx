@@ -217,7 +217,12 @@ export function PostPurchaseUpsell({ orderProductIds, orderId, onComplete }: Pro
       if (!line) throw new Error("upsell_response_missing_line");
       // Persist the upsell line into the receipt so the thank-you page
       // can render the "Your add-on is in" banner + the line in the summary.
-      attachUpsellLine(orderId, line);
+      // Embed the thumbnail (same reason as the base lines) so AI `run_*`
+      // upsell products render an image on the client-only thank-you page.
+      attachUpsellLine(orderId, {
+        ...line,
+        image: { src: image.src, alt: image.alt },
+      });
       setStatus("accepted");
       // Brief celebratory pause before transitioning so the customer sees
       // their tap "land". 900ms is the sweet spot — long enough to feel

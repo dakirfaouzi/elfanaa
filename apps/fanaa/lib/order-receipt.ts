@@ -26,6 +26,18 @@ export type ReceiptLine = {
   quantity: number;
   lineTotal: Money;
   source: ReceiptLineSource;
+  /**
+   * Thumbnail captured at checkout from the resolved product.
+   *
+   * The thank-you page is client-only with sessionStorage as its single
+   * source — it cannot re-resolve product images at render time. Snapshot
+   * (curated) products could be re-resolved via `getProductById`, but
+   * AI-generated (`run_*`) products are absent from the snapshot, so the
+   * receipt embeds the image (same rationale as `CartLine.productSnapshot`).
+   * Optional so receipts persisted before this field still load + degrade
+   * to the snapshot/placeholder fallback in `OrderReceipt`.
+   */
+  image?: { src: string; alt: LocalizedString };
 };
 
 export type UpsellStatus = "none" | "pending" | "accepted" | "declined" | "expired";

@@ -3211,6 +3211,49 @@ blocking):** `OrderItem.product_id` / `CartLineIn.product_id` are `VARCHAR(40)`
 `_order_to_payload`'s archival `url` field stays snapshot-only (admin titles
 already correct from the stored `OrderItem.title`).
 
+#### 26.4.16 Thank-you receipt thumbnails — AI products showed the placeholder (DONE 2026-06-04)
+
+**Symptom.** After the §26.4.15 fix let AI orders complete, the thank-you
+"order summary" (`ملخص طلبك`) rendered every line with the placeholder image
+icon. Prices, quantities and titles were correct; only the thumbnails were
+missing.
+
+**Root cause (pre-existing, not a regression).** Same catalog-split class as
+§26.4.13/§26.4.15. The thank-you page is **client-only with `sessionStorage`
+as its single source** (`loadReceipt` → `OrderReceipt`); by design it does no
+server fetch. `OrderReceipt` re-resolved each thumbnail via the **snapshot-only**
+`getProductById(line.productId)`, then fell back to `PLACEHOLDER_PRODUCT_IMAGE`.
+AI-generated `run_*` products are absent from the snapshot, so the fallback fired
+for every AI line. The `ReceiptLine` carried no image of its own. The bug was
+latent — you simply could not reach the thank-you page with an AI order until
+§26.4.15 made AI checkout succeed.
+
+**Fix (embed the thumbnail on the receipt line at checkout).** Mirrors the
+existing `CartLine.productSnapshot` pattern: capture the image while the fully
+resolved product is still in scope, so the client-only page never needs to
+re-resolve. Additive + optional, so receipts persisted before this load and
+degrade to the old snapshot/placeholder fallback.
+
+- `lib/order-receipt.ts` — added optional `image?: { src; alt }` to `ReceiptLine`.
+- `components/checkout/CodCheckoutModal.tsx` — before `saveReceipt`, build a
+  `productId → {src, alt}` map from `useResolvedCartLines()` (`getPrimaryImage`,
+  which resolves AI products via their `productSnapshot`) and stamp each base
+  line.
+- `components/checkout/PostPurchaseUpsell.tsx` — stamp the 99-SAR upsell line's
+  image (already had `getPrimaryImage(product)` in scope) before
+  `attachUpsellLine`.
+- `components/thankyou/OrderReceipt.tsx` — precedence is now
+  `line.image ?? product?.images?.[0] ?? PLACEHOLDER_PRODUCT_IMAGE` (snapshot
+  fallback retained for safety / legacy receipts).
+
+**ADR-S2-RT1 — the receipt is self-contained; thumbnails are captured at
+checkout, not re-resolved at render.** The thank-you page stays a pure
+sessionStorage consumer (no new fetch, no SWR, no server data-shape change),
+which also makes the printed receipt and any re-open within the 24h TTL render
+the correct images. Curated and AI products take the identical path.
+**Validation:** `fanaa` typecheck clean; lints clean. **Affected files:** the
+four above.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

@@ -22,6 +22,7 @@ import {
 import { useFormatPrice } from "@/hooks/useFormatPrice";
 import { useLocale } from "@/hooks/useLocale";
 import { lineTotal } from "@/lib/pricing";
+import { getPrimaryImage } from "@/lib/product-image";
 import { pickLocalized } from "@/lib/format";
 import { formatSaudiPhoneAsYouType, validateSaudiPhone } from "@/lib/phone";
 import { track, trackCommerce } from "@/lib/analytics";
@@ -235,7 +236,27 @@ export function CodCheckoutModal() {
 
       // Persist the receipt for the thank-you page BEFORE switching screens.
       // The upsell screen may mutate this snapshot if the customer accepts.
-      saveReceipt({ ...data.receipt, upsellStatus: "pending" });
+      //
+      // Embed each line's thumbnail from the resolved cart product so the
+      // (client-only) thank-you receipt renders AI-generated `run_*` products
+      // too — those are absent from the snapshot the receipt would otherwise
+      // re-resolve against, which is exactly why their thumbnails fell back to
+      // the placeholder. Curated products carry the same image, so the path is
+      // uniform.
+      const imageByProductId = new Map(
+        lines.map((l) => {
+          const img = getPrimaryImage(l.product);
+          return [l.productId, { src: img.src, alt: img.alt }] as const;
+        }),
+      );
+      const receiptWithImages = {
+        ...data.receipt,
+        lines: data.receipt.lines.map((rl) => ({
+          ...rl,
+          image: rl.image ?? imageByProductId.get(rl.productId),
+        })),
+      };
+      saveReceipt({ ...receiptWithImages, upsellStatus: "pending" });
 
       // Order is durable on the server now — clear the local cart immediately
       // so a stray cart-drawer open (or hard refresh mid-upsell) doesn't show

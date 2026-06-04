@@ -106,7 +106,8 @@ export function OrderReceipt({ receipt }: Props) {
                * RTL/LTR layout is identical regardless of which one
                * wins.
                */
-              const image = product?.images?.[0] ?? PLACEHOLDER_PRODUCT_IMAGE;
+              const image =
+                line.image ?? product?.images?.[0] ?? PLACEHOLDER_PRODUCT_IMAGE;
               const isUpsell = line.source === "post_purchase_upsell";
               return (
                 <li
