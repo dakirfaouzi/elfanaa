@@ -6,6 +6,11 @@ import type { BuilderAction } from "@platform/builder-state";
 import { resolveAssetUrl } from "@/lib/studio/asset-url";
 import { durableUploadRef } from "@/lib/studio/upload-ref";
 import { friendlyError } from "@/lib/studio/error-messages";
+import {
+  getReviewedKeys,
+  heroReviewKey,
+  sceneReviewKey,
+} from "@/lib/studio/section-image-review";
 import { uploadFile } from "./uploader";
 
 /**
@@ -103,7 +108,7 @@ export function SectionImagesPanel(
       const hero = props.heroSection;
       const src = hero.media?.desktopSrc ?? "";
       out.push({
-        key: `hero:${hero.id}`,
+        key: heroReviewKey(hero.id),
         label: "Hero",
         previewSrc: resolveAssetUrl(src),
         replaced: false,
@@ -135,7 +140,7 @@ export function SectionImagesPanel(
         const intent = asString(img.intent);
         const replaced = asString(img.origin) === "operator";
         out.push({
-          key: `scene:${index}`,
+          key: sceneReviewKey(index),
           label: `${sectionLabelForIntent(intent)}${intent ? ` · ${intent}` : ""}`,
           previewSrc: resolveAssetUrl(asString(img.src) ?? ""),
           replaced,
@@ -157,12 +162,43 @@ export function SectionImagesPanel(
   }, [props.heroSection, props.croContent, dispatch]);
 
   const [collapsed, setCollapsed] = useState(false);
-  // Lightbox holds only the already-resolved preview URL + label — it
-  // reuses the same `src` the card renders, so there is no image-data
-  // duplication (no re-fetch, no re-upload, no copy of bytes).
-  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(
-    null,
+  // Lightbox holds only the already-resolved preview URL + label (+ optional
+  // product-reference src for side-by-side compare) — it reuses the same `src`
+  // the card renders, so there is no image-data duplication.
+  const [lightbox, setLightbox] = useState<{
+    src: string;
+    label: string;
+    reference?: string;
+  } | null>(null);
+
+  // Reviewed set (Sprint 3) — persisted in croContent.__review; derived here
+  // so each card knows its own state and the header can show progress.
+  const reviewedSet = useMemo(
+    () => getReviewedKeys(props.croContent),
+    [props.croContent],
   );
+  const reviewedCount = items.reduce(
+    (n, it) => n + (reviewedSet.has(it.key) ? 1 : 0),
+    0,
+  );
+  const allReviewed = items.length > 0 && reviewedCount === items.length;
+
+  // Product reference (Sprint 3) — the canonical packshot from the product
+  // gallery (`croContent.images`). Lets the operator compare a generated scene
+  // against the real product to catch mutation / floating / wrong-format.
+  const referenceSrc = useMemo(() => {
+    const imgs = (props.croContent as { images?: unknown } | undefined)?.images;
+    if (!Array.isArray(imgs)) return undefined;
+    for (const im of imgs) {
+      const s = asString((im as { src?: unknown } | null)?.src);
+      if (s) return resolveAssetUrl(s);
+    }
+    return undefined;
+  }, [props.croContent]);
+
+  function zoom(src: string, label: string) {
+    setLightbox({ src, label, reference: referenceSrc });
+  }
 
   if (items.length === 0) return null;
 
@@ -189,13 +225,36 @@ export function SectionImagesPanel(
             Review the generated images and replace any bad ones before publishing.
           </span>
         </div>
-        <button
-          type="button"
-          className="btn btn-small"
-          onClick={() => setCollapsed((c) => !c)}
-        >
-          {collapsed ? "Show" : "Hide"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            className={`tag ${allReviewed ? "tag-success" : "tag-warning"}`}
+            title="Images you have marked Reviewed"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {allReviewed
+              ? `All ${items.length} reviewed`
+              : `${reviewedCount} / ${items.length} reviewed`}
+          </span>
+          {referenceSrc ? (
+            <button
+              type="button"
+              className="btn btn-small"
+              title="Open the original product reference image"
+              onClick={() =>
+                setLightbox({ src: referenceSrc, label: "Product reference" })
+              }
+            >
+              Product reference
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-small"
+            onClick={() => setCollapsed((c) => !c)}
+          >
+            {collapsed ? "Show" : "Hide"}
+          </button>
+        </div>
       </div>
 
       {collapsed ? null : (
@@ -213,7 +272,15 @@ export function SectionImagesPanel(
               item={item}
               draftId={props.draftId}
               readOnly={props.readOnly}
-              onZoom={(src, label) => setLightbox({ src, label })}
+              reviewed={reviewedSet.has(item.key)}
+              onToggleReviewed={() =>
+                dispatch({
+                  type: "SET_IMAGE_REVIEWED",
+                  key: item.key,
+                  reviewed: !reviewedSet.has(item.key),
+                })
+              }
+              onZoom={zoom}
             />
           ))}
         </div>
@@ -232,10 +299,11 @@ export function SectionImagesPanel(
  * the FULL image is visible regardless of aspect ratio.
  */
 function ImageLightbox(props: {
-  value: { src: string; label: string } | null;
+  value: { src: string; label: string; reference?: string } | null;
   onClose: () => void;
 }): React.ReactElement | null {
   const { value, onClose } = props;
+  const [compare, setCompare] = useState(false);
 
   useEffect(() => {
     if (!value) return;
@@ -246,7 +314,14 @@ function ImageLightbox(props: {
     return () => window.removeEventListener("keydown", onKey);
   }, [value, onClose]);
 
+  // Reset compare each time a new image opens so it never opens "stuck" on.
+  useEffect(() => {
+    setCompare(false);
+  }, [value?.src]);
+
   if (!value) return null;
+
+  const canCompare = Boolean(value.reference) && value.reference !== value.src;
 
   return (
     <div
@@ -282,28 +357,96 @@ function ImageLightbox(props: {
         <span style={{ fontSize: 12, color: "#e7e7ea", wordBreak: "break-word" }}>
           {value.label}
         </span>
-        <button
-          type="button"
-          className="btn btn-small"
-          onClick={onClose}
-          aria-label="Close preview"
-        >
-          Close
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {canCompare ? (
+            <button
+              type="button"
+              className={compare ? "btn btn-small btn-accent" : "btn btn-small"}
+              aria-pressed={compare}
+              onClick={() => setCompare((c) => !c)}
+            >
+              {compare ? "Hide product" : "Compare with product"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-small"
+            onClick={onClose}
+            aria-label="Close preview"
+          >
+            Close
+          </button>
+        </div>
       </div>
+      {compare && canCompare ? (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            width: "min(1100px, 100%)",
+            justifyContent: "center",
+          }}
+        >
+          <CompareCell src={value.src} caption="Generated" />
+          <CompareCell src={value.reference as string} caption="Product reference" />
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value.src}
+          alt={value.label}
+          style={{
+            maxWidth: "min(1100px, 100%)",
+            maxHeight: "82vh",
+            objectFit: "contain",
+            borderRadius: 12,
+            boxShadow: "0 24px 64px -24px rgba(0,0,0,0.7)",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** One half of the lightbox compare view: a captioned, contained image. */
+function CompareCell(props: { src: string; caption: string }): React.ReactElement {
+  return (
+    <figure
+      style={{
+        margin: 0,
+        flex: "1 1 320px",
+        maxWidth: "min(520px, 100%)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={value.src}
-        alt={value.label}
+        src={props.src}
+        alt={props.caption}
         style={{
-          maxWidth: "min(1100px, 100%)",
-          maxHeight: "82vh",
+          width: "100%",
+          maxHeight: "72vh",
           objectFit: "contain",
           borderRadius: 12,
+          background: "rgba(255,255,255,0.04)",
           boxShadow: "0 24px 64px -24px rgba(0,0,0,0.7)",
         }}
       />
-    </div>
+      <figcaption
+        style={{
+          fontSize: 11,
+          textAlign: "center",
+          color: "#cfd0d6",
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+        }}
+      >
+        {props.caption}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -311,6 +454,8 @@ function ReviewCard(props: {
   item: ReviewItem;
   draftId: string;
   readOnly?: boolean;
+  reviewed: boolean;
+  onToggleReviewed: () => void;
   onZoom: (src: string, label: string) => void;
 }): React.ReactElement {
   const { item } = props;
@@ -439,6 +584,26 @@ function ReviewCard(props: {
             Replaced
           </span>
         ) : null}
+        {props.reviewed ? (
+          <span
+            aria-hidden="true"
+            title="Reviewed"
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              lineHeight: 1,
+              padding: "3px 6px",
+              borderRadius: 6,
+              background: "var(--success, #16a34a)",
+              color: "#fff",
+            }}
+          >
+            ✓
+          </span>
+        ) : null}
       </div>
 
       <span
@@ -462,6 +627,16 @@ function ReviewCard(props: {
           e.target.value = "";
         }}
       />
+      <button
+        type="button"
+        className={props.reviewed ? "btn btn-small btn-accent" : "btn btn-small"}
+        aria-pressed={props.reviewed}
+        disabled={props.readOnly}
+        onClick={props.onToggleReviewed}
+        style={{ fontWeight: props.reviewed ? 700 : 500 }}
+      >
+        {props.reviewed ? "✓ Reviewed" : "Mark reviewed"}
+      </button>
       <button
         type="button"
         className="btn btn-small"

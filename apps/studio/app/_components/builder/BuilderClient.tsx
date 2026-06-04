@@ -30,6 +30,7 @@ import { RelativeTime } from "../RelativeTime";
 import { StatusIcon, type StatusGlyphKind } from "../StatusIcon";
 import { studioPath } from "@/lib/base-path";
 import { friendlyError } from "@/lib/studio/error-messages";
+import { reviewProgress } from "@/lib/studio/section-image-review";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
 import { resolveDocumentSrcs } from "@/lib/studio/resolve-document-srcs";
 
@@ -333,6 +334,12 @@ export function BuilderClient(props: BuilderClientProps) {
     () => collectImageStats(state.document),
     [state.document],
   );
+  // Sprint 3 — Image-QA review progress, surfaced as a NON-BLOCKING warning in
+  // the publish confirmation. Same key scheme as the Section Images panel.
+  const reviewStats = useMemo(
+    () => reviewProgress(state.document),
+    [state.document],
+  );
   const readiness = useMemo<Readiness>(() => {
     if (props.readOnly) {
       return { tone: "info", glyph: "info", label: "Read-only" };
@@ -537,6 +544,8 @@ export function BuilderClient(props: BuilderClientProps) {
           draftId={props.draftId}
           languageLabel={primary === "ar" ? "العربية" : "English"}
           imageCount={imageStats.withSrc}
+          imagesReviewed={reviewStats.reviewed}
+          imagesTotal={reviewStats.total}
           destination={`/p/${props.slug}`}
           publishing={publishing}
           onConfirm={confirmPublish}

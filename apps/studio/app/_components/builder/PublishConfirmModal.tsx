@@ -23,6 +23,9 @@ export interface PublishConfirmModalProps {
   draftId: string;
   languageLabel: string;
   imageCount: number;
+  /** Sprint 3 — Image-QA review progress (non-blocking warning). */
+  imagesReviewed: number;
+  imagesTotal: number;
   destination: string;
   publishing: boolean;
   onConfirm: () => void;
@@ -31,6 +34,8 @@ export interface PublishConfirmModalProps {
 
 export function PublishConfirmModal(props: PublishConfirmModalProps) {
   const { onCancel, publishing } = props;
+  const unreviewed = Math.max(0, props.imagesTotal - props.imagesReviewed);
+  const hasUnreviewed = props.imagesTotal > 0 && unreviewed > 0;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -111,10 +116,46 @@ export function PublishConfirmModal(props: PublishConfirmModalProps) {
           <SummaryRow label="Section images">
             {props.imageCount} {props.imageCount === 1 ? "image" : "images"}
           </SummaryRow>
+          {props.imagesTotal > 0 ? (
+            <SummaryRow label="Reviewed">
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                {props.imagesReviewed} / {props.imagesTotal}
+              </span>
+            </SummaryRow>
+          ) : null}
           <SummaryRow label="Destination">
             <code className="code">{props.destination}</code>
           </SummaryRow>
         </dl>
+
+        {hasUnreviewed ? (
+          <div
+            role="alert"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontSize: 12.5,
+              lineHeight: 1.45,
+              color: "var(--warning)",
+              background: "color-mix(in srgb, var(--warning) 12%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--warning) 40%, transparent)",
+            }}
+          >
+            <StatusIcon kind="warning" size={15} />
+            <span style={{ color: "var(--text)" }}>
+              <strong>
+                {unreviewed} {unreviewed === 1 ? "image hasn’t" : "images haven’t"}{" "}
+                been marked reviewed.
+              </strong>{" "}
+              You can still publish — this is only a reminder to QA the section
+              images first.
+            </span>
+          </div>
+        ) : null}
 
         <div
           style={{

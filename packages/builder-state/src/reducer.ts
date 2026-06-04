@@ -3,6 +3,7 @@ import { emptyCatalogMetadata } from "@platform/builder-schema";
 import type { BuilderAction } from "./actions";
 import type { BuilderState } from "./state";
 import { HISTORY_LIMIT, initialState } from "./state";
+import { IMAGE_REVIEW_BAG, IMAGE_REVIEWED_KEYS_FIELD } from "./review";
 
 /**
  * The Studio builder reducer.
@@ -239,6 +240,37 @@ export function reducer(state: BuilderState, action: BuilderAction): BuilderStat
       const nextCro: Record<string, unknown> = {
         ...(cro as Record<string, unknown>),
         [action.bag]: nextList,
+      };
+      return withDocument(state, { ...state.document, croContent: nextCro });
+    }
+
+    case "SET_IMAGE_REVIEWED": {
+      // Sprint 3 — persist Image-QA review state inside the opaque croContent
+      // bag (the only field that survives the document schema's key-strip).
+      const cro = (state.document.croContent ?? {}) as Record<string, unknown>;
+      const review =
+        cro[IMAGE_REVIEW_BAG] && typeof cro[IMAGE_REVIEW_BAG] === "object"
+          ? (cro[IMAGE_REVIEW_BAG] as Record<string, unknown>)
+          : {};
+      const prevRaw = review[IMAGE_REVIEWED_KEYS_FIELD];
+      const prev = Array.isArray(prevRaw)
+        ? (prevRaw as unknown[]).filter(
+            (k): k is string => typeof k === "string",
+          )
+        : [];
+      const has = prev.includes(action.key);
+      // No-op when already in the desired state → no history churn / no
+      // spurious autosave.
+      if (action.reviewed === has) return state;
+      const nextKeys = action.reviewed
+        ? [...prev, action.key]
+        : prev.filter((k) => k !== action.key);
+      const nextCro: Record<string, unknown> = {
+        ...cro,
+        [IMAGE_REVIEW_BAG]: {
+          ...review,
+          [IMAGE_REVIEWED_KEYS_FIELD]: nextKeys,
+        },
       };
       return withDocument(state, { ...state.document, croContent: nextCro });
     }

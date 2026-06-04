@@ -3377,6 +3377,59 @@ data `listDrafts()` already returns and state the builder already holds.
 `friendlyError`); IDE lints clean. (`next lint` still unconfigured for studio —
 pre-existing, unchanged by this sprint.)
 
+#### 26.4.20 Studio Image QA Workflow — Sprint 3 (DONE 2026-06-04)
+
+Operator QA layer on top of the existing Section Images MVP (§ Draft Asset
+Review). Advisory input from the UI/UX Pro Max skill (progress visibility,
+compare-to-source to reduce inspection time, warn-don't-block on risky
+publish); Fanaa's RTL Arabic-first mobile-first GCC system stays authoritative.
+**No AI-generation / image-pipeline / upload-pipeline / storefront / DB /
+schema / migration changes** — review state rides existing draft JSON.
+
+**Where review state lives (the key decision).** `DraftDocumentSchema` is a
+non-strict `z.object`, so it *strips unknown top-level keys* on every
+`safeParse` (autosave PATCH + publish validate). The only field that preserves
+arbitrary keys is the opaque `croContent` record
+(`z.record(z.string(), z.unknown())`). Review state is therefore stored at
+`croContent.__review.reviewedKeys: string[]` — an array of the SAME stable item
+keys the Section Images panel uses (`hero:<id>` / `scene:<index>`). This means
+**no schema change** and the flags survive refresh, reopen, and publish. The
+key names are centralised in `@platform/builder-state/review`
+(`IMAGE_REVIEW_BAG`, `IMAGE_REVIEWED_KEYS_FIELD`) so the reducer and the Studio
+helpers can't drift.
+
+1. **Reviewed toggle** — each card in `SectionImagesPanel` gets a
+   `Mark reviewed` / `✓ Reviewed` toggle and a green ✓ badge on the preview.
+   Toggling dispatches the new `SET_IMAGE_REVIEWED { key, reviewed }` builder
+   action (recorded in history → undo/redo; no-op when unchanged so it doesn't
+   churn autosave). Persistence is automatic via the existing draft autosave.
+2. **Review progress indicator** — a tag in the panel header shows
+   `N / M reviewed` (and `All M reviewed` at 100%), derived from the reviewed
+   set ∩ the panel's item keys.
+3. **Original product reference** — the panel reads the canonical packshot from
+   `croContent.images[0]` and exposes a `Product reference` button plus a
+   `Compare with product` toggle inside the existing lightbox, rendering the
+   generated scene and the product reference side-by-side. Lets the operator
+   spot product mutation / floating / wrong-format fast, without leaving the
+   editor. (Reference is the in-draft product gallery; no run/pipeline lookup.)
+4. **Publish review warning** — `PublishConfirmModal` shows a `Reviewed N / M`
+   row and, when any image is unreviewed, a non-blocking amber `role="alert"`
+   banner ("X images haven't been marked reviewed — you can still publish").
+   **Publishing remains allowed**; the gate is unchanged. Counts come from the
+   shared `reviewProgress()` helper so the modal and panel always agree.
+
+**Affected files:** `packages/builder-state/src/review.ts` (new),
+`packages/builder-state/src/{actions,reducer,index}.ts`,
+`apps/studio/lib/studio/section-image-review.ts` (new),
+`apps/studio/__tests__/section-image-review.test.ts` (new),
+`apps/studio/app/_components/builder/SectionImagesPanel.tsx`,
+`apps/studio/app/_components/builder/PublishConfirmModal.tsx`,
+`apps/studio/app/_components/builder/BuilderClient.tsx`.
+**Validation:** `builder-state` + `studio` typecheck clean; `builder-state`
+31/31 tests pass; `studio` 484/484 tests pass (6 new covering key scheme,
+reducer toggle/no-op, and schema round-trip); IDE lints clean. (`next lint`
+still unconfigured for studio — pre-existing.)
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

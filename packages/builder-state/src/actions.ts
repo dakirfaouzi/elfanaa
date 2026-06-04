@@ -83,6 +83,17 @@ export type BuilderAction =
       height?: number;
     }
 
+  /**
+   * Sprint 3 — Image QA Workflow. Mark a section image (hero or a CRO scene)
+   * Reviewed / Not-Reviewed. State persists in the opaque
+   * `croContent.__review.reviewedKeys` bag — the only schema-preserving home
+   * for additive keys (the top-level document schema strips unknowns) — and is
+   * recorded in history so it undoes/redoes with the rest of the draft.
+   * `key` is the SAME stable key the SectionImagesPanel uses: `hero:<id>` /
+   * `scene:<index>`.
+   */
+  | { type: "SET_IMAGE_REVIEWED"; key: string; reviewed: boolean }
+
   // History controls
   | { type: "UNDO" }
   | { type: "REDO" }
