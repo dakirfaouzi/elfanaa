@@ -25,7 +25,9 @@ import { DraftRenderer } from "@platform/runtime-renderer";
 import { SectionEditor, sectionKindLabel } from "./editors";
 import { CatalogMetadataPanel } from "./CatalogMetadataPanel";
 import { SectionImagesPanel } from "./SectionImagesPanel";
+import { PublishConfirmModal } from "./PublishConfirmModal";
 import { RelativeTime } from "../RelativeTime";
+import { StatusIcon, type StatusGlyphKind } from "../StatusIcon";
 import { studioPath } from "@/lib/base-path";
 import { SECTION_PICKER_GROUPS } from "@/lib/studio/section-picker-groups";
 import { resolveDocumentSrcs } from "@/lib/studio/resolve-document-srcs";
@@ -78,6 +80,41 @@ function makeSectionId(): string {
   return `sec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** localStorage key for the operator's preview-pane visibility choice. */
+const PREVIEW_VISIBLE_KEY = "fanaa.studio.builder.previewVisible";
+
+interface Readiness {
+  tone: "success" | "warning" | "danger" | "info";
+  glyph: StatusGlyphKind;
+  label: string;
+}
+
+/** Count section images present in the draft + how many actually have a
+ *  source. Mirrors what `SectionImagesPanel` surfaces: the hero MediaRef
+ *  plus the `croContent.lifestyleImages[]` scene pool. */
+function collectImageStats(document: DraftDocument): {
+  total: number;
+  withSrc: number;
+  missing: number;
+} {
+  const hero = document.sections.find((s) => s.kind === "hero");
+  const heroSrc = hero?.media?.desktopSrc;
+  const bag = document.croContent as { lifestyleImages?: unknown } | undefined;
+  const pool = Array.isArray(bag?.lifestyleImages) ? bag.lifestyleImages : [];
+  let total = 0;
+  let withSrc = 0;
+  if (hero) {
+    total += 1;
+    if (typeof heroSrc === "string" && heroSrc.trim()) withSrc += 1;
+  }
+  for (const raw of pool) {
+    total += 1;
+    const src = (raw as { src?: unknown } | null)?.src;
+    if (typeof src === "string" && src.trim()) withSrc += 1;
+  }
+  return { total, withSrc, missing: total - withSrc };
+}
+
 export function BuilderClient(props: BuilderClientProps) {
   const [state, dispatch] = useReducer(
     reducer,
@@ -90,11 +127,39 @@ export function BuilderClient(props: BuilderClientProps) {
   const [publishIssues, setPublishIssues] = useState<PublishIssue[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
   const [primary, setPrimary] = useState<"ar" | "en">(
     props.primaryLocale ?? "ar",
   );
+  // Preview pane is collapsed by default (Sprint 1) — editor gets full
+  // width. The operator's choice persists across drafts via localStorage.
+  // Default `false` matches SSR + first client paint, so reading the
+  // stored value in an effect cannot cause a hydration mismatch.
+  const [previewVisible, setPreviewVisible] = useState(false);
   const expectedVersionRef = useRef(props.initialPayloadVersion);
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PREVIEW_VISIBLE_KEY) === "1") {
+        setPreviewVisible(true);
+      }
+    } catch {
+      /* storage disabled — keep default collapsed */
+    }
+  }, []);
+
+  function togglePreview() {
+    setPreviewVisible((v) => {
+      const next = !v;
+      try {
+        window.localStorage.setItem(PREVIEW_VISIBLE_KEY, next ? "1" : "0");
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+  }
 
   // Autosave scheduler.
   const scheduler = useMemo(() => {
@@ -192,7 +257,43 @@ export function BuilderClient(props: BuilderClientProps) {
     });
   }
 
-  async function publish() {
+  // Publish-readiness, derived purely from real draft state — no fake
+  // indicators. `validateForPublish` is the same gate publish uses; image
+  // stats mirror what the Section Images panel surfaces.
+  const imageStats = useMemo(
+    () => collectImageStats(state.document),
+    [state.document],
+  );
+  const readiness = useMemo<Readiness>(() => {
+    if (props.readOnly) {
+      return { tone: "info", glyph: "info", label: "Read-only" };
+    }
+    const result = validateForPublish(state.document);
+    if (!result.ok) {
+      return { tone: "danger", glyph: "error", label: "Missing required data" };
+    }
+    if (imageStats.missing > 0) {
+      return { tone: "warning", glyph: "warning", label: "Images need review" };
+    }
+    return { tone: "success", glyph: "completed", label: "Ready to publish" };
+  }, [props.readOnly, state.document, imageStats]);
+
+  const productTitle = useMemo(() => {
+    const title = state.document.meta.title as
+      | { ar?: string; en?: string }
+      | undefined;
+    const picked = primary === "ar" ? title?.ar : title?.en;
+    return (
+      (picked && picked.trim()) ||
+      (title?.ar && title.ar.trim()) ||
+      (title?.en && title.en.trim()) ||
+      "(untitled)"
+    );
+  }, [state.document.meta.title, primary]);
+
+  // Step 1 — validate, then open the confirmation modal. The actual
+  // publish request stays UNCHANGED and runs from `confirmPublish`.
+  function requestPublish() {
     const result = validateForPublish(state.document);
     if (!result.ok) {
       setPublishIssues(result.issues);
@@ -200,6 +301,14 @@ export function BuilderClient(props: BuilderClientProps) {
       return;
     }
     setPublishIssues(result.warnings);
+    setPublishMessage(null);
+    setConfirmOpen(true);
+  }
+
+  // Step 2 — the operator explicitly confirmed. This is the original
+  // publish flow, byte-for-byte, just gated behind the modal.
+  async function confirmPublish() {
+    setConfirmOpen(false);
     setPublishing(true);
     setPublishMessage(null);
     try {
@@ -241,9 +350,12 @@ export function BuilderClient(props: BuilderClientProps) {
         dispatch={dispatch}
         primary={primary}
         onPrimaryChange={setPrimary}
-        onPublish={publish}
+        onPublish={requestPublish}
         publishing={publishing}
         publishMessage={publishMessage}
+        readiness={readiness}
+        previewVisible={previewVisible}
+        onTogglePreview={togglePreview}
         slug={props.slug}
         readOnly={props.readOnly}
       />
@@ -258,10 +370,13 @@ export function BuilderClient(props: BuilderClientProps) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(320px, 1.2fr) minmax(320px, 1fr)",
+          gridTemplateColumns: previewVisible
+            ? "minmax(320px, 1.2fr) minmax(320px, 1fr)"
+            : "1fr",
           gap: 20,
         }}
         className="builder-split"
+        data-preview={previewVisible ? "on" : "off"}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {/*
@@ -329,11 +444,25 @@ export function BuilderClient(props: BuilderClientProps) {
           ))}
           <SectionPicker onAdd={addSection} />
         </div>
-        <PreviewPane document={state.document} primary={primary} />
+        {previewVisible ? (
+          <PreviewPane document={state.document} primary={primary} />
+        ) : null}
       </div>
+      {confirmOpen ? (
+        <PublishConfirmModal
+          productTitle={productTitle}
+          draftId={props.draftId}
+          languageLabel={primary === "ar" ? "العربية" : "English"}
+          imageCount={imageStats.withSrc}
+          destination={`/p/${props.slug}`}
+          publishing={publishing}
+          onConfirm={confirmPublish}
+          onCancel={() => setConfirmOpen(false)}
+        />
+      ) : null}
       <style>{`
         @media (max-width: 960px) {
-          .builder-split { grid-template-columns: 1fr !important; }
+          .builder-split[data-preview="on"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
@@ -352,6 +481,9 @@ function Toolbar(props: {
   onPublish: () => void;
   publishing: boolean;
   publishMessage: string | null;
+  readiness: Readiness;
+  previewVisible: boolean;
+  onTogglePreview: () => void;
   slug: string;
   readOnly?: boolean;
 }) {
@@ -393,6 +525,19 @@ function Toolbar(props: {
        * domain root and 404s. Same class of bug as the C1.1 SSE wedge.
        * `<Link>` auto-prefixes basePath; `target="_blank"` still works.
        */}
+      <button
+        type="button"
+        className="btn btn-small"
+        onClick={props.onTogglePreview}
+        aria-pressed={props.previewVisible}
+        title={
+          props.previewVisible
+            ? "Hide the live PDP preview pane"
+            : "Show the live PDP preview pane"
+        }
+      >
+        {props.previewVisible ? "Hide preview" : "Show preview"}
+      </button>
       <Link
         className="btn btn-small"
         href={`/p/${encodeURIComponent(props.slug)}`}
@@ -401,6 +546,15 @@ function Toolbar(props: {
       >
         Open preview ↗
       </Link>
+      {!props.readOnly ? (
+        <span
+          className={`tag tag-${props.readiness.tone}`}
+          title="Publish readiness — derived from the draft's current state"
+        >
+          <StatusIcon kind={props.readiness.glyph} />
+          {props.readiness.label}
+        </span>
+      ) : null}
       <button
         type="button"
         className="btn btn-accent"

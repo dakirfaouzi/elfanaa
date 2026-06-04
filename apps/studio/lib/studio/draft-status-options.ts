@@ -1,4 +1,5 @@
 import type { StudioDraftStatusValue } from "@platform/persistence";
+import type { StatusGlyphKind } from "@/app/_components/StatusIcon";
 
 /**
  * Operator-facing labels + tag tone for the seven draft statuses.
@@ -66,6 +67,26 @@ export function statusTagClass(status: StudioDraftStatusValue): string {
 /** Convenience accessor — returns the operator-facing label. */
 export function statusLabel(status: StudioDraftStatusValue): string {
   return DRAFT_STATUS_LABEL[status];
+}
+
+/**
+ * Glyph kind for the shared `StatusIcon` (Sprint 1) — pairs every draft
+ * status with a meaningful icon so the status tag is not colour-only.
+ * Kept beside the tone/label maps so the three stay in lock-step.
+ */
+export const DRAFT_STATUS_GLYPH: Record<StudioDraftStatusValue, StatusGlyphKind> = {
+  intake: "pending",
+  generating: "running",
+  ready: "draft",
+  publishing: "running",
+  published: "published",
+  archived: "warning",
+  failed: "error",
+};
+
+/** Convenience accessor — returns the `StatusIcon` glyph kind. */
+export function statusGlyphKind(status: StudioDraftStatusValue): StatusGlyphKind {
+  return DRAFT_STATUS_GLYPH[status];
 }
 
 /**

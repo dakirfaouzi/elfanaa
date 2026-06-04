@@ -4,8 +4,10 @@ import "@platform/runtime-renderer/css";
 import { NavBar } from "../../_components/NavBar";
 import { BuilderClient } from "../../_components/builder/BuilderClient";
 import { MetaChip } from "../../_components/MetaChip";
+import { StatusIcon } from "../../_components/StatusIcon";
 import { getDraft } from "@/lib/studio/drafts-service";
 import {
+  statusGlyphKind,
   statusLabel,
   statusTagClass,
 } from "@/lib/studio/draft-status-options";
@@ -116,6 +118,7 @@ export default async function DraftBuilderPage(
               ← Drafts
             </Link>
             <span className={statusTagClass(draft.status)}>
+              <StatusIcon kind={statusGlyphKind(draft.status)} />
               {statusLabel(draft.status)}
             </span>
             <span className="tag tag-accent">{draft.storeId}</span>

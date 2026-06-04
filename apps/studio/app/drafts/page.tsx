@@ -5,9 +5,11 @@ import { RelativeTime } from "../_components/RelativeTime";
 import { listDrafts, type DraftListItem } from "@/lib/studio/drafts-service";
 import {
   bucketStatus,
+  statusGlyphKind,
   statusLabel,
   statusTagClass,
 } from "@/lib/studio/draft-status-options";
+import { StatusIcon } from "../_components/StatusIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -169,6 +171,7 @@ export default async function DraftsPage() {
                     </td>
                     <td style={td}>
                       <span className={statusTagClass(d.status)}>
+                        <StatusIcon kind={statusGlyphKind(d.status)} />
                         {statusLabel(d.status)}
                       </span>
                     </td>

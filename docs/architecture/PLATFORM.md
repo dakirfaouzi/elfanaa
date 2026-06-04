@@ -3278,6 +3278,48 @@ any future async-resolved consumer benefits. **Affected file:**
 `apps/fanaa/hooks/useCountdown.ts`. **Validation:** `fanaa` typecheck clean;
 lints clean.
 
+#### 26.4.18 Studio Review Workflow — Sprint 1 (DONE 2026-06-04)
+
+Operator-experience hardening of the Draft Editor + Studio status surfaces.
+Advisory input from the UI/UX Pro Max skill (colour-not-sole-indicator,
+confirm-before-destructive, loading/feedback); Fanaa's RTL Arabic-first
+mobile-first GCC system stays authoritative. **No DB / schema / publish-logic /
+storefront changes** — all five items are additive UI derived from existing
+draft state.
+
+1. **Publish confirmation modal** — `PublishConfirmModal.tsx`. The builder's
+   Publish button now validates then opens a modal showing product title, draft
+   id, language (primary locale), section-image count, and destination
+   (`/p/{slug}`); the operator must explicitly confirm. The original publish
+   request is unchanged — `publish()` was split into `requestPublish()` (validate
+   → open modal) and `confirmPublish()` (the byte-for-byte original POST).
+2. **Section Images lightbox** — `SectionImagesPanel.tsx`. Clicking any review
+   thumbnail opens a full-size overlay (`object-fit: contain`), closable by
+   Escape and backdrop click. Reuses the card's already-resolved `src` — no
+   image-data duplication (no re-fetch/re-upload).
+3. **Status icons** — new server-safe `StatusIcon.tsx` (Lucide-style SVG,
+   `currentColor`, no emoji). Wired into `StatusBadge.tsx` (runs/steps/products/
+   dashboard) and the draft-status tags via `draft-status-options.ts`
+   (`statusGlyphKind`) on the drafts list + builder header. Status is no longer
+   colour-only.
+4. **Publish readiness indicator** — a tag beside Publish derived purely from
+   real state: `Missing required data` (when `validateForPublish` has errors) →
+   `Images need review` (when a hero/scene image slot has no `src`) → `Ready to
+   publish`. No fake indicators.
+5. **Collapsible preview pane** — collapsed by default; `Show/Hide preview`
+   toolbar toggle; choice persisted in `localStorage`
+   (`fanaa.studio.builder.previewVisible`); when hidden the editor grid is `1fr`
+   (full width). Default matches SSR so no hydration mismatch.
+
+**Affected files:** `apps/studio/app/_components/StatusIcon.tsx` (new),
+`StatusBadge.tsx`, `lib/studio/draft-status-options.ts`, `app/drafts/page.tsx`,
+`app/drafts/[draftId]/page.tsx`, `_components/builder/SectionImagesPanel.tsx`,
+`_components/builder/PublishConfirmModal.tsx` (new),
+`_components/builder/BuilderClient.tsx`. **Validation:** `studio` typecheck
+clean; 469/469 tests pass; IDE lints clean. (`next lint` is not configured for
+the studio app — pre-existing; it prompts to scaffold ESLint and was not set up
+as part of this sprint.)
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

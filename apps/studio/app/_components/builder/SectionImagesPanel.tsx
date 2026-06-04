@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MediaRef } from "@platform/builder-schema";
 import type { BuilderAction } from "@platform/builder-state";
 import { resolveAssetUrl } from "@/lib/studio/asset-url";
@@ -156,6 +156,12 @@ export function SectionImagesPanel(
   }, [props.heroSection, props.croContent, dispatch]);
 
   const [collapsed, setCollapsed] = useState(false);
+  // Lightbox holds only the already-resolved preview URL + label — it
+  // reuses the same `src` the card renders, so there is no image-data
+  // duplication (no re-fetch, no re-upload, no copy of bytes).
+  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(
+    null,
+  );
 
   if (items.length === 0) return null;
 
@@ -206,10 +212,96 @@ export function SectionImagesPanel(
               item={item}
               draftId={props.draftId}
               readOnly={props.readOnly}
+              onZoom={(src, label) => setLightbox({ src, label })}
             />
           ))}
         </div>
       )}
+
+      <ImageLightbox value={lightbox} onClose={() => setLightbox(null)} />
+    </div>
+  );
+}
+
+/**
+ * ImageLightbox — full-size preview overlay.
+ *
+ * Reuses the card's already-resolved `src` (no data duplication). Closes
+ * on Escape and on backdrop click. The image is `object-fit: contain` so
+ * the FULL image is visible regardless of aspect ratio.
+ */
+function ImageLightbox(props: {
+  value: { src: string; label: string } | null;
+  onClose: () => void;
+}): React.ReactElement | null {
+  const { value, onClose } = props;
+
+  useEffect(() => {
+    if (!value) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [value, onClose]);
+
+  if (!value) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview: ${value.label}`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(8, 9, 14, 0.88)",
+        backdropFilter: "blur(6px)",
+        zIndex: 60,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        padding: "4vh 16px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          width: "min(1100px, 100%)",
+        }}
+      >
+        <span style={{ fontSize: 12, color: "#e7e7ea", wordBreak: "break-word" }}>
+          {value.label}
+        </span>
+        <button
+          type="button"
+          className="btn btn-small"
+          onClick={onClose}
+          aria-label="Close preview"
+        >
+          Close
+        </button>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={value.src}
+        alt={value.label}
+        style={{
+          maxWidth: "min(1100px, 100%)",
+          maxHeight: "82vh",
+          objectFit: "contain",
+          borderRadius: 12,
+          boxShadow: "0 24px 64px -24px rgba(0,0,0,0.7)",
+        }}
+      />
     </div>
   );
 }
@@ -218,6 +310,7 @@ function ReviewCard(props: {
   item: ReviewItem;
   draftId: string;
   readOnly?: boolean;
+  onZoom: (src: string, label: string) => void;
 }): React.ReactElement {
   const { item } = props;
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -273,6 +366,24 @@ function ReviewCard(props: {
       }}
     >
       <div
+        role={item.previewSrc ? "button" : undefined}
+        tabIndex={item.previewSrc ? 0 : undefined}
+        aria-label={item.previewSrc ? `Open large preview: ${item.label}` : undefined}
+        onClick={
+          item.previewSrc
+            ? () => props.onZoom(item.previewSrc, item.label)
+            : undefined
+        }
+        onKeyDown={
+          item.previewSrc
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  props.onZoom(item.previewSrc, item.label);
+                }
+              }
+            : undefined
+        }
         style={{
           position: "relative",
           width: "100%",
@@ -280,6 +391,7 @@ function ReviewCard(props: {
           borderRadius: 8,
           overflow: "hidden",
           background: "var(--bg-elev)",
+          cursor: item.previewSrc ? "zoom-in" : "default",
         }}
       >
         {item.previewSrc ? (
