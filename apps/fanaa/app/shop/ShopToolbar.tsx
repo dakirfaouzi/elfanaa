@@ -6,7 +6,13 @@ import { Check, ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Collection, FilterOptions, FilterState, Locale } from "@/lib/types";
+import type {
+  Collection,
+  FilterCounts,
+  FilterOptions,
+  FilterState,
+  Locale,
+} from "@/lib/types";
 import { emptyFilterState } from "@/lib/types";
 
 export type ShopSort = "recommended" | "best" | "price-asc" | "price-desc";
@@ -19,6 +25,8 @@ type Props = {
   onSortChange: (s: ShopSort) => void;
   filters: FilterState;
   filterOptions: FilterOptions;
+  /** Per-option result counts (full faceted) shown beside each filter. */
+  filterCounts: FilterCounts;
   onFiltersChange: (f: FilterState) => void;
   /**
    * When false, the collection chip nav is hidden.
@@ -47,6 +55,7 @@ export function ShopToolbar({
   onSortChange,
   filters,
   filterOptions,
+  filterCounts,
   onFiltersChange,
   showCollectionNav = true,
 }: Props) {
@@ -115,6 +124,7 @@ export function ShopToolbar({
       {filterOpen && hasFilterOptions && (
         <FilterPanel
           filterOptions={filterOptions}
+          filterCounts={filterCounts}
           filters={filters}
           activeCount={activeCount}
           onToggle={toggle}
@@ -148,7 +158,8 @@ export function ShopToolbar({
       >
         {list.map((item) => {
           const selected = (active ?? "") === item.slug;
-          const href = item.slug ? `/shop?collection=${item.slug}` : "/shop";
+          // Canonical collection path; the "All" chip stays on /shop.
+          const href = item.slug ? `/collections/${item.slug}` : "/shop";
           return (
             <Link
               key={item.slug || "all"}
@@ -185,6 +196,7 @@ export function ShopToolbar({
 
 function FilterPanel({
   filterOptions,
+  filterCounts,
   filters,
   activeCount,
   onToggle,
@@ -193,6 +205,7 @@ function FilterPanel({
   locale,
 }: {
   filterOptions: FilterOptions;
+  filterCounts: FilterCounts;
   filters: FilterState;
   activeCount: number;
   onToggle: (dim: keyof FilterState, value: string) => void;
@@ -219,20 +232,37 @@ function FilterPanel({
               <div className="flex flex-wrap gap-1.5">
                 {group.options.map((opt) => {
                   const active = (filters[group.dim] as string[]).includes(opt.value);
+                  const count = filterCounts[group.dim][opt.value] ?? 0;
+                  // A non-selected option with no remaining matches is a
+                  // dead end — keep it visible for context but disabled.
+                  const disabled = !active && count === 0;
                   return (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => onToggle(group.dim, opt.value)}
+                      disabled={disabled}
+                      aria-pressed={active}
                       className={cn(
-                        "inline-flex flex-col items-start rounded-full border px-3 py-1 transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors",
                         active
                           ? "border-ink bg-ink text-bg"
-                          : "border-line text-ink/80 hover:border-ink/40 hover:bg-brand-soft hover:text-ink"
+                          : disabled
+                            ? "cursor-not-allowed border-line/60 text-ink/30"
+                            : "border-line text-ink/80 hover:border-ink/40 hover:bg-brand-soft hover:text-ink"
                       )}
                     >
                       <span className="text-[12px] font-medium leading-tight" dir="rtl">
                         {pickLocalized(opt.label, locale)}
+                      </span>
+                      <span
+                        dir="ltr"
+                        className={cn(
+                          "text-[10px] font-semibold tabular-nums",
+                          active ? "text-bg/70" : "text-muted"
+                        )}
+                      >
+                        {count}
                       </span>
                     </button>
                   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Menu, Search } from "lucide-react";
 import { Container } from "./Container";
@@ -11,6 +12,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { useUI } from "@/hooks/useUI";
 import { collections, concernCollections, genderCollections } from "@/data/collections";
 import { pickLocalized } from "@/lib/format";
+import { isPathActive, isShopContextActive } from "@/lib/nav/active";
 import { cn } from "@/lib/cn";
 
 const SCROLL_TRIGGER_PX = 8;
@@ -25,10 +27,13 @@ const SCROLL_TRIGGER_PX = 8;
  */
 export function Header() {
   const { locale, t } = useLocale();
+  const pathname = usePathname();
   const openMobileNav = useUI((s) => s.openMobileNav);
   const [scrolled, setScrolled] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const shopActive = isShopContextActive(pathname);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > SCROLL_TRIGGER_PX);
@@ -91,10 +96,11 @@ export function Header() {
                 type="button"
                 aria-haspopup="true"
                 aria-expanded={megaOpen}
+                aria-current={shopActive ? "page" : undefined}
                 onClick={() => setMegaOpen((o) => !o)}
                 className={cn(
                   "rounded-full px-3 py-2 text-sm font-medium transition-colors",
-                  megaOpen
+                  megaOpen || shopActive
                     ? "bg-brand-soft text-ink"
                     : "text-ink/75 hover:bg-brand-soft hover:text-ink"
                 )}
@@ -107,14 +113,17 @@ export function Header() {
             {collections.slice(0, 3).map((c) => (
               <NavLink
                 key={c.id}
-                href={`/shop?collection=${c.slug}`}
+                href={`/collections/${c.slug}`}
                 title={c.tagline ? pickLocalized(c.tagline, locale) : undefined}
+                active={isPathActive(pathname, `/collections/${c.slug}`)}
               >
                 {pickLocalized(c.title, locale)}
               </NavLink>
             ))}
 
-            <NavLink href="/about">{t.nav.about}</NavLink>
+            <NavLink href="/about" active={isPathActive(pathname, "/about")}>
+              {t.nav.about}
+            </NavLink>
           </nav>
 
           <div className="ms-auto flex items-center gap-0.5 md:gap-1">
@@ -315,17 +324,25 @@ export function Header() {
 function NavLink({
   href,
   title,
+  active = false,
   children,
 }: {
   href: string;
   title?: string;
+  active?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       title={title}
-      className="rounded-full px-3 py-2 text-sm font-medium text-ink/75 transition-colors hover:bg-brand-soft hover:text-ink"
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "rounded-full px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "bg-brand-soft text-ink"
+          : "text-ink/75 hover:bg-brand-soft hover:text-ink"
+      )}
     >
       {children}
     </Link>

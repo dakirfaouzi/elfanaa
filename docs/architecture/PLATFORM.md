@@ -3504,6 +3504,127 @@ after legal review.
 **Validation:** `fanaa` typecheck clean; `fanaa` 155/155 tests pass; IDE lints
 clean on all touched files. (`next lint` still unconfigured — pre-existing.)
 
+#### 26.4.22 Storefront Phase 2 — Discovery & Navigation (Sprint 2.1 PR A, DONE 2026-06-05)
+
+Sprint 2.1 from the Discovery & Navigation audit. Sequenced into 3 PRs; **PR A
+is additive presentation only** — no DB / schema / route / data-contract /
+checkout / cart / order / upsell / cross-sell changes. Operator-approved
+decisions for the full sprint: path-based canonical `/collections/{slug}`,
+308 redirects from `/shop?collection=<slug>` (filters/sort preserved), `routine`
+collection = all live products, full faceted counts. **PRs B (URL-synced
+filters/sort) and C (canonicalization + active nav) are NOT in this commit.**
+
+PR A scope (3 items):
+
+1. **Per-facet result counts (full faceted).** New pure module
+   `lib/shop/filtering.ts` (`matchesDimension`, `applyFilters`,
+   `computeFacetCounts`, `FILTER_DIMENSIONS`) — extracted from the inline
+   `ShopExperience` filter so the live grid filter and the counts share one
+   matching rule. Counts are *faceted*: each option's number reflects the other
+   active dimensions but ignores its own (so OR-within-dimension stays truthful).
+   New `FilterCounts` type. `ShopToolbar`'s `FilterPanel` renders the count
+   (LTR `tabular-nums`) beside each option and **disables non-selected options
+   whose faceted count is 0** (no dead-end filters).
+2. **aria-live result announcement.** `ShopExperience` renders an `sr-only`
+   `role="status" aria-live="polite"` region with the live filtered count
+   (reuses `t.shop.itemsLabel`), so SR users get feedback after filtering/sorting
+   on every listing surface (incl. collection/concern/gender pages where the
+   visible count lives in the server-rendered `CollectionHero`).
+3. **Collection-specific empty state.** Wired the previously-unused
+   `t.shop.collectionEmpty` (ar+en): empty branch now picks copy by context —
+   filters active → `t.shop.empty` + Clear filters; in-collection, no filters →
+   `t.shop.collectionEmpty`; all-products → `t.shop.empty`. (NOTE: a `/collections/*`
+   page can still look empty for AI products because its membership reads the
+   snapshot `collection.productIds`, not the live catalog — this is the
+   pre-existing discoverability gap PR C fixes by switching to live
+   `p.collection === slug` with `routine` special-cased.)
+
+**Affected files (new):** `apps/fanaa/lib/shop/filtering.ts`,
+`apps/fanaa/__tests__/shop-filtering.test.ts`.
+**(modified):** `apps/fanaa/app/shop/ShopExperience.tsx`,
+`apps/fanaa/app/shop/ShopToolbar.tsx`, `apps/fanaa/lib/types.ts` (`FilterCounts`).
+**AI discoverability:** unchanged/safe — counts + filters operate on the live
+`products` prop; AI products fully participate on `/shop` and `/shop?collection=`.
+**Validation:** `fanaa` typecheck clean; `fanaa` 164/164 tests pass (9 new); IDE
+lints clean on all touched files. (`next lint` still unconfigured — pre-existing.)
+
+PR B scope (URL-synced filters & sort + canonical):
+
+- **URL state seam.** New pure module `lib/shop/url-state.ts`
+  (`parseShopFilters`, `parseShopSort`, `applyShopParams`, `SHOP_PARAM`,
+  `SHOP_SORTS`, `DEFAULT_SORT`). Param schema:
+  `?type=serum,cream&target=women&problem=dryness&sort=price-asc`. Parsing is
+  **validated** against the canonical option lists (junk values dropped,
+  deduped); serialization is **additive** (preserves unrelated params like
+  `collection`) and omits empty dimensions + the default sort so URLs collapse
+  to clean when cleared.
+- **Seed + mirror.** `ShopExperience` now accepts `initialFilters` / `initialSort`
+  (parsed **server-side** in each page → no hydration mismatch, shareable on
+  load), seeds `useState` from them, and mirrors changes back via
+  `router.replace(url, { scroll: false })` **on user action only** (reads the
+  live query from `window.location.search` rather than `useSearchParams`, so no
+  Suspense boundary / client de-opt). No URL→state echo loop. Default behavior
+  (no params) is byte-identical to before.
+- **Wired pages.** `app/shop/page.tsx` + `app/collections/[slug]`,
+  `app/concerns/[slug]`, `app/for/[gender]` parse `searchParams` and pass the
+  initial state through. (Reading `searchParams` makes these dynamic at request;
+  `generateStaticParams` still enumerates known slugs.)
+- **Canonical (SEO).** Filter/sort permutations consolidate to the base path:
+  `/shop` page gains `generateMetadata` (canonical = `/shop`, or
+  `/shop?collection=<slug>` when a collection is set); collection/concern/gender
+  pages add `alternates.canonical` to their own base path. (NOTE: the
+  `/shop?collection=` → `/collections/` 308 redirect + final canonical
+  direction is PR C; PR B's canonical is intentionally base-path-only.)
+
+**PR B affected files (new):** `apps/fanaa/lib/shop/url-state.ts`,
+`apps/fanaa/__tests__/shop-url-state.test.ts`.
+**(modified):** `apps/fanaa/app/shop/ShopExperience.tsx`,
+`apps/fanaa/app/shop/page.tsx`, `apps/fanaa/app/collections/[slug]/page.tsx`,
+`apps/fanaa/app/concerns/[slug]/page.tsx`, `apps/fanaa/app/for/[gender]/page.tsx`.
+**AI discoverability:** unchanged/safe — server still loads the live hybrid
+catalog; filters are client-side over the same set.
+**Validation:** `fanaa` typecheck clean; `fanaa` 175/175 tests pass (11 new); IDE
+lints clean on all touched files.
+
+PR C scope (canonicalization + live membership + 308 redirects + active nav):
+
+- **Live collection membership (fixes AI discoverability gap).**
+  `app/collections/[slug]` now derives members from the **live** hybrid catalog
+  (`p.collection === slug`) instead of the snapshot `collection.productIds`, so
+  AI-published products appear on `/collections/*`. The "ritual" aggregate is
+  modelled explicitly: new optional `Collection.isAggregate` flag (set on
+  `routine` in `data/collections.ts`) → spans the whole live catalog.
+- **Path-based canonical + 308 redirects.** `/shop?collection=<known main slug>`
+  now `permanentRedirect`s (308) to `/collections/<slug>`, **preserving
+  validated filter/sort params** (`applyShopParams(parseShopFilters, parseShopSort)`
+  → only known keys survive). Unknown slugs fall through to the prior
+  filter-on-/shop behavior. `/shop` canonical points at `/collections/<slug>` for
+  a known collection (never at the redirecting URL).
+- **Internal links repointed to canonical.** Desktop header shortcuts, footer
+  collection links, mobile-nav collections, and the shop ChipNav now link
+  `/collections/<slug>` (ChipNav "All" stays `/shop`). The mega menu / CollectionRow /
+  HomeHero already used `/collections/*`.
+- **Active navigation state.** New pure helper `lib/nav/active.ts`
+  (`isPathActive`, `isShopContextActive`). Desktop `NavLink` + the "Shop" mega
+  trigger and all `MobileNav` items now render an active treatment + `aria-current`
+  (`page`) based on `usePathname()`. The shop ChipNav already had `aria-current`.
+
+**PR C affected files (new):** `apps/fanaa/lib/nav/active.ts`,
+`apps/fanaa/__tests__/nav-active.test.ts`.
+**(modified):** `apps/fanaa/app/shop/page.tsx`,
+`apps/fanaa/app/collections/[slug]/page.tsx`, `apps/fanaa/lib/types.ts`
+(`Collection.isAggregate`), `apps/fanaa/data/collections.ts` (routine flag),
+`apps/fanaa/app/shop/ShopToolbar.tsx` (ChipNav href),
+`apps/fanaa/components/layout/{Header,MobileNav,Footer}.tsx`.
+**AI discoverability:** **improved** — AI products now surface on `/collections/*`
+(live bucket membership) and on the aggregate ritual page; `/shop`, concerns and
+gender routes already read the live catalog.
+**SEO:** 308s consolidate duplicate collection URLs; canonicals never target a
+redirecting URL.
+**Validation:** `fanaa` typecheck clean; `fanaa` 181/181 tests pass (6 new); IDE
+lints clean on all touched files. Sprint 2.1 complete (PRs A+B+C); **not yet
+committed — pending final review.**
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

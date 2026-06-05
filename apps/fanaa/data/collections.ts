@@ -59,6 +59,8 @@ export const collections: Collection[] = [
     },
     heroImage:
       "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1800&q=88&auto=format&fit=crop&crop=center",
+    // Aggregate "complete ritual" — spans the whole live catalog (incl. AI products).
+    isAggregate: true,
     productIds: products.map((p) => p.id),
   },
 ];

@@ -4,8 +4,16 @@ import { ShopExperience } from "@/app/shop/ShopExperience";
 import { CollectionHero } from "@/components/sections/CollectionHero";
 import { collections, getCollectionBySlug } from "@/data/collections";
 import { loadAllCatalogProducts } from "@/lib/catalog/loader";
+import {
+  parseShopFilters,
+  parseShopSort,
+  type RawSearchParams,
+} from "@/lib/shop/url-state";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<RawSearchParams>;
+};
 
 /*
  * ISR window for collection pages — see `app/page.tsx` for the
@@ -26,6 +34,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${collection.title.ar} | فناء`,
     description: collection.description?.ar ?? collection.tagline?.ar,
+    // Canonical to the base path so filter/sort permutations consolidate here.
+    alternates: { canonical: `/collections/${collection.slug}` },
   };
 }
 
@@ -36,15 +46,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * CollectionHero, a richer description, and hide the collection chip
  * nav (you're already inside a collection).
  */
-export default async function CollectionPage({ params }: Props) {
+export default async function CollectionPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const collection = getCollectionBySlug(slug);
   if (!collection) notFound();
 
+  const sp = await searchParams;
   const allProducts = await loadAllCatalogProducts();
-  const collectionProducts = allProducts.filter((p) =>
-    collection.productIds.includes(p.id)
-  );
+  // Membership reads the LIVE catalog by bucket so AI-published products
+  // appear here (not just the static snapshot productIds). The aggregate
+  // "ritual" collection spans the whole catalog.
+  const collectionProducts = collection.isAggregate
+    ? allProducts
+    : allProducts.filter((p) => p.collection === collection.slug);
 
   return (
     <>
@@ -59,6 +73,8 @@ export default async function CollectionPage({ params }: Props) {
         collections={collections}
         collection={collection}
         showCollectionNav={false}
+        initialFilters={parseShopFilters(sp)}
+        initialSort={parseShopSort(sp)}
       />
     </>
   );

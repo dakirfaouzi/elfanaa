@@ -157,7 +157,7 @@ export function Footer() {
           <FooterColumn title={t.footer.shop} className="md:col-span-2">
             <FooterLink href="/shop">{t.nav.shop}</FooterLink>
             {collections.map((c) => (
-              <FooterLink key={c.id} href={`/shop?collection=${c.slug}`}>
+              <FooterLink key={c.id} href={`/collections/${c.slug}`}>
                 {pickLocalized(c.title, locale)}
               </FooterLink>
             ))}

@@ -408,6 +408,20 @@ export type FilterOptions = {
   problems: FilterOption[];
 };
 
+/**
+ * Per-option result counts for the filter panel (full faceted counts).
+ *
+ * For each dimension, the count of an option reflects how many products
+ * would remain if that option were applied *on top of the filters active
+ * in the other dimensions* — so toggling within a dimension behaves like
+ * an OR and the numbers stay truthful as the customer narrows down.
+ */
+export type FilterCounts = {
+  productTypes: Record<string, number>;
+  targets: Record<string, number>;
+  problems: Record<string, number>;
+};
+
 export const emptyFilterState: FilterState = {
   productTypes: [],
   targets: [],
@@ -434,4 +448,10 @@ export type Collection = {
   presetProblems?: ProductProblem[];
   /** Pre-applied gender filter — used by gender collection pages. */
   presetTarget?: ProductTarget;
+  /**
+   * When true, the collection aggregates the *entire live catalog* rather
+   * than a single `p.collection` bucket — e.g. the "complete ritual" set.
+   * Keeps AI-generated products discoverable here without per-product tagging.
+   */
+  isAggregate?: boolean;
 };

@@ -8,9 +8,17 @@ import {
   getGenderCollectionBySlug,
 } from "@/data/collections";
 import { loadAllCatalogProducts } from "@/lib/catalog/loader";
+import {
+  parseShopFilters,
+  parseShopSort,
+  type RawSearchParams,
+} from "@/lib/shop/url-state";
 import type { ProductTarget } from "@/lib/types";
 
-type Props = { params: Promise<{ gender: string }> };
+type Props = {
+  params: Promise<{ gender: string }>;
+  searchParams: Promise<RawSearchParams>;
+};
 
 /*
  * ISR window for gender pages — see `app/page.tsx` for the
@@ -31,6 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${collection.title.ar} | فناء`,
     description: collection.description?.ar ?? collection.tagline?.ar,
+    alternates: { canonical: `/for/${collection.slug}` },
   };
 }
 
@@ -40,11 +49,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Products are pre-filtered by target (gender or unisex). The filter
  * panel refines further. Collection chip nav is hidden.
  */
-export default async function GenderCollectionPage({ params }: Props) {
+export default async function GenderCollectionPage({ params, searchParams }: Props) {
   const { gender } = await params;
   const collection = getGenderCollectionBySlug(gender);
   if (!collection) notFound();
 
+  const sp = await searchParams;
   const allProducts = await loadAllCatalogProducts();
   const target = collection.presetTarget as ProductTarget | undefined;
   const genderProducts = target
@@ -64,6 +74,8 @@ export default async function GenderCollectionPage({ params }: Props) {
         collections={collections}
         collection={collection}
         showCollectionNav={false}
+        initialFilters={parseShopFilters(sp)}
+        initialSort={parseShopSort(sp)}
       />
     </>
   );

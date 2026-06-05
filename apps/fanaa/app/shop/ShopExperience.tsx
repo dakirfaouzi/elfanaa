@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { ShopHeader } from "./ShopHeader";
@@ -10,6 +11,8 @@ import { ShopToolbar, type ShopSort } from "./ShopToolbar";
 import { useLocale } from "@/hooks/useLocale";
 import { bestSellerIds } from "@/data/products";
 import { productTypeOptions, targetOptions, problemOptions } from "@/data/filters";
+import { applyFilters, computeFacetCounts } from "@/lib/shop/filtering";
+import { applyShopParams } from "@/lib/shop/url-state";
 import type {
   Collection,
   FilterOptions,
@@ -33,6 +36,10 @@ type Props = {
    * Set to false on dedicated collection / concern / gender pages.
    */
   showCollectionNav?: boolean;
+  /** Initial filter state parsed from the URL (server-side) — keeps SSR + load shareable. */
+  initialFilters?: FilterState;
+  /** Initial sort parsed from the URL (server-side). */
+  initialSort?: ShopSort;
 };
 
 /**
@@ -55,10 +62,53 @@ export function ShopExperience({
   collection,
   activeSlug,
   showCollectionNav = true,
+  initialFilters,
+  initialSort,
 }: Props) {
   const { t } = useLocale();
-  const [sort, setSort] = useState<ShopSort>("recommended");
-  const [filters, setFilters] = useState<FilterState>(emptyFilterState);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Seed from the URL (parsed server-side) so a shared/bookmarked link
+  // restores the same view; subsequent changes are mirrored back to the URL.
+  const [sort, setSort] = useState<ShopSort>(initialSort ?? "recommended");
+  const [filters, setFilters] = useState<FilterState>(
+    initialFilters ?? emptyFilterState
+  );
+
+  // Mirror state to the URL on user action only (replace, no scroll jump,
+  // preserves unrelated params like ?collection=). Reads the live query
+  // from the browser so we don't need a Suspense-bound useSearchParams.
+  const syncUrl = useCallback(
+    (nextFilters: FilterState, nextSort: ShopSort) => {
+      const current =
+        typeof window !== "undefined" ? window.location.search : "";
+      const params = applyShopParams(
+        new URLSearchParams(current),
+        nextFilters,
+        nextSort
+      );
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname]
+  );
+
+  const handleFiltersChange = useCallback(
+    (next: FilterState) => {
+      setFilters(next);
+      syncUrl(next, sort);
+    },
+    [syncUrl, sort]
+  );
+
+  const handleSortChange = useCallback(
+    (next: ShopSort) => {
+      setSort(next);
+      syncUrl(filters, next);
+    },
+    [syncUrl, filters]
+  );
 
   // Derive which filter options actually exist in this collection view.
   // Only show options with at least one matching product — avoids dead-end filters.
@@ -74,26 +124,13 @@ export function ShopExperience({
   }, [products]);
 
   // Apply facet filters client-side — instantaneous at catalog size.
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (
-        filters.productTypes.length > 0 &&
-        (!p.productType || !filters.productTypes.includes(p.productType))
-      )
-        return false;
-      if (
-        filters.targets.length > 0 &&
-        (!p.target || !filters.targets.includes(p.target))
-      )
-        return false;
-      if (
-        filters.problems.length > 0 &&
-        !filters.problems.some((f) => p.problems?.includes(f as ProductProblem))
-      )
-        return false;
-      return true;
-    });
-  }, [products, filters]);
+  const filtered = useMemo(() => applyFilters(products, filters), [products, filters]);
+
+  // Full faceted counts — each option's number reflects the other active dimensions.
+  const filterCounts = useMemo(
+    () => computeFacetCounts(products, filters, filterOptions),
+    [products, filters, filterOptions]
+  );
 
   const sorted = useMemo(() => sortProducts(filtered, sort), [filtered, sort]);
 
@@ -101,6 +138,14 @@ export function ShopExperience({
     filters.productTypes.length > 0 ||
     filters.targets.length > 0 ||
     filters.problems.length > 0;
+
+  // Empty-state copy differs by context: a filtered dead-end vs. a
+  // collection that simply has no products yet vs. the all-products view.
+  const emptyMessage = hasActiveFilters
+    ? t.shop.empty
+    : collection
+      ? t.shop.collectionEmpty
+      : t.shop.empty;
 
   return (
     <>
@@ -118,22 +163,28 @@ export function ShopExperience({
         collections={collections}
         active={activeSlug}
         sort={sort}
-        onSortChange={setSort}
+        onSortChange={handleSortChange}
         filters={filters}
         filterOptions={filterOptions}
-        onFiltersChange={setFilters}
+        filterCounts={filterCounts}
+        onFiltersChange={handleFiltersChange}
         showCollectionNav={showCollectionNav}
       />
+
+      {/* Screen-reader announcement of the live result count after filtering/sorting. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {t.shop.itemsLabel.replace("{count}", String(filtered.length))}
+      </p>
 
       <Container>
         {sorted.length === 0 ? (
           <div className="flex min-h-[40vh] flex-col items-center justify-center gap-5 py-20 text-center">
-            <p className="text-base text-muted">{t.shop.empty}</p>
+            <p className="text-base text-muted">{emptyMessage}</p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               {hasActiveFilters && (
                 <button
                   type="button"
-                  onClick={() => setFilters(emptyFilterState)}
+                  onClick={() => handleFiltersChange(emptyFilterState)}
                   className="inline-flex h-11 items-center rounded-md border border-line bg-bg px-5 text-sm font-medium text-ink transition-colors hover:bg-brand-soft"
                 >
                   {t.shop.filterClearAll}

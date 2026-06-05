@@ -4,9 +4,17 @@ import { ShopExperience } from "@/app/shop/ShopExperience";
 import { CollectionHero } from "@/components/sections/CollectionHero";
 import { collections, concernCollections, getConcernBySlug } from "@/data/collections";
 import { loadAllCatalogProducts } from "@/lib/catalog/loader";
+import {
+  parseShopFilters,
+  parseShopSort,
+  type RawSearchParams,
+} from "@/lib/shop/url-state";
 import type { ProductProblem } from "@/lib/types";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<RawSearchParams>;
+};
 
 /*
  * ISR window for concern pages. Concern filtering keys off the live
@@ -27,6 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${concern.title.ar} | فناء`,
     description: concern.description?.ar ?? concern.tagline?.ar,
+    alternates: { canonical: `/concerns/${concern.slug}` },
   };
 }
 
@@ -37,11 +46,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * panel is still available for further refinement. Collection chip nav is
  * hidden — the concern provides the browsing context.
  */
-export default async function ConcernPage({ params }: Props) {
+export default async function ConcernPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const concern = getConcernBySlug(slug);
   if (!concern) notFound();
 
+  const sp = await searchParams;
   const allProducts = await loadAllCatalogProducts();
   const concernProducts =
     concern.presetProblems && concern.presetProblems.length > 0
@@ -65,6 +75,8 @@ export default async function ConcernPage({ params }: Props) {
         collections={collections}
         collection={concern}
         showCollectionNav={false}
+        initialFilters={parseShopFilters(sp)}
+        initialSort={parseShopSort(sp)}
       />
     </>
   );
