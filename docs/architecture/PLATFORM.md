@@ -3742,6 +3742,67 @@ cross-sell, thank-you, payments, compare-at/MSRP, Studio, publish pipeline.
 clean on all touched files. (`next lint` still unconfigured — pre-existing.)
 **Pending:** not yet committed — awaiting review.
 
+#### 26.4.25 PDP Conversion Roadmap — Sprint B (DONE 2026-06-05)
+
+Sprint B ("AI Content Depth & Honesty") of the AI-PDP roadmap. **All
+presentation-only** and **read-only over existing product data** — no schema,
+Studio, AI-generation, or publish-pipeline changes; no checkout / cart / order /
+COD / upsell / cross-sell / thank-you / payment changes. The hard rule for the
+whole sprint: **every trust signal is backed by real data and JSON-LD mirrors
+exactly what the page renders** (no fabricated review/verified counts). **Item #7
+(AI-grounded per-section titles) was deferred entirely** (would need a
+`SectionContent` schema + generation change, explicitly out of scope).
+
+Three PRs (implemented in order #9 → #3 → #4):
+
+1. **PR A — Reviews depth & honest aggregate-only state (#9).**
+   `ProductReviews.tsx` now does **progressive disclosure**: it shows the first
+   `INITIAL_VISIBLE = 4` cards and reveals the rest in place via a "see all /
+   show less" toggle (`aria-expanded`, rotating chevron) instead of hard-
+   truncating social proof at four. New **aggregate-only** branch: a product with
+   a real `rating` but zero written `reviews` renders the rating summary on its
+   own (centered, `max-w-sm`) rather than an empty card grid — numbers come
+   straight from `product.rating`. Sprint A's real-histogram honesty (bars only
+   when reviews fully back the count) is preserved. New i18n: `reviewsShowLess`
+   (reuses existing `reviewsAll` for the expand label).
+2. **PR B — Product/Offer + AggregateRating + Review + FAQPage JSON-LD (#3).**
+   New **pure, framework-free** builder `lib/seo/jsonld.ts`
+   (`buildPdpJsonLd` + `serializeJsonLd`), wired into the PDP server component
+   `app/products/[slug]/page.tsx` as a single `<script type="application/ld+json">`.
+   Gating mirrors the page: **`Product` + `Offer` always** (price = `amount/100`
+   to a 2-dp decimal string, `priceCurrency`, `InStock`, absolute offer URL from
+   `siteConfig.url`; COD-first is unaffected — `Offer` is metadata and implies no
+   payment provider); **`AggregateRating` only when `rating.count > 0`**;
+   **`review[]` only from real `product.reviews`** (all are rendered on-page, just
+   collapsed by PR A); **`FAQPage` only when `product.faq` has items**. The inline
+   placeholder `data:` image is filtered out of `image[]`. Schema strings are
+   emitted in English to match the existing OG/SEO layer. `serializeJsonLd`
+   escapes `<` so a stray `</script>` in any field can't break out of the tag.
+3. **PR C — Trust density near the primary CTA (#4).** `ProductDetails.tsx` adds a
+   compact trust block **directly under the buy-box CTA**, both signals **real and
+   presence-gated**: (a) the AI-grounded guarantee promise
+   (`sectionContent.guarantee.title`, `ShieldCheck`), surfaced at the decision
+   point instead of only far down the page; (b) a verified-buyer count =
+   `reviews.filter(r => r.verified).length`, shown via `ctaVerifiedBuyers`
+   (`BadgeCheck`, `text-success`) **only when > 0** — never a fabricated/seeded
+   number. When neither signal exists the block renders nothing (no clutter).
+   New i18n: `ctaVerifiedBuyers`.
+
+**Affected files (new):** `apps/fanaa/lib/seo/jsonld.ts`,
+`apps/fanaa/__tests__/pdp-jsonld.test.ts`.
+**(modified):** `apps/fanaa/components/product/ProductReviews.tsx`,
+`apps/fanaa/app/products/[slug]/page.tsx`,
+`apps/fanaa/app/products/[slug]/ProductDetails.tsx`,
+`apps/fanaa/lib/i18n/dictionaries.ts` (`reviewsShowLess`, `ctaVerifiedBuyers`).
+**Out of scope / untouched:** checkout, cart logic, order flow, COD, upsell,
+cross-sell, thank-you, payments, Studio, AI generation, publish pipeline,
+`SectionContent` schema, per-section AI titles (#7 deferred).
+**Validation:** `fanaa` typecheck clean; `fanaa` 189/189 vitest pass (8 new
+JSON-LD honesty/gating tests); IDE lints clean on all touched files. (`next lint`
+still unconfigured — pre-existing; one transient esbuild-worker crash on the
+multi-fork test run was resolved by re-running single-fork — not code-related.)
+**Pending:** not yet committed — awaiting review.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

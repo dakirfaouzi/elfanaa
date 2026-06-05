@@ -10,6 +10,7 @@ import {
   loadCatalogProductBySlug,
   loadRelatedCatalogProducts,
 } from "@/lib/catalog/loader";
+import { buildPdpJsonLd, serializeJsonLd } from "@/lib/seo/jsonld";
 import { pickLocalized } from "@/lib/format";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -141,8 +142,18 @@ export default async function ProductPage({ params }: Props) {
 
   const related = await loadRelatedCatalogProducts(product.id);
 
+  // Structured data (Sprint B #3) — Product/Offer always; AggregateRating,
+  // Review[], and FAQPage only when backed by real data that the page renders.
+  const jsonLd = serializeJsonLd(buildPdpJsonLd(product));
+
   return (
     <div className="pb-24 md:pb-0">
+      <script
+        type="application/ld+json"
+        // Server-rendered, no user-controlled HTML; `<` is escaped in
+        // serializeJsonLd so a stray "</script>" can't break out.
+        dangerouslySetInnerHTML={{ __html: jsonLd }}
+      />
       <Container>
         <div className="grid gap-10 pb-10 pt-6 sm:pt-8 md:grid-cols-2 md:gap-12 md:py-16 lg:gap-16 lg:py-20">
           <ProductGallery product={product} />

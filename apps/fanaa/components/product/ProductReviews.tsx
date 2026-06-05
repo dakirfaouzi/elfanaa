@@ -1,14 +1,19 @@
 "use client";
 
-import { BadgeCheck } from "lucide-react";
+import { useState } from "react";
+import { BadgeCheck, ChevronDown } from "lucide-react";
 import { Container } from "@/components/layout/Container";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
 import { SectionFigure } from "@/components/product/SectionFigure";
+import { cn } from "@/lib/cn";
 import type { Product, ProductImage, ProductReview } from "@/lib/types";
 
 type Props = { product: Product; image?: ProductImage };
+
+/** How many review cards show before "see all" (progressive disclosure). */
+const INITIAL_VISIBLE = 4;
 
 /**
  * Reviews — qualitative + quantitative.
@@ -25,10 +30,15 @@ type Props = { product: Product; image?: ProductImage };
  */
 export function ProductReviews({ product, image }: Props) {
   const { locale, t } = useLocale();
+  const [expanded, setExpanded] = useState(false);
   const reviews = product.reviews ?? [];
   const aggregate = product.rating;
 
   if (!aggregate && reviews.length === 0) return null;
+
+  const hasReviews = reviews.length > 0;
+  const visible = expanded ? reviews : reviews.slice(0, INITIAL_VISIBLE);
+  const canExpand = reviews.length > INITIAL_VISIBLE;
 
   return (
     <section className="fn-section-y bg-bg">
@@ -48,23 +58,65 @@ export function ProductReviews({ product, image }: Props) {
           </h2>
         </header>
 
-        <div className="grid gap-10 lg:grid-cols-[280px_1fr] lg:gap-16">
-          {aggregate ? (
-            <aside className="order-2 lg:order-1">
-              <ReviewSummary
-                value={aggregate.value}
-                count={aggregate.count}
-                reviews={reviews}
-              />
-            </aside>
-          ) : null}
+        {hasReviews ? (
+          <div className="grid gap-10 lg:grid-cols-[280px_1fr] lg:gap-16">
+            {aggregate ? (
+              <aside className="order-2 lg:order-1">
+                <ReviewSummary
+                  value={aggregate.value}
+                  count={aggregate.count}
+                  reviews={reviews}
+                />
+              </aside>
+            ) : null}
 
-          <ul className="order-1 grid gap-4 sm:grid-cols-2 lg:order-2 lg:gap-6">
-            {reviews.slice(0, 4).map((r, i) => (
-              <ReviewCard key={i} review={r} locale={locale} verifiedLabel={t.product.reviewsVerified} />
-            ))}
-          </ul>
-        </div>
+            <div className="order-1 lg:order-2">
+              <ul className="grid gap-4 sm:grid-cols-2 lg:gap-6">
+                {visible.map((r, i) => (
+                  <ReviewCard
+                    key={i}
+                    review={r}
+                    locale={locale}
+                    verifiedLabel={t.product.reviewsVerified}
+                  />
+                ))}
+              </ul>
+
+              {/* Progressive disclosure — reveal the full set in place rather
+                  than truncating social proof at four cards. */}
+              {canExpand ? (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    aria-expanded={expanded}
+                    className="group inline-flex h-11 items-center gap-2 rounded-full border border-line bg-bg px-6 text-[13px] font-semibold text-ink transition-colors hover:border-ink/40 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  >
+                    {expanded ? t.product.reviewsShowLess : t.product.reviewsAll}
+                    <ChevronDown
+                      className={cn(
+                        "size-4 text-muted transition-transform duration-200",
+                        expanded && "rotate-180"
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          /* Aggregate-only — a product with a real rating but no written
+             reviews yet. Render the summary on its own (centered) instead of
+             an empty card grid. Numbers come straight from `product.rating`. */
+          <div className="mx-auto max-w-sm">
+            <ReviewSummary
+              value={aggregate!.value}
+              count={aggregate!.count}
+              reviews={reviews}
+            />
+          </div>
+        )}
       </Container>
     </section>
   );

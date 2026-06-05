@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Check, ShoppingBag } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, ShieldCheck, ShoppingBag } from "lucide-react";
 import { OfferSelector } from "@/components/product/OfferSelector";
 import { ScarcitySignals } from "@/components/product/ScarcitySignals";
 import { PDPTrustRow } from "@/components/product/PDPTrustRow";
@@ -43,6 +43,14 @@ export function ProductDetails({ product }: Props) {
 
   const headline = product.headline ?? product.title;
   const subhead = product.subheadline;
+
+  // Trust density near the CTA (Sprint B #4) — both signals are REAL data,
+  // gated on presence (never fabricated):
+  //   • the AI-grounded guarantee promise (sectionContent.guarantee.title),
+  //     surfaced at the decision point instead of only far down the page;
+  //   • the count of reviews actually flagged `verified` (omitted when zero).
+  const guaranteePromise = product.sectionContent?.guarantee?.title;
+  const verifiedBuyers = (product.reviews ?? []).filter((r) => r.verified).length;
 
   const onAddToCart = () => {
     // Pass the full Product so AI-generated SKUs (absent from the
@@ -132,6 +140,32 @@ export function ProductDetails({ product }: Props) {
       <p className="-mt-2 text-center text-[12.5px] leading-relaxed text-muted">
         {t.product.cod} · {t.product.delivery} · {t.product.returns}
       </p>
+
+      {guaranteePromise || verifiedBuyers > 0 ? (
+        <div className="-mt-1 flex flex-col items-center gap-2">
+          {guaranteePromise ? (
+            <p className="flex items-center justify-center gap-2 text-center text-[12.5px] font-medium text-ink/80">
+              <ShieldCheck
+                className="size-4 shrink-0 text-accent"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+              <span>{pickLocalized(guaranteePromise, locale)}</span>
+            </p>
+          ) : null}
+          {verifiedBuyers > 0 ? (
+            <p className="flex items-center justify-center gap-1.5 text-center text-[12px] text-muted">
+              <BadgeCheck className="size-3.5 shrink-0 text-success" aria-hidden />
+              <span>
+                {t.product.ctaVerifiedBuyers.replace(
+                  "{count}",
+                  String(verifiedBuyers)
+                )}
+              </span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <PDPTrustRow />
 
