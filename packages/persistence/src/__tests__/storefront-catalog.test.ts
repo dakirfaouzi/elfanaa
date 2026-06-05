@@ -30,6 +30,9 @@ function makeRow(
     heroImageUrl: null,
     croContent: null,
     isLive: true,
+    archivedAt: null,
+    archivedReason: null,
+    archivedBy: null,
     createdAt: new Date("2026-05-22T10:00:00Z"),
     updatedAt: new Date("2026-05-26T10:00:00Z"),
     ...over,
@@ -343,5 +346,247 @@ describe("StorefrontCatalogProductRepository.markUnlisted", () => {
     await expect(
       repo.markUnlisted({ storeId: "fanaa", slug: "ghost" }),
     ).rejects.toMatchObject({ kind: "not_found" });
+  });
+});
+
+describe("StorefrontCatalogProductRepository.archive", () => {
+  it("upserts: sets archivedAt + isLive=false on update, preserving commerce", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.upsert.mockResolvedValueOnce(
+      makeRow({ isLive: false, archivedAt: new Date() }),
+    );
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.archive({
+      storeId: "fanaa",
+      slug: "glow-serum",
+      reason: "discontinued",
+      actor: "ops@fanaa.test",
+    });
+
+    expect(result.isLive).toBe(false);
+    expect(result.archivedAt).not.toBeNull();
+    const callArgs = spies.storefrontCatalogProduct.upsert.mock.calls[0][0] as {
+      where: { storeId_slug: { storeId: string; slug: string } };
+      update: {
+        isLive: boolean;
+        archivedAt: Date;
+        archivedReason: string | null;
+        archivedBy: string | null;
+      };
+      create: Record<string, unknown>;
+    };
+    expect(callArgs.where.storeId_slug).toEqual({
+      storeId: "fanaa",
+      slug: "glow-serum",
+    });
+    expect(callArgs.update.isLive).toBe(false);
+    expect(callArgs.update.archivedAt).toBeInstanceOf(Date);
+    expect(callArgs.update.archivedReason).toBe("discontinued");
+    expect(callArgs.update.archivedBy).toBe("ops@fanaa.test");
+    // The update payload must NOT touch commerce fields (price/sku/etc).
+    expect("priceMinor" in callArgs.update).toBe(false);
+  });
+
+  it("creates a curated TOMBSTONE (empty currency, archived) when no row exists", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.upsert.mockResolvedValueOnce(
+      makeRow({ priceMinor: 0, priceCurrency: "", isLive: false, archivedAt: new Date() }),
+    );
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.archive({ storeId: "fanaa", slug: "legacy-only" });
+
+    const callArgs = spies.storefrontCatalogProduct.upsert.mock.calls[0][0] as {
+      create: {
+        source: string;
+        priceMinor: number;
+        priceCurrency: string;
+        isLive: boolean;
+        archivedAt: Date;
+      };
+    };
+    expect(callArgs.create.source).toBe("curated");
+    expect(callArgs.create.priceMinor).toBe(0);
+    // Empty currency → loader merge treats price as absent (snapshot fallback).
+    expect(callArgs.create.priceCurrency).toBe("");
+    expect(callArgs.create.isLive).toBe(false);
+    expect(callArgs.create.archivedAt).toBeInstanceOf(Date);
+  });
+
+  it("defaults reason/actor to null when omitted", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.upsert.mockResolvedValueOnce(makeRow());
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.archive({ storeId: "fanaa", slug: "glow-serum" });
+
+    const callArgs = spies.storefrontCatalogProduct.upsert.mock.calls[0][0] as {
+      update: { archivedReason: string | null; archivedBy: string | null };
+    };
+    expect(callArgs.update.archivedReason).toBeNull();
+    expect(callArgs.update.archivedBy).toBeNull();
+  });
+
+  it("never hard-deletes when archiving", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.upsert.mockResolvedValueOnce(makeRow());
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.archive({ storeId: "fanaa", slug: "glow-serum" });
+
+    expect(spies.storefrontCatalogProduct.delete).not.toHaveBeenCalled();
+    expect(spies.storefrontCatalogProduct.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("StorefrontCatalogProductRepository.restore", () => {
+  it("clears the archive marker and flips isLive=true, untouching commerce", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.update.mockResolvedValueOnce(
+      makeRow({ isLive: true, archivedAt: null }),
+    );
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.restore({ storeId: "fanaa", slug: "glow-serum" });
+
+    expect(result.isLive).toBe(true);
+    expect(result.archivedAt).toBeNull();
+    const callArgs = spies.storefrontCatalogProduct.update.mock.calls[0][0] as {
+      data: {
+        isLive: boolean;
+        archivedAt: Date | null;
+        archivedReason: string | null;
+        archivedBy: string | null;
+      };
+    };
+    expect(callArgs.data).toEqual({
+      isLive: true,
+      archivedAt: null,
+      archivedReason: null,
+      archivedBy: null,
+    });
+    expect("priceMinor" in callArgs.data).toBe(false);
+  });
+
+  it("maps P2025 (row not found) to PersistenceError{not_found}", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.update.mockRejectedValueOnce(
+      dbErr("P2025", "Record to update not found."),
+    );
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await expect(
+      repo.restore({ storeId: "fanaa", slug: "ghost" }),
+    ).rejects.toMatchObject({ kind: "not_found" });
+  });
+});
+
+describe("StorefrontCatalogProductRepository.listAll", () => {
+  it("does NOT filter on isLive (returns live + archived) and sorts desc", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.findMany.mockResolvedValueOnce([
+      makeRow({ slug: "live-one" }),
+      makeRow({ slug: "archived-one", isLive: false, archivedAt: new Date() }),
+    ]);
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.listAll({ storeId: "fanaa" });
+
+    expect(result).toHaveLength(2);
+    const callArgs = spies.storefrontCatalogProduct.findMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+      orderBy: { updatedAt: string };
+      take: number;
+    };
+    expect(callArgs.where).toEqual({ storeId: "fanaa" });
+    expect("isLive" in callArgs.where).toBe(false);
+    expect(callArgs.orderBy).toEqual({ updatedAt: "desc" });
+    expect(callArgs.take).toBe(500);
+  });
+
+  it("filters to archived rows when status='archived'", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.findMany.mockResolvedValueOnce([]);
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.listAll({ storeId: "fanaa", status: "archived" });
+
+    const callArgs = spies.storefrontCatalogProduct.findMany.mock.calls[0][0] as {
+      where: { archivedAt: unknown };
+    };
+    expect(callArgs.where.archivedAt).toEqual({ not: null });
+  });
+
+  it("filters to live rows when status='live'", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.findMany.mockResolvedValueOnce([]);
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.listAll({ storeId: "fanaa", status: "live" });
+
+    const callArgs = spies.storefrontCatalogProduct.findMany.mock.calls[0][0] as {
+      where: { archivedAt: unknown };
+    };
+    expect(callArgs.where.archivedAt).toBeNull();
+  });
+
+  it("clamps take to 1000 and honours the source filter", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.storefrontCatalogProduct.findMany.mockResolvedValueOnce([]);
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    await repo.listAll({ storeId: "fanaa", take: 100_000, source: "ai_generated" });
+
+    const callArgs = spies.storefrontCatalogProduct.findMany.mock.calls[0][0] as {
+      where: { source: string };
+      take: number;
+    };
+    expect(callArgs.take).toBe(1000);
+    expect(callArgs.where.source).toBe("ai_generated");
+  });
+});
+
+describe("StorefrontCatalogProductRepository.countUsage", () => {
+  it("counts order_mirror_item rows by id(s) and slug via an OR clause", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    spies.orderMirrorItem.count.mockResolvedValueOnce(7);
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.countUsage({
+      ids: ["p_001", "run_abc"],
+      slug: "glow-serum",
+    });
+
+    expect(result).toEqual({ orders: 7 });
+    const callArgs = spies.orderMirrorItem.count.mock.calls[0][0] as {
+      where: { OR: Array<Record<string, unknown>> };
+    };
+    expect(callArgs.where.OR).toEqual([
+      { productId: "p_001" },
+      { productId: "run_abc" },
+      { productSlug: "glow-serum" },
+    ]);
+  });
+
+  it("short-circuits to zero WITHOUT querying when no identifiers are given", async () => {
+    const { prisma, spies } = makeMockPrisma();
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.countUsage({ ids: [], slug: null });
+
+    expect(result).toEqual({ orders: 0 });
+    expect(spies.orderMirrorItem.count).not.toHaveBeenCalled();
+  });
+
+  it("returns zero when the orderMirrorItem delegate is not wired", async () => {
+    const { prisma } = makeMockPrisma();
+    // Simulate a minimal client that omits the optional delegate.
+    delete (prisma as { orderMirrorItem?: unknown }).orderMirrorItem;
+    const repo = new StorefrontCatalogProductRepository({ prisma });
+
+    const result = await repo.countUsage({ slug: "glow-serum" });
+
+    expect(result).toEqual({ orders: 0 });
   });
 });

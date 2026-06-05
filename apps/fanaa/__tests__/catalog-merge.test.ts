@@ -32,6 +32,7 @@ import type { CatalogRow } from "@/lib/catalog/types";
 import {
   assembleCatalogProducts,
   mergeCatalogProduct,
+  resolveProductBySlug,
   synthesiseProductFromRow,
 } from "@/lib/catalog/merge";
 import { PLACEHOLDER_PRODUCT_IMAGE } from "@/lib/product-image";
@@ -122,6 +123,9 @@ function makeDbRow(overrides: Partial<CatalogRow> = {}): CatalogRow {
     heroImageUrl: null,
     croContent: null,
     isLive: true,
+    archivedAt: null,
+    archivedReason: null,
+    archivedBy: null,
     createdAt: new Date("2026-05-01T00:00:00Z"),
     updatedAt: new Date("2026-05-15T00:00:00Z"),
     ...overrides,
@@ -1061,5 +1065,168 @@ describe("synthesiseProductFromRow — cro_content projection", () => {
     if (avatarSrc) {
       expect(avatarSrc).toBe("https://cdn.elfanaa.com/studio/d/generated/avatar.png");
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*              Catalog PR B — archive / tombstone behaviour                   */
+/* -------------------------------------------------------------------------- */
+//
+// These tests pin the storefront-facing half of the archive lifecycle: the
+// pure assembler + resolver must hide archived products from EVERY surface
+// that reads them (/shop, /collections, /concerns, /for, related, PDP), for
+// BOTH AI rows and curated products (via the tombstone slug set). The
+// repository wrappers (archive/restore/listAll/countUsage) are covered in
+// packages/persistence/src/__tests__/storefront-catalog.test.ts.
+
+describe("assembleCatalogProducts — archive filtering", () => {
+  it("hides a curated/legacy product when its slug has an archive tombstone", () => {
+    // Snapshot defines `glow-serum`; a tombstone for it means the curated
+    // product must NOT appear even though the code snapshot still declares it.
+    const snapshot = [makeSnapshotProduct({ id: "p_001", slug: "glow-serum" })];
+    const archived = new Set(["glow-serum"]);
+
+    const result = assembleCatalogProducts(snapshot, new Map(), archived);
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("keeps non-archived curated products and merges their live DB row", () => {
+    const snapshot = [
+      makeSnapshotProduct({ id: "p_001", slug: "glow-serum" }),
+      makeSnapshotProduct({ id: "p_002", slug: "hydra-mist" }),
+    ];
+    const live = new Map([
+      ["hydra-mist", makeDbRow({ slug: "hydra-mist", sku: "DB-HYDRA" })],
+    ]);
+    const archived = new Set(["glow-serum"]);
+
+    const result = assembleCatalogProducts(snapshot, live, archived);
+
+    expect(result.map((p) => p.slug)).toEqual(["hydra-mist"]);
+    expect(result[0]?.sku).toBe("DB-HYDRA");
+  });
+
+  it("does not synthesise an archived AI (DB-only) row", () => {
+    // Archived AI rows are excluded from the live map by the loader, but the
+    // assembler also refuses to synthesise any slug in the archived set.
+    const aiRow = makeDbRow({
+      id: "row_ai",
+      slug: "ai-led-mask",
+      source: "ai_generated",
+    });
+    const live = new Map<string, CatalogRow>(); // loader already dropped it
+    const archived = new Set(["ai-led-mask"]);
+
+    const result = assembleCatalogProducts([], live, archived);
+
+    expect(result).toHaveLength(0);
+    // Even if it somehow leaked into the live map, the archived guard wins.
+    const leaked = assembleCatalogProducts(
+      [],
+      new Map([["ai-led-mask", aiRow]]),
+      archived,
+    );
+    expect(leaked).toHaveLength(0);
+  });
+
+  it("synthesises a non-archived AI row (regression: archive must not over-filter)", () => {
+    const aiRow = makeDbRow({
+      id: "row_ai",
+      slug: "ai-led-mask",
+      source: "ai_generated",
+      priceMinor: 24_900,
+      priceCurrency: "SAR",
+    });
+
+    const result = assembleCatalogProducts(
+      [],
+      new Map([["ai-led-mask", aiRow]]),
+      new Set(),
+    );
+
+    expect(result.map((p) => p.slug)).toEqual(["ai-led-mask"]);
+  });
+
+  it("defaults to no archiving when the archived set is omitted (back-compat)", () => {
+    const snapshot = [makeSnapshotProduct({ slug: "glow-serum" })];
+    const result = assembleCatalogProducts(snapshot, new Map());
+    expect(result.map((p) => p.slug)).toEqual(["glow-serum"]);
+  });
+});
+
+describe("resolveProductBySlug — PDP resolution under archive", () => {
+  const snapshot = [makeSnapshotProduct({ id: "p_001", slug: "glow-serum" })];
+
+  it("returns null for an archived curated slug (PDP must 404 / not sellable)", () => {
+    const resolved = resolveProductBySlug(
+      "glow-serum",
+      snapshot,
+      new Map(),
+      new Set(["glow-serum"]),
+    );
+    expect(resolved).toBeNull();
+  });
+
+  it("returns null for an archived AI slug", () => {
+    const resolved = resolveProductBySlug(
+      "ai-led-mask",
+      [],
+      new Map(), // loader dropped the archived AI row from the live map
+      new Set(["ai-led-mask"]),
+    );
+    expect(resolved).toBeNull();
+  });
+
+  it("resolves a live curated product overlaid with its DB row", () => {
+    const live = new Map([
+      ["glow-serum", makeDbRow({ slug: "glow-serum", sku: "DB-GLOW" })],
+    ]);
+    const resolved = resolveProductBySlug("glow-serum", snapshot, live, new Set());
+    expect(resolved?.id).toBe("p_001");
+    expect(resolved?.sku).toBe("DB-GLOW");
+  });
+
+  it("resolves a live AI product by synthesising its row", () => {
+    const live = new Map([
+      [
+        "ai-led-mask",
+        makeDbRow({
+          id: "row_ai",
+          slug: "ai-led-mask",
+          source: "ai_generated",
+          priceMinor: 24_900,
+          priceCurrency: "SAR",
+        }),
+      ],
+    ]);
+    const resolved = resolveProductBySlug("ai-led-mask", [], live, new Set());
+    expect(resolved?.slug).toBe("ai-led-mask");
+    expect(resolved?.price).toEqual({ amount: 24_900, currency: "SAR" });
+  });
+
+  it("returns null for an unknown slug", () => {
+    expect(resolveProductBySlug("ghost", snapshot, new Map(), new Set())).toBeNull();
+  });
+});
+
+describe("mergeCatalogProduct — restored curated tombstone overlay", () => {
+  it("falls back to the snapshot price when a restored tombstone has empty currency", () => {
+    // A curated archive writes a tombstone with priceMinor=0, priceCurrency="".
+    // If that row is later restored (isLive=true, archivedAt=null) it becomes a
+    // live overlay — but the empty currency must make merge fall back to the
+    // snapshot price rather than render SAR 0.
+    const snapshot = makeSnapshotProduct({ slug: "glow-serum" });
+    const restoredTombstone = makeDbRow({
+      slug: "glow-serum",
+      priceMinor: 0,
+      priceCurrency: "",
+      isLive: true,
+      archivedAt: null,
+    });
+
+    const merged = mergeCatalogProduct(snapshot, restoredTombstone);
+
+    expect(merged.price).toEqual(snapshot.price);
   });
 });

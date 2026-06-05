@@ -306,22 +306,57 @@ export function synthesiseProductFromRow(
 export function assembleCatalogProducts(
   snapshot: ReadonlyArray<Product>,
   rowsBySlug: ReadonlyMap<string, CatalogRow>,
+  archivedSlugs: ReadonlySet<string> = new Set(),
 ): Product[] {
   const snapshotSlugs = new Set<string>();
   const out: Product[] = [];
 
   for (const product of snapshot) {
     snapshotSlugs.add(product.slug);
+    // Catalog PR B — a curated product is hidden when an archive TOMBSTONE
+    // exists for its slug, even though the code snapshot still defines it.
+    if (archivedSlugs.has(product.slug)) continue;
     const dbRow = rowsBySlug.get(product.slug) ?? null;
     out.push(mergeCatalogProduct(product, dbRow));
   }
 
   for (const [slug, row] of rowsBySlug) {
     if (snapshotSlugs.has(slug)) continue;
+    // Belt-and-suspenders: archived AI rows are already excluded from the
+    // live map, but never synthesise one if it somehow appears here.
+    if (archivedSlugs.has(slug)) continue;
     out.push(synthesiseProductFromRow(row));
   }
 
   return out;
+}
+
+/**
+ * Pure PDP / single-product resolver (Catalog PR B).
+ *
+ * Mirrors the loader's `loadCatalogProductBySlug` decision tree so the logic
+ * stays unit-testable without `server-only` / Prisma:
+ *
+ *   1. Archived slug  → `null` (PDP must 404, product is not sellable).
+ *   2. Snapshot hit   → snapshot overlaid with its live DB row (if any).
+ *   3. DB-only hit    → synthesised AI product.
+ *   4. Otherwise      → `null`.
+ *
+ * `liveBySlug` must contain ONLY live, non-archived rows (the loader filters
+ * them); `archivedSlugs` carries every archived slug (curated tombstones too).
+ */
+export function resolveProductBySlug(
+  slug: string,
+  snapshot: ReadonlyArray<Product>,
+  liveBySlug: ReadonlyMap<string, CatalogRow>,
+  archivedSlugs: ReadonlySet<string> = new Set(),
+): Product | null {
+  if (archivedSlugs.has(slug)) return null;
+  const snap = snapshot.find((p) => p.slug === slug) ?? null;
+  const dbRow = liveBySlug.get(slug) ?? null;
+  if (snap) return mergeCatalogProduct(snap, dbRow);
+  if (dbRow) return synthesiseProductFromRow(dbRow);
+  return null;
 }
 
 /* -------------------------------------------------------------------------- */

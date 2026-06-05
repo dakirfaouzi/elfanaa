@@ -566,12 +566,25 @@ model StorefrontCatalogProduct {
   /// deleting it. Used for unpublished AI rows and discontinued
   /// curated rows.
   isLive             Boolean           @default(true) @map("is_live")
+  /// Lifecycle archive marker (Catalog PR B). Non-null = ARCHIVED: hidden
+  /// from every storefront surface but fully restorable, with all order
+  /// FKs preserved. Archiving ALSO sets `isLive=false`, so the FastAPI
+  /// re-pricer (which filters `is_live = TRUE`) excludes it with no Python
+  /// change. For a curated product that has no prior row, an archive writes
+  /// a TOMBSTONE row (empty commerce + this marker) so the hybrid loader can
+  /// skip the build-time code snapshot. Restore clears this back to null.
+  archivedAt         DateTime?         @map("archived_at")
+  /// Optional free-text reason captured at archive time. Null when not given.
+  archivedReason     String?           @map("archived_reason") @db.VarChar(280)
+  /// Optional actor (admin email) who performed the archive. Null when unknown.
+  archivedBy         String?           @map("archived_by") @db.VarChar(160)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
   @@unique([storeId, slug])
   @@index([storeId, isLive])
   @@index([storeId, collection])
+  @@index([storeId, archivedAt])
   @@index([publishedProductId])
   @@map("storefront_catalog_product")
 }

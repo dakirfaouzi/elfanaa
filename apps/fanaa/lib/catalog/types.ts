@@ -81,6 +81,14 @@ export interface CatalogRow {
    *  `merge.ts::coerceCroContent`. Null for curated + pre-Step-4 rows. */
   croContent: unknown;
   isLive: boolean;
+  /** Lifecycle archive marker (Catalog PR B). Non-null = archived: the loader
+   *  hides it from every storefront surface (and skips the code snapshot for a
+   *  curated tombstone). Archiving also sets `isLive=false`. */
+  archivedAt: Date | null;
+  /** Optional free-text reason captured at archive time. */
+  archivedReason: string | null;
+  /** Optional actor (admin email) who archived the row. */
+  archivedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

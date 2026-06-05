@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type {
+  OrderMirrorItemRow,
   PrismaLike,
   PrismaModelDelegate,
   StorefrontCatalogProductRow,
@@ -42,6 +43,7 @@ export function makeMockPrisma(): {
     studioPublishedProduct: Record<keyof PrismaModelDelegate<StudioPublishedProductRow>, ReturnType<typeof vi.fn>>;
     studioArtifact: Record<keyof PrismaModelDelegate<StudioArtifactRow>, ReturnType<typeof vi.fn>>;
     storefrontCatalogProduct: Record<keyof PrismaModelDelegate<StorefrontCatalogProductRow>, ReturnType<typeof vi.fn>>;
+    orderMirrorItem: Record<keyof PrismaModelDelegate<OrderMirrorItemRow>, ReturnType<typeof vi.fn>>;
   };
 } {
   function makeDelegate<TRow>(): Record<
@@ -71,6 +73,7 @@ export function makeMockPrisma(): {
     studioPublishedProduct: makeDelegate<StudioPublishedProductRow>(),
     studioArtifact: makeDelegate<StudioArtifactRow>(),
     storefrontCatalogProduct: makeDelegate<StorefrontCatalogProductRow>(),
+    orderMirrorItem: makeDelegate<OrderMirrorItemRow>(),
   };
 
   const prisma: PrismaLike = {
@@ -83,6 +86,7 @@ export function makeMockPrisma(): {
     studioPublishedProduct: spies.studioPublishedProduct as unknown as PrismaModelDelegate<StudioPublishedProductRow>,
     studioArtifact: spies.studioArtifact as unknown as PrismaModelDelegate<StudioArtifactRow>,
     storefrontCatalogProduct: spies.storefrontCatalogProduct as unknown as PrismaModelDelegate<StorefrontCatalogProductRow>,
+    orderMirrorItem: spies.orderMirrorItem as unknown as PrismaModelDelegate<OrderMirrorItemRow>,
     $transaction: async <T,>(fn: (tx: PrismaLike) => Promise<T>): Promise<T> => fn(prisma),
   };
 

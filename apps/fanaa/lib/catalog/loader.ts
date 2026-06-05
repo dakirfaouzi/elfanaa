@@ -12,7 +12,7 @@ import type { CatalogRow } from "./types";
 import {
   assembleCatalogProducts,
   mergeCatalogProduct,
-  synthesiseProductFromRow,
+  resolveProductBySlug,
 } from "./merge";
 import { resolveUpsellRefs } from "./upsell-refs";
 import {
@@ -83,44 +83,67 @@ const STORE_ID = "fanaa";
 /* -------------------------------------------------------------------------- */
 
 /**
- * Internal: returns every live catalog row for `storeId="fanaa"`,
- * indexed by slug. Memoised per-request via `React.cache()`.
+ * Internal catalog state for `storeId="fanaa"`, memoised per-request via
+ * `React.cache()`:
  *
- * Resolves to an empty map (NOT a throw) when the DB is unconfigured
- * or unreachable. Callers always merge against this map and fall back
- * to the snapshot when a slug isn't present, so a quiet empty map is
- * indistinguishable from "no DB row exists for this slug yet" — both
- * paths render the snapshot.
+ *   • `liveBySlug`    — every LIVE, non-archived row indexed by slug. This is
+ *                       the overlay/synthesise source for the storefront.
+ *   • `archivedSlugs` — every slug with `archivedAt` set (Catalog PR B). The
+ *                       assembler/resolver use it to hide BOTH archived AI rows
+ *                       and curated products that have an archive TOMBSTONE.
+ *
+ * A single query fetches all rows for the store and partitions them, so the
+ * archived set costs no extra round-trip.
+ *
+ * Resolves to empty structures (NOT a throw) when the DB is unconfigured or
+ * unreachable — the storefront degrades to snapshot-only. A quiet empty
+ * `liveBySlug` is indistinguishable from "no DB row for this slug yet"; an
+ * empty `archivedSlugs` means "nothing archived" — both render the snapshot,
+ * which is the safe default (we never hide a product because the DB blipped).
  */
-const loadCatalogRowsBySlug = cache(
-  async (): Promise<Map<string, CatalogRow>> => {
+const loadCatalogState = cache(
+  async (): Promise<{
+    liveBySlug: Map<string, CatalogRow>;
+    archivedSlugs: Set<string>;
+  }> => {
+    const empty = {
+      liveBySlug: new Map<string, CatalogRow>(),
+      archivedSlugs: new Set<string>(),
+    };
     if (!isAdminDbConfigured) {
       // Quiet expected case: any environment that runs without
       // ADMIN_DATABASE_URL (e.g. a fresh local dev `next dev` before
       // the operator wires Postgres). The storefront degrades to
       // snapshot-only and the rest of the dashboards already log
       // their own config error.
-      return new Map();
+      return empty;
     }
 
     try {
       const rows = (await prisma.storefrontCatalogProduct.findMany({
-        where: { storeId: STORE_ID, isLive: true },
+        where: { storeId: STORE_ID },
         orderBy: { updatedAt: "desc" },
       })) as unknown as CatalogRow[];
 
-      const bySlug = new Map<string, CatalogRow>();
-      for (const row of rows) bySlug.set(row.slug, row);
-      return bySlug;
+      const liveBySlug = new Map<string, CatalogRow>();
+      const archivedSlugs = new Set<string>();
+      for (const row of rows) {
+        if (row.archivedAt != null) {
+          archivedSlugs.add(row.slug);
+          continue;
+        }
+        if (row.isLive) liveBySlug.set(row.slug, row);
+      }
+      return { liveBySlug, archivedSlugs };
     } catch (err) {
       // Network blip / DB restart / migration in progress. Storefront
       // stays online with snapshot data; the next ISR window retries.
       const message = err instanceof Error ? err.message : String(err);
       console.warn(
         "[catalog/loader] DB read failed; falling back to snapshot",
-        { op: "listLive", storeId: STORE_ID, error: message },
+        { op: "loadCatalogState", storeId: STORE_ID, error: message },
       );
-      return new Map();
+      return empty;
     }
   },
 );
@@ -138,8 +161,8 @@ const loadCatalogRowsBySlug = cache(
  * `updatedAt` sorts would scramble it).
  */
 export async function loadAllCatalogProducts(): Promise<Product[]> {
-  const rowsBySlug = await loadCatalogRowsBySlug();
-  return assembleCatalogProducts(snapshotProducts, rowsBySlug);
+  const { liveBySlug, archivedSlugs } = await loadCatalogState();
+  return assembleCatalogProducts(snapshotProducts, liveBySlug, archivedSlugs);
 }
 
 /**
@@ -150,13 +173,8 @@ export async function loadAllCatalogProducts(): Promise<Product[]> {
 export async function loadCatalogProductBySlug(
   slug: string,
 ): Promise<Product | null> {
-  const rowsBySlug = await loadCatalogRowsBySlug();
-  const snapshot = snapshotProducts.find((p) => p.slug === slug) ?? null;
-  const dbRow = rowsBySlug.get(slug) ?? null;
-
-  if (snapshot) return mergeCatalogProduct(snapshot, dbRow);
-  if (dbRow) return synthesiseProductFromRow(dbRow);
-  return null;
+  const { liveBySlug, archivedSlugs } = await loadCatalogState();
+  return resolveProductBySlug(slug, snapshotProducts, liveBySlug, archivedSlugs);
 }
 
 /**
@@ -166,12 +184,13 @@ export async function loadCatalogProductBySlug(
  * land on the homepage).
  */
 export async function loadBestSellers(): Promise<Product[]> {
-  const rowsBySlug = await loadCatalogRowsBySlug();
+  const { liveBySlug, archivedSlugs } = await loadCatalogState();
   const out: Product[] = [];
   for (const id of bestSellerIds) {
     const snapshot = snapshotProducts.find((p) => p.id === id);
     if (!snapshot) continue;
-    const dbRow = rowsBySlug.get(snapshot.slug) ?? null;
+    if (archivedSlugs.has(snapshot.slug)) continue; // archived → off the homepage
+    const dbRow = liveBySlug.get(snapshot.slug) ?? null;
     out.push(mergeCatalogProduct(snapshot, dbRow));
   }
   return out;
@@ -189,12 +208,13 @@ export async function loadCatalogProductsByIds(
   ids: ReadonlyArray<string>,
 ): Promise<Product[]> {
   if (ids.length === 0) return [];
-  const rowsBySlug = await loadCatalogRowsBySlug();
+  const { liveBySlug, archivedSlugs } = await loadCatalogState();
   const out: Product[] = [];
   for (const id of ids) {
     const snapshot = snapshotProducts.find((p) => p.id === id);
     if (!snapshot) continue;
-    const dbRow = rowsBySlug.get(snapshot.slug) ?? null;
+    if (archivedSlugs.has(snapshot.slug)) continue; // archived → not resolvable
+    const dbRow = liveBySlug.get(snapshot.slug) ?? null;
     out.push(mergeCatalogProduct(snapshot, dbRow));
   }
   return out;

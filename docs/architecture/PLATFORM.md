@@ -3803,6 +3803,97 @@ still unconfigured — pre-existing; one transient esbuild-worker crash on the
 multi-fork test run was resolved by re-running single-fork — not code-related.)
 **Pending:** not yet committed — awaiting review.
 
+#### 26.4.26 Product Catalog Management — PR B (archive foundation, DONE 2026-06-05)
+
+Second PR of the Catalog Management track. **PR A** (already shipped) added the
+**read-only** unified inventory at `/admin/catalog` (`lib/admin/catalog-inventory.ts`
++ `app/api/admin/catalog/route.ts` + `CatalogClient.tsx`), which lists every
+product — curated snapshot + AI DB rows — with source, live status, and usage.
+
+**PR B makes archiving actually work at the catalog level — with NO operator
+UI yet.** No archive/restore/delete UI, no admin write actions, no Danger Zone.
+The goal is to land the data model, repository primitives, and loader behaviour
+so a later PR can expose controls safely. **No checkout / cart / order / COD /
+upsell / cross-sell / thank-you / payment / Studio changes.**
+
+**Data model (additive).** New migration `0008_catalog_archive` adds three
+nullable columns to `storefront_catalog_product` — `archived_at` (timestamp;
+non-null = archived), `archived_reason` (varchar 280), `archived_by` (varchar
+160) — plus an index on `(store_id, archived_at)`. Mirrored in three places that
+must stay in lock-step: the Prisma model, `StorefrontCatalogProductRow`
+(`packages/persistence/src/contracts.ts`), and fanaa's `CatalogRow`
+(`apps/fanaa/lib/catalog/types.ts`). Existing rows read back as `archived_at =
+NULL` (LIVE) → zero behaviour change until something is archived.
+
+**Lifecycle contract.** ARCHIVE sets `archived_at = now()` **and** `is_live =
+false`; RESTORE clears `archived_at` and sets `is_live = true`. Coupling
+`is_live=false` to archive means the **FastAPI re-pricer (`WHERE is_live =
+TRUE`) excludes archived products with no Python change** — requirement met
+structurally.
+
+**Repository primitives** (`StorefrontCatalogProductRepository`):
+- `archive({storeId, slug, reason?, actor?, source?})` — UPSERT. For an existing
+  row it sets only the archive marker + `is_live=false` (commerce fields
+  untouched, so a later restore brings an AI product back at its real price). For
+  a **curated product with no DB row** it writes a **TOMBSTONE** (`priceMinor=0`,
+  `priceCurrency=""`, archived) the loader uses to hide the code snapshot. The
+  empty currency is deliberate: the merge layer's `pickPrice` treats it as
+  "absent" and falls back to the snapshot, so a restored tombstone renders the
+  snapshot cleanly instead of `SAR 0`.
+- `restore({storeId, slug})` — clears the marker, `is_live=true`; `P2025` →
+  `PersistenceError{not_found}`.
+- `listAll({storeId, take?, status?, source?})` — every row (live + archived);
+  `status` ∈ `all|live|archived`; take clamped to 1000.
+- `countUsage({ids?, slug?})` — read-only count of `order_mirror_item` rows
+  referencing the product by id(s) and/or slug (powers the future delete
+  safety-gate). Uses a new **optional** `orderMirrorItem` delegate on `PrismaLike`
+  (optional so existing test mocks stay valid); returns `{orders:0}` when unwired.
+
+**Loader behaviour (the storefront half).** The internal cached fetch is now
+`loadCatalogState()` — one query partitions rows into `liveBySlug` (live,
+non-archived) and `archivedSlugs` (every `archived_at != null` slug, tombstones
+included). Two pure helpers in `merge.ts` consume it:
+- `assembleCatalogProducts(snapshot, liveBySlug, archivedSlugs)` — **skips any
+  snapshot product whose slug is archived** (curated/legacy hide via tombstone)
+  and never synthesises an archived AI row. Drives `/shop`, `/collections/*`,
+  `/concerns/*`, `/for/*`, related, best-sellers.
+- `resolveProductBySlug(slug, snapshot, liveBySlug, archivedSlugs)` — returns
+  `null` for an archived slug → **`loadCatalogProductBySlug` returns null** →
+  PDP 404. `loadBestSellers` / `loadCatalogProductsByIds` also skip archived
+  slugs. Degrades safe: a DB blip yields empty sets → nothing is hidden.
+
+**Sellability.** Archived **AI** products are unsellable: gone from the loader,
+so `/api/orders` resolver finds nothing → 422, and FastAPI filters `is_live`.
+Archived **curated** products disappear from all discovery + PDP (cannot be
+added through the UI). NOTE / known limitation: the order re-pricer
+(`resolver.ts`) is **snapshot-first**, so a curated archived product could still
+be re-priced if an id reached the resolver directly — closing that fully needs
+an order-flow change, which is **out of scope for PR B** (no order-flow changes)
+and is deferred to the PR that ships the delete/guard path.
+
+**Affected files.** New: `packages/db/prisma/migrations/0008_catalog_archive/migration.sql`.
+Modified: `packages/db/prisma/schema.prisma`,
+`packages/persistence/src/contracts.ts`,
+`packages/persistence/src/repositories/storefront-catalog.ts`,
+`apps/fanaa/lib/catalog/types.ts`, `apps/fanaa/lib/catalog/merge.ts`,
+`apps/fanaa/lib/catalog/loader.ts`. Tests:
+`packages/persistence/src/__tests__/storefront-catalog.test.ts` (+ archive/
+restore/listAll/countUsage), `.../_helpers/mock-prisma.ts` (orderMirrorItem),
+`.../seeds.fanaa-storefront-catalog.test.ts` (fixture fields),
+`apps/fanaa/__tests__/catalog-merge.test.ts` (archive/tombstone/PDP-resolution).
+
+**Out of scope / untouched:** archive/restore/delete UI, admin write actions,
+Danger Zone; checkout, cart, order flow, COD, upsell, cross-sell, thank-you,
+payments, Studio. (PR A's read-only inventory still classifies an archived row
+by `is_live` only, so it shows as "unlisted" / the curated snapshot until the
+archive UI lands in a later PR — a cosmetic gap, no behaviour impact.)
+
+**Validation:** Prisma schema validates 🚀; `@platform/persistence` + `fanaa`
+typecheck clean; `@platform/persistence` 93/93 and `fanaa` 200/200 vitest pass
+(new archive/tombstone/resolver/repo tests included); IDE lints clean on all
+touched files (`next lint` still unconfigured — pre-existing).
+**Pending:** not yet committed — awaiting review.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as

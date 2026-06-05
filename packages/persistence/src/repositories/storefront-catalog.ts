@@ -5,6 +5,9 @@ import {
   type StorefrontCatalogProductRow,
 } from "../contracts";
 
+/** Status filter for {@link StorefrontCatalogProductRepository.listAll}. */
+export type CatalogListStatus = "all" | "live" | "archived";
+
 /**
  * StorefrontCatalogProductRepository — typed wrapper around
  * `prisma.storefrontCatalogProduct` (M12 / Step 2).
@@ -30,6 +33,21 @@ import {
  *                            row. Soft-disable so an unpublished AI
  *                            product can be revived later without
  *                            re-running the pipeline.
+ *   • `archive`           — lifecycle ARCHIVE (Catalog PR B). Sets
+ *                            `archivedAt=now()` AND `isLive=false`. Upserts
+ *                            so a curated product with no prior row gets a
+ *                            TOMBSTONE (empty commerce + marker) the loader
+ *                            can use to hide the code snapshot.
+ *   • `restore`           — lifecycle RESTORE. Clears `archivedAt` and flips
+ *                            `isLive=true`. Commerce fields are untouched, so
+ *                            a restored AI row returns with its real price and
+ *                            a restored curated tombstone falls back to the
+ *                            snapshot (empty overlay).
+ *   • `listAll`           — every row for a store (live + archived), for the
+ *                            admin catalog view. Optional status/source filter.
+ *   • `countUsage`        — read-only count of `order_mirror_item` rows that
+ *                            reference a product (by id and/or slug). Powers
+ *                            the future delete safety-gate; never mutates.
  *
  * # What this repository deliberately does NOT do
  *
@@ -40,9 +58,10 @@ import {
  *   • No commerce VALIDATION (price > 0, currency length, etc). The
  *     persistence layer trusts its callers; validation lives in
  *     `@platform/builder-schema/catalog-metadata` and Studio's UI.
- *   • No deletes. The only kill-switch is `markUnlisted`. Hard deletes
- *     would orphan order_mirror_item rows that already reference the
- *     catalog row by `productId = catalogRow.id`.
+ *   • No hard deletes (still). ARCHIVE is the reversible kill-switch.
+ *     Hard deletes would orphan order_mirror_item rows that already
+ *     reference the catalog row by `productId = catalogRow.id`; the
+ *     guarded delete path lands in a later PR.
  */
 export class StorefrontCatalogProductRepository {
   private readonly prisma: PrismaLike;
@@ -250,6 +269,144 @@ export class StorefrontCatalogProductRepository {
       });
     } catch (err) {
       throw wrapDbError(err, "catalog_mark_unlisted");
+    }
+  }
+
+  /**
+   * Lifecycle ARCHIVE (Catalog PR B).
+   *
+   * Marks a product archived: hidden from every storefront surface but fully
+   * restorable, with all order FKs preserved. Implemented as an UPSERT so it
+   * also works for a CURATED product that has no DB row yet — that case writes
+   * a TOMBSTONE row (empty commerce + the archive marker) the hybrid loader
+   * reads to skip the build-time snapshot.
+   *
+   * Always sets `isLive=false` alongside `archivedAt` so the FastAPI re-pricer
+   * (`WHERE is_live = TRUE`) excludes archived products with no Python change.
+   *
+   * Commerce fields on an EXISTING row are left untouched (so a later restore
+   * brings the AI product back with its real price). The tombstone CREATE path
+   * uses `priceCurrency=""`, which the loader's merge treats as "absent" and
+   * falls back to the snapshot — so a restored curated tombstone renders the
+   * snapshot cleanly rather than a zero price.
+   */
+  async archive(args: {
+    storeId: string;
+    slug: string;
+    reason?: string | null;
+    actor?: string | null;
+    /** Used ONLY when creating a tombstone (no prior row). Defaults to curated. */
+    source?: ProductSourceValue;
+  }): Promise<StorefrontCatalogProductRow> {
+    const now = new Date();
+    const marker = {
+      isLive: false,
+      archivedAt: now,
+      archivedReason: args.reason ?? null,
+      archivedBy: args.actor ?? null,
+    };
+    try {
+      return await this.prisma.storefrontCatalogProduct.upsert({
+        where: {
+          storeId_slug: { storeId: args.storeId, slug: args.slug },
+        },
+        create: {
+          storeId: args.storeId,
+          slug: args.slug,
+          source: args.source ?? "curated",
+          priceMinor: 0,
+          // Empty currency → loader merge treats price as "absent" and falls
+          // back to the snapshot if this tombstone is ever restored.
+          priceCurrency: "",
+          ...marker,
+        },
+        update: marker,
+      });
+    } catch (err) {
+      throw wrapDbError(err, "catalog_archive");
+    }
+  }
+
+  /**
+   * Lifecycle RESTORE — the inverse of {@link archive}.
+   *
+   * Clears the archive marker and flips `isLive=true`. Commerce fields are
+   * untouched. Throws `PersistenceError{not_found}` if no row exists (you can
+   * only restore something that was archived).
+   */
+  async restore(args: {
+    storeId: string;
+    slug: string;
+  }): Promise<StorefrontCatalogProductRow> {
+    try {
+      return await this.prisma.storefrontCatalogProduct.update({
+        where: {
+          storeId_slug: { storeId: args.storeId, slug: args.slug },
+        },
+        data: {
+          isLive: true,
+          archivedAt: null,
+          archivedReason: null,
+          archivedBy: null,
+        },
+      });
+    } catch (err) {
+      throw wrapDbError(err, "catalog_restore");
+    }
+  }
+
+  /**
+   * List every row for a store — LIVE and ARCHIVED — for the admin catalog
+   * view. Unlike {@link listLive} this does not filter on `isLive`.
+   *
+   * `status` narrows by lifecycle: `live` (archivedAt null), `archived`
+   * (archivedAt set), or `all` (default). `source` narrows provenance.
+   * `take` defaults to 500 (clamped to 1000).
+   */
+  async listAll(args: {
+    storeId: string;
+    take?: number;
+    status?: CatalogListStatus;
+    source?: ProductSourceValue;
+  }): Promise<StorefrontCatalogProductRow[]> {
+    const take = Math.min(args.take ?? 500, 1000);
+    const status = args.status ?? "all";
+    const where: Record<string, unknown> = { storeId: args.storeId };
+    if (args.source) where.source = args.source;
+    if (status === "archived") where.archivedAt = { not: null };
+    else if (status === "live") where.archivedAt = null;
+    try {
+      return await this.prisma.storefrontCatalogProduct.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        take,
+      });
+    } catch (err) {
+      throw wrapDbError(err, "catalog_list_all");
+    }
+  }
+
+  /**
+   * Count `order_mirror_item` rows that reference a product, by its business
+   * id(s) and/or slug. Read-only — powers the future delete safety-gate
+   * ("can't hard-delete a product that has order history"). Returns
+   * `{ orders: 0 }` when the order delegate isn't wired (e.g. unit mocks).
+   */
+  async countUsage(args: {
+    ids?: ReadonlyArray<string>;
+    slug?: string | null;
+  }): Promise<{ orders: number }> {
+    const delegate = this.prisma.orderMirrorItem;
+    if (!delegate) return { orders: 0 };
+    const or: Array<Record<string, unknown>> = [];
+    for (const id of args.ids ?? []) if (id) or.push({ productId: id });
+    if (args.slug) or.push({ productSlug: args.slug });
+    if (or.length === 0) return { orders: 0 };
+    try {
+      const orders = await delegate.count({ where: { OR: or } });
+      return { orders };
+    } catch (err) {
+      throw wrapDbError(err, "catalog_count_usage");
     }
   }
 }

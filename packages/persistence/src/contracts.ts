@@ -245,8 +245,29 @@ export interface StorefrontCatalogProductRow {
    *  Step 4. Validated by `@platform/catalog-schema`'s CroContentSchema on read. */
   croContent: unknown;
   isLive: boolean;
+  /** Lifecycle archive marker (Catalog PR B). Non-null = archived (hidden
+   *  everywhere, restorable). Archiving also sets `isLive=false`. */
+  archivedAt: Date | null;
+  /** Optional free-text reason captured at archive time. */
+  archivedReason: string | null;
+  /** Optional actor (admin email) who archived the row. */
+  archivedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Minimal mirror of the `order_mirror_item` Prisma row — only the columns
+ * the catalog repository's `countUsage` reads. Full model lives in the
+ * Prisma schema (owned by the orders/analytics surface).
+ */
+export interface OrderMirrorItemRow {
+  id: bigint;
+  orderId: string;
+  productId: string;
+  productSlug: string | null;
+  title: string;
+  quantity: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -266,6 +287,10 @@ export interface PrismaLike {
   studioArtifact: PrismaModelDelegate<StudioArtifactRow>;
   /** M12 / Step 2 — DB-backed storefront catalog rows. */
   storefrontCatalogProduct: PrismaModelDelegate<StorefrontCatalogProductRow>;
+  /** Optional — order line items (read-only here, for catalog usage counts).
+   *  Optional so existing test mocks that don't wire it stay valid; the real
+   *  PrismaClient always provides it. */
+  orderMirrorItem?: PrismaModelDelegate<OrderMirrorItemRow>;
   $transaction<T>(fn: (tx: PrismaLike) => Promise<T>): Promise<T>;
 }
 
