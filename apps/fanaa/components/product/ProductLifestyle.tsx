@@ -4,7 +4,7 @@ import { Container } from "@/components/layout/Container";
 import { Flourish } from "@/components/brand/Flourish";
 import { useLocale } from "@/hooks/useLocale";
 import { pickLocalized } from "@/lib/format";
-import { getLifestyleImage } from "@/lib/product-image";
+import { getLifestyleImage, isPlaceholderImage } from "@/lib/product-image";
 import { SafeProductImage } from "@/components/product/SafeProductImage";
 import type { Product, ProductImage } from "@/lib/types";
 
@@ -24,10 +24,26 @@ export function ProductLifestyle({ product, image: assigned }: Props) {
   const { locale, t } = useLocale();
   // Phase 4.6.2: the distributor assigns this marquee band a dedicated scene.
   // Falls back through `lifestyleImage` → `images[0]` → placeholder so the
-  // editorial band still renders for products without a generated scene pool.
+  // editorial band still renders for products with a generated scene pool.
   const image = assigned ?? getLifestyleImage(product);
   const headline = product.headline ?? product.title;
   const subhead = product.subheadline;
+
+  /*
+   * Sprint A #5 — self-guard. This is the one narrative band with no content
+   * gate, so a sparse AI product (no real scene, no AI headline) rendered a
+   * placeholder "image pending" marquee titled with its raw slug. The band is
+   * fundamentally an IMAGE band, so we only show it when there is genuine
+   * photography to carry it: a real (non-placeholder) image AND a real
+   * headline (a grounded `headline`, or a `title` that isn't the slug
+   * fallback `synthesiseProductFromRow` seeds). Otherwise omit — matching the
+   * self-guarding contract every other section already honours.
+   */
+  const hasRealImage = !isPlaceholderImage(image.src);
+  const hasRealHeadline =
+    Boolean(product.headline) ||
+    (product.title.ar !== product.slug && product.title.en !== product.slug);
+  if (!hasRealImage || !hasRealHeadline) return null;
 
   return (
     <section className="fn-section-y">

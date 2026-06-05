@@ -51,7 +51,11 @@ export function ProductReviews({ product, image }: Props) {
         <div className="grid gap-10 lg:grid-cols-[280px_1fr] lg:gap-16">
           {aggregate ? (
             <aside className="order-2 lg:order-1">
-              <ReviewSummary value={aggregate.value} count={aggregate.count} />
+              <ReviewSummary
+                value={aggregate.value}
+                count={aggregate.count}
+                reviews={reviews}
+              />
             </aside>
           ) : null}
 
@@ -66,11 +70,48 @@ export function ProductReviews({ product, image }: Props) {
   );
 }
 
-function ReviewSummary({ value, count }: { value: number; count: number }) {
+/**
+ * Computes a REAL 5→1 star distribution from the visible reviews — but only
+ * when those reviews fully back the aggregate (`reviews.length === count`).
+ *
+ * Previously this rendered a hardcoded `[70,22,5,2,1]` histogram regardless of
+ * data — a manufactured trust signal that risks the exact credibility the
+ * section exists to build (Sprint A #1). When the aggregate `count` is larger
+ * than the reviews we actually have, we have no honest per-star breakdown, so
+ * we omit the bars entirely rather than fabricate them.
+ *
+ * Returns `null` when there isn't enough genuine data to draw the bars.
+ */
+function realStarDistribution(
+  reviews: ProductReview[],
+  count: number,
+): { star: number; pct: number; n: number }[] | null {
+  const n = reviews.length;
+  // Only trustworthy when every aggregated review is present and accounted for.
+  if (n === 0 || n !== count) return null;
+  const tally = [0, 0, 0, 0, 0]; // index 0 → 5★ … index 4 → 1★
+  for (const r of reviews) {
+    const star = Math.min(5, Math.max(1, Math.round(r.rating)));
+    tally[5 - star] += 1;
+  }
+  return tally.map((c, i) => ({
+    star: 5 - i,
+    n: c,
+    pct: Math.round((c / n) * 100),
+  }));
+}
+
+function ReviewSummary({
+  value,
+  count,
+  reviews,
+}: {
+  value: number;
+  count: number;
+  reviews: ProductReview[];
+}) {
   const { t } = useLocale();
-  // Approximate distribution — we don't ship raw histograms yet, but the
-  // visual cue alone increases trust (Baymard #167).
-  const buckets = [70, 22, 5, 2, 1];
+  const distribution = realStarDistribution(reviews, count);
   return (
     <div className="rounded-md border border-line bg-surface p-6">
       <p className="text-xs text-muted">{t.product.reviewsAverage}</p>
@@ -85,20 +126,28 @@ function ReviewSummary({ value, count }: { value: number; count: number }) {
         {t.product.reviewsBasedOn.replace("{count}", String(count))}
       </p>
 
-      <ul className="mt-6 space-y-2">
-        {buckets.map((pct, i) => (
-          <li key={i} className="flex items-center gap-3 text-[11px] text-muted">
-            <span className="w-3 tabular-nums">{5 - i}</span>
-            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-              <span
-                className="block h-full bg-accent"
-                style={{ width: `${pct}%` }}
-              />
-            </span>
-            <span className="w-7 text-end tabular-nums">{pct}%</span>
-          </li>
-        ))}
-      </ul>
+      {/* Real per-star bars — only when the data honestly supports them.
+          When the aggregate count exceeds the reviews we have, we show the
+          average + count only rather than an invented breakdown. */}
+      {distribution ? (
+        <ul className="mt-6 space-y-2">
+          {distribution.map(({ star, pct }) => (
+            <li
+              key={star}
+              className="flex items-center gap-3 text-[11px] text-muted"
+            >
+              <span className="w-3 tabular-nums">{star}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                <span
+                  className="block h-full bg-accent"
+                  style={{ width: `${pct}%` }}
+                />
+              </span>
+              <span className="w-7 text-end tabular-nums">{pct}%</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

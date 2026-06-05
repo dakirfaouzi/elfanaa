@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ShoppingBag } from "lucide-react";
 import {
@@ -29,9 +30,16 @@ type MobileStickyCTAProps = {
  *   • Cart with items → CTA opens the checkout modal and shows live total.
  *   • Hidden on desktop (`md:hidden`) — desktop has the header CTA.
  *   • Always sits above the iOS safe-area inset.
+ *
+ * PDP hand-off (Sprint A #2): on a product page the empty-cart "/shop" state is
+ * suppressed because the product-aware `<ProductStickyBar />` owns that surface
+ * (its mobile "Order now" adds the current product). Once the cart has items
+ * this bar reappears as the checkout CTA and the product bar steps aside —
+ * exactly one bar is visible at any time.
  */
 export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStickyCTAProps) {
   const { t } = useLocale();
+  const pathname = usePathname();
   const itemCount = useCartItemCount();
   const subtotal = useCartSubtotal();
   const hydrated = useCartHydrated();
@@ -49,7 +57,10 @@ export function MobileStickyCTA({ href = "/shop", showAfter = 480 }: MobileStick
   }, [showAfter]);
 
   const hasItems = hydrated && itemCount > 0;
-  const hidden = cartOpen || checkoutOpen || !visible;
+  // On a PDP the product-aware sticky bar handles the empty-cart "Order now".
+  const isProductPage = Boolean(pathname?.startsWith("/products/"));
+  const hidden =
+    cartOpen || checkoutOpen || !visible || (isProductPage && !hasItems);
 
   return (
     <div

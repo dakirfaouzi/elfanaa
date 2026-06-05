@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { Fragment, type ComponentType } from "react";
 import type { Product, ProductImage } from "@/lib/types";
 import { ProductBenefits } from "./ProductBenefits";
 import { ProductHowItWorks } from "./ProductHowItWorks";
@@ -11,6 +11,7 @@ import { ProductObjections } from "./ProductObjections";
 import { ProductReviews } from "./ProductReviews";
 import { ProductGuarantee } from "./ProductGuarantee";
 import { ProductFAQ } from "./ProductFAQ";
+import { PdpCtaAnchor } from "./PdpCtaAnchor";
 
 /**
  * ProductSections — the dynamic, AI-orderable "story" stack of the PDP
@@ -219,16 +220,42 @@ function resolveOrder(product: Product): string[] {
   return ordered;
 }
 
+/**
+ * Will the `results` section actually render content? Mirrors
+ * `ProductResults`'s self-guard so we only drop a mid-scroll CTA anchor after
+ * it when there is a real section above the anchor (no stray CTA over a
+ * null-rendered block). Kept narrow — only the keys we anchor after need a
+ * predicate; everything else relies on the end-of-narrative climax CTA.
+ */
+function resultsWillRender(product: Product): boolean {
+  return Boolean(product.sectionContent?.results?.timeline?.length);
+}
+
 export function ProductSections({ product }: Props) {
   const order = resolveOrder(product);
   const sectionImages = assignSectionImages(product, order);
+
+  // Sprint A #3 — repeated CTA anchors. The narrative is otherwise CTA-less
+  // below the buy box. We place a mid-scroll anchor right after the high-intent
+  // `results` moment (only when it renders) and a climax anchor at the end of
+  // the story. Anchors are presentation-only (scroll-to buy box) — no commerce.
   return (
     <>
       {order.map((key) => {
         const Section = KEY_TO_COMPONENT[key];
         if (!Section) return null;
+        if (key === "results" && resultsWillRender(product)) {
+          return (
+            <Fragment key={key}>
+              <Section product={product} image={sectionImages[key]} />
+              <PdpCtaAnchor />
+            </Fragment>
+          );
+        }
         return <Section key={key} product={product} image={sectionImages[key]} />;
       })}
+      {/* Climax CTA — re-ask for the order after the full story. */}
+      <PdpCtaAnchor />
     </>
   );
 }

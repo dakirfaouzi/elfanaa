@@ -111,6 +111,19 @@ export const PLACEHOLDER_PRODUCT_IMAGE: ProductImage = {
 };
 
 /**
+ * Is this image source the storefront "image pending" placeholder?
+ *
+ * Lets presentation surfaces distinguish "real photography" from the
+ * fallback tile so they can choose to hide a purely-decorative band
+ * (e.g. the PDP lifestyle marquee) rather than render a placeholder as
+ * if it were a hero scene. Matches the inline data URL exactly — the one
+ * placeholder both the data layer and the UI layer fall back to.
+ */
+export function isPlaceholderImage(src: string | undefined | null): boolean {
+  return src === PLACEHOLDER_DATA_URL;
+}
+
+/**
  * Returns the product's primary image, or the storefront placeholder
  * if none is available. ALWAYS returns a usable `ProductImage` —
  * never `undefined`.

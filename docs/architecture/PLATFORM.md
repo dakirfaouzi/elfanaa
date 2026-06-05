@@ -3682,6 +3682,66 @@ runtime effect (additive tokens / docs). **AI discoverability:** unaffected.
 **Validation:** `fanaa` typecheck clean; full `fanaa` vitest suite green; IDE
 lints clean on touched files. (`next lint` still unconfigured — pre-existing.)
 
+#### 26.4.24 PDP Conversion Roadmap — Sprint A (DONE 2026-06-05)
+
+Sprint A of the AI-PDP conversion roadmap (from the PDP conversion audit). **All
+presentation-only**; per the COD-first rule and operator constraints this touches
+**no** checkout / cart logic / order flow / upsell / cross-sell / thank-you /
+payment / Studio / publish-pipeline code. The two CTA items reuse the **existing**
+`add()`/`onAddToCart` + `goToCheckout` paths the buy box already calls — no new
+commerce logic, no change to what is charged. **Item #4 (compare-at/MSRP) was
+deferred entirely** (AI rows have no compare-at data source — `CatalogRow` has
+only `priceMinor`, `synthesiseProductFromRow` never sets `compareAtPrice`, and
+`cro_content` carries none; a real anchor needs a schema/Studio/loader change,
+tracked for a later data-layer sprint).
+
+Four PRs (implemented in order #1 → #5 → #3 → #2):
+
+1. **PR A — Review trust integrity (#1).** `ProductReviews.tsx`: replaced the
+   hardcoded `[70,22,5,2,1]` star histogram (a manufactured trust signal) with a
+   **real** per-star distribution computed from `product.reviews` ratings — and
+   only rendered when the visible reviews fully back the aggregate
+   (`reviews.length === rating.count`). When the aggregate count exceeds the
+   reviews we actually have (typical for AI products with a small `cro_content.reviews`
+   set + a larger seeded `count`), the bars are **omitted** rather than fabricated;
+   the honest average + stars + count remain.
+2. **PR B — Lifestyle content guard (#5).** `ProductLifestyle.tsx` gained a
+   self-guard (it was the only narrative band with none). New
+   `isPlaceholderImage()` helper in `lib/product-image.ts`. The band now renders
+   only when it has a **real (non-placeholder) image AND a real headline** (a
+   grounded `headline`, or a `title` that isn't the slug fallback
+   `synthesiseProductFromRow` seeds) — so sparse AI products no longer show a
+   placeholder "image pending" marquee titled with their raw slug. Curated/real
+   products are unaffected.
+3. **PR C — Repeated CTA anchors (#3).** New presentation-only client component
+   `PdpCtaAnchor.tsx`: a "اطلب الآن" pill that **smooth-scrolls to + focuses** the
+   existing `[data-pdp-primary-cta]` buy box (honours `prefers-reduced-motion`);
+   it does **not** add to cart. `ProductSections.tsx` inserts one anchor right
+   after the high-intent `results` section (only when `results` actually renders —
+   `resultsWillRender()` mirrors that section's guard, so no stray CTA over a
+   null block) and one **climax** anchor at the end of the narrative stack.
+4. **PR D — Mobile product-aware sticky CTA (#2).** `ProductStickyBar.tsx` is now
+   product-aware on **every** breakpoint (was `md:block` desktop-only). On mobile
+   it is the PDP "Order now" bar while the cart is empty; once the cart has items
+   it hides below `md` (`max-md:hidden`, gated on `useCartHydrated` + `useCartItemCount`)
+   and hands off to the global checkout bar. `MobileStickyCTA.tsx` correspondingly
+   **suppresses its empty-cart `/shop` state on `/products/*`** (via `usePathname`)
+   so exactly one bar shows at a time: PDP+empty → product bar; PDP+items →
+   checkout bar; non-PDP pages unchanged; desktop unchanged (`md:hidden`).
+
+**Affected files (new):** `apps/fanaa/components/product/PdpCtaAnchor.tsx`.
+**(modified):** `apps/fanaa/components/product/ProductReviews.tsx`,
+`apps/fanaa/components/product/ProductLifestyle.tsx`,
+`apps/fanaa/lib/product-image.ts` (`isPlaceholderImage`),
+`apps/fanaa/components/product/ProductSections.tsx`,
+`apps/fanaa/components/product/ProductStickyBar.tsx`,
+`apps/fanaa/components/layout/MobileStickyCTA.tsx`.
+**Out of scope / untouched:** checkout, cart logic, order flow, COD, upsell,
+cross-sell, thank-you, payments, compare-at/MSRP, Studio, publish pipeline.
+**Validation:** `fanaa` typecheck clean; `fanaa` 181/181 vitest pass; IDE lints
+clean on all touched files. (`next lint` still unconfigured — pre-existing.)
+**Pending:** not yet committed — awaiting review.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
