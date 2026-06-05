@@ -65,16 +65,63 @@ const config: Config = {
         md: "10px",
         lg: "16px",
         xl: "24px",
-        // Canonical product-card radius — matches `.fn-card-product-frame`
-        // in luxury.css. Use `rounded-card` for product/grid cards so the
-        // card surface and its image frame stay in lockstep.
+        /**
+         * Canonical radius convention (Sprint 3.1 — token + docs only; no
+         * component migration yet, see PLATFORM.md §26.4.23):
+         *   `rounded-card`  → 18px — the single radius for ALL card surfaces
+         *                     (product/grid cards already use it via
+         *                     `.fn-card-product-frame`; editorial + thank-you
+         *                     cards still on `rounded-2xl`/16px will migrate
+         *                     to this in a later sprint).
+         *   `rounded-photo` → 14px — intentionally tighter, reserved for image
+         *                     frames (`.fn-photo-frame`), NOT cards.
+         */
         card: "18px",
+        photo: "14px",
       },
       boxShadow: {
         card: "0 1px 2px rgba(15, 15, 15, 0.04), 0 4px 16px rgba(15, 15, 15, 0.06)",
         elevated:
           "0 4px 12px rgba(15, 15, 15, 0.08), 0 16px 40px rgba(15, 15, 15, 0.10)",
         focus: "0 0 0 3px rgb(var(--color-brand) / 0.25)",
+        // Premium rose-gold-tinted shadow set, sourced from the CSS vars in
+        // tokens.css. Previously these `shadow-luxury-*` utilities did not
+        // exist, so classes already in the markup (thank-you + policy cards)
+        // silently rendered no shadow — wiring them here restores the intended
+        // depth. See PLATFORM.md §26.4.23.
+        "luxury-sm": "var(--shadow-luxury-sm)",
+        "luxury-md": "var(--shadow-luxury-md)",
+        "luxury-lg": "var(--shadow-luxury-lg)",
+        "luxury-gold": "var(--shadow-luxury-gold)",
+      },
+      /**
+       * Typography scale (Sprint 3.1 — ADDITIVE only; nothing consumes these
+       * yet, so there is zero visual change. Names are deliberately chosen to
+       * NOT shadow Tailwind's stock scale (`text-sm`, `text-lg`, …). These
+       * codify the existing editorial rungs — e.g. `text-title` mirrors
+       * `.fn-section-title` and `text-lede` mirrors `.fn-section-lede` — so
+       * later sprints can adopt tokens instead of hand-rolled clamps.).
+       */
+      fontSize: {
+        eyebrow: ["12px", { lineHeight: "1.4", letterSpacing: "0.18em" }],
+        caption: ["13px", { lineHeight: "1.5" }],
+        body: ["16px", { lineHeight: "1.7" }],
+        lede: ["clamp(14px, 3.6vw, 17px)", { lineHeight: "1.75" }],
+        subtitle: ["clamp(18px, 4.2vw, 22px)", { lineHeight: "1.4" }],
+        title: ["clamp(28px, 6.4vw, 56px)", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
+        display: ["clamp(36px, 8vw, 72px)", { lineHeight: "1.02", letterSpacing: "-0.02em" }],
+      },
+      /**
+       * Spacing rhythm (Sprint 3.1 — ADDITIVE only; no migration). Provides a
+       * documented section/stack scale (e.g. `py-section`, `gap-stack`) for
+       * later adoption; `.fn-section-y` keeps owning live section padding for
+       * now. Extends Tailwind's spacing (defaults like `p-4` are untouched).
+       */
+      spacing: {
+        "section": "clamp(72px, 12vw, 120px)",
+        "section-compact": "clamp(48px, 8vw, 80px)",
+        "stack": "clamp(16px, 4vw, 24px)",
+        "stack-lg": "clamp(24px, 6vw, 40px)",
       },
       transitionTimingFunction: {
         premium: "cubic-bezier(0.22, 1, 0.36, 1)",

@@ -11,7 +11,7 @@
  *   surface    → deeper cream — alternating section bands, footer (#EAE1D2)
  *   brand-soft → sand — eyebrow chips, hover surfaces, emphasis zones
  *   ink        → deep espresso — premium, warm, never cold (#1F1815)
- *   muted      → warm taupe — readable secondary text (#7B6E65)
+ *   muted      → warm taupe — readable secondary text (#6A5D53, AA on surface)
  *   line       → biscuit — hairline borders, dividers (#DDD2C2)
  *   accent     → rose-gold / champagne — links, badges, gold rules (#C7A27C)
  *
@@ -27,7 +27,12 @@
 
   /* ── Ink & text ─────────────────────────────────────────────────────── */
   --color-ink: 31 24 21;            /* #1F1815  deep espresso — primary text   */
-  --color-muted: 123 110 101;       /* #7B6E65  warm taupe — secondary text    */
+  /* Warm taupe — secondary text. Deepened from #7B6E65 to #6A5D53 so it
+   * clears WCAG AA (4.5:1) on the `surface` band (was 3.8:1) as well as on
+   * `bg` (now 5.55:1 / 4.9:1). Same hue, slightly deeper — preserves the
+   * premium soft-taupe character. `accent` stays decorative-only (never body
+   * text). See PLATFORM.md §26.4.23. */
+  --color-muted: 106 93 83;         /* #6A5D53  warm taupe — secondary text    */
   --color-line: 221 210 194;        /* #DDD2C2  biscuit — hairline borders     */
 
   /* ── Brand ──────────────────────────────────────────────────────────── */

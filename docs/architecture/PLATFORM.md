@@ -3625,6 +3625,63 @@ redirecting URL.
 lints clean on all touched files. Sprint 2.1 complete (PRs A+B+C); **not yet
 committed — pending final review.**
 
+#### 26.4.23 Storefront Phase 3 — Design System Unification (Sprint 3.1, DONE 2026-06-05)
+
+Token-foundation sprint from the Design System Unification audit. **Token + docs
+layer only — no component/page migration, no layout change, no redesign.**
+Operator-approved decisions: darken `muted` globally to the AA value; wire the
+luxury shadows; add type/spacing scale as **additive** tokens (no migration);
+**defer** card-radius component migration (convention + docs only). Hard
+constraints honored: no checkout/cart/order/upsell/cross-sell changes, **no
+SugarBear visual changes** (grep confirmed `app/sugarbear/**` consumes none of
+`text-muted` / `shadow-luxury-*` / `rounded-card`; it is fully `--sb-*`-isolated),
+no homepage/PDP redesign. Studio is a separate app — untouched.
+
+Scope (4 changes + docs):
+
+1. **Wire luxury shadow tokens (fix no-op utilities).** `--shadow-luxury-sm/md/lg/gold`
+   existed in `tokens.css` but were **never registered in Tailwind `boxShadow`**,
+   so the `shadow-luxury-*` classes already in the markup rendered **nothing**.
+   Added the four entries (`'luxury-sm': 'var(--shadow-luxury-sm)'`, …). No
+   component edits — the classes simply start resolving. **Visual effect:** soft
+   shadows now appear (as originally intended) on the **thank-you** cluster
+   (`ResultsExpectations`, `CallReassuranceBanner`, `CustomerInfoReview`,
+   `OrderReceipt`, `ConfirmationHero`, `SocialProof`, `ThankYouFAQ`) and the
+   **policy** accordion (`PolicyPage`). This is the only "new pixels" in 3.1; no
+   layout shift (box-shadow doesn't reflow). Not used elsewhere (PDP/collections/
+   homepage/checkout unaffected).
+2. **`muted` contrast → WCAG AA.** `--color-muted` darkened `#7B6E65 → #6A5D53`
+   (123 110 101 → 106 93 83), same warm-taupe hue. Measured ratios: on `bg`
+   4.3 → **5.55**, on `surface` **3.8 → 4.9** (was failing the 4.5:1 AA floor for
+   body text). One-token change; globally deepens secondary text storefront-wide
+   (incl. footer, about/contact, and — contrast-only, no logic/layout — the
+   checkout modal & cart drawer hint text). `accent` (`#C7A27C`, ~2:1) remains
+   **decorative-only / never body text** (documented).
+3. **Typography + spacing scale (ADDITIVE only).** New Tailwind `fontSize`
+   tokens (`eyebrow`/`caption`/`body`/`lede`/`subtitle`/`title`/`display`,
+   each with line-height/tracking; `title` mirrors `.fn-section-title`, `lede`
+   mirrors `.fn-section-lede`) and `spacing` rhythm tokens (`section`,
+   `section-compact`, `stack`, `stack-lg`). **Nothing consumes them yet → zero
+   visual change.** Names chosen to NOT shadow Tailwind's stock scale
+   (`text-sm`, `p-4`, … untouched). Adoption is deferred to a later sprint.
+4. **Canonical radius convention (docs/token only — migration DEFERRED).**
+   Documented the single card radius = `rounded-card` (**18px**, already used by
+   product cards via `.fn-card-product-frame`) vs the tighter image-frame radius
+   = new `rounded-photo` (**14px**, `.fn-photo-frame`). Editorial + thank-you
+   cards still on `rounded-2xl` (16px) are **left unchanged**; their migration to
+   `rounded-card` is a later-sprint task. Stock `rounded-2xl` value is **not**
+   redefined (keeps SugarBear's `rounded-2xl` usages intact).
+
+**Affected files (modified):** `apps/fanaa/styles/tokens.css` (muted value +
+comments), `apps/fanaa/tailwind.config.ts` (luxury `boxShadow`, additive
+`fontSize` + `spacing`, `rounded-photo` + radius-convention docs),
+`docs/architecture/PLATFORM.md`. **No new files. No component files touched.**
+**Pages affected:** thank-you + policy gain intended shadows (Change 1);
+secondary text deepens storefront-wide for AA (Change 2). Changes 3 & 4 have no
+runtime effect (additive tokens / docs). **AI discoverability:** unaffected.
+**Validation:** `fanaa` typecheck clean; full `fanaa` vitest suite green; IDE
+lints clean on touched files. (`next lint` still unconfigured — pre-existing.)
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
