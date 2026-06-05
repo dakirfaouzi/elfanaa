@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   GitBranch,
   Boxes,
+  PackageSearch,
   Globe2,
   ShieldAlert,
   Settings,
@@ -22,6 +23,8 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Boxes },
   { href: "/admin/geo", label: "Geo", icon: Globe2 },
   { href: "/admin/traffic", label: "Traffic Quality", icon: ShieldAlert },
+  { section: "Catalog" },
+  { href: "/admin/catalog", label: "Catalog", icon: PackageSearch },
   { section: "System" },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;

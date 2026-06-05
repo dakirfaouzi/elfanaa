@@ -11,6 +11,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   "/admin/orders": { title: "Orders", subtitle: "Customer order ledger" },
   "/admin/funnel": { title: "Funnel", subtitle: "Conversion behaviour" },
   "/admin/products": { title: "Products", subtitle: "Catalogue analytics" },
+  "/admin/catalog": { title: "Catalog", subtitle: "Product inventory" },
   "/admin/geo": { title: "Geo intelligence", subtitle: "Audience & device" },
   "/admin/traffic": { title: "Traffic quality", subtitle: "Anti-fraud surface" },
   "/admin/settings": { title: "Settings", subtitle: "Diagnostics & schema" },
