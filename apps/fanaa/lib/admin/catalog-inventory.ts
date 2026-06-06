@@ -5,28 +5,28 @@ import { isAdminDbConfigured, prisma, adminDbConfigError } from "@/lib/admin/db"
 import { getPrimaryImage, isPlaceholderImage } from "@/lib/product-image";
 import { mergeCatalogProduct, synthesiseProductFromRow } from "@/lib/catalog/merge";
 import { resolveUpsellRefs } from "@/lib/catalog/upsell-refs";
+import { deriveCatalogStatus, type CatalogStatus } from "@/lib/catalog/admin-archive";
 import { explain } from "@/lib/admin/safe";
 import type { CatalogRow } from "@/lib/catalog/types";
 import type { Product } from "@/lib/types";
 
 /**
- * Read-only catalog inventory for the Admin "Catalog" area (PR A).
+ * Catalog inventory for the Admin "Catalog" area.
  *
  * This is the operator-facing *view* over the hybrid catalog — it unifies the
- * two product sources into one list so an operator can SEE everything and tell
- * AI products from legacy ones, with status and lightweight usage signals.
- *
- * It is deliberately READ-ONLY: no archive / restore / delete here. Those land
- * in later PRs (B/C/D) once the data model gains an explicit lifecycle.
+ * two product sources into one list so an operator can SEE everything, tell
+ * AI products from legacy ones, and drive the archive/restore workflow (PR C).
  *
  * Sources unified:
  *   • Legacy / curated snapshot — `data/products.ts` (always present, code).
  *   • AI-generated + curated mirror rows — `storefront_catalog_product` (DB).
  *
- * Status semantics today (no archive column yet):
- *   • Legacy snapshot products are ALWAYS effectively live on the storefront
- *     (the merge re-applies the code snapshot regardless of any DB flag), so
- *     they report `live`.
+ * Status semantics (PR B added the `archivedAt` column; PR C surfaces it):
+ *   • A row with `archivedAt` set reports `archived` — hidden from every
+ *     storefront surface, restorable, order history preserved.
+ *   • Legacy snapshot products with no archive tombstone report `live` (the
+ *     merge always re-applies the code snapshot, so a non-archived curated
+ *     product is effectively live regardless of `isLive`).
  *   • DB-only (AI) rows report `live` when `isLive=true`, else `unlisted`.
  */
 
@@ -39,8 +39,12 @@ export type CatalogInventoryItem = {
   titleAr: string;
   /** Provenance — drives the AI vs Legacy badge. */
   source: "ai" | "legacy";
-  /** Storefront visibility today (archive arrives later). */
-  status: "live" | "unlisted";
+  /** Lifecycle status — drives the status badge and archive/restore action. */
+  status: CatalogStatus;
+  /** ISO timestamp of when the product was archived; null when live/unlisted. */
+  archivedAt: string | null;
+  /** Operator-supplied archive reason, when present. */
+  archivedReason: string | null;
   priceMinor: number;
   priceCurrency: string;
   collection: string | null;
@@ -97,10 +101,14 @@ export async function getCatalogInventory(): Promise<CatalogInventory> {
   // 2. Legacy / curated snapshot products first (stable merchandising order).
   for (const p of snapshotProducts) {
     const row = bySlug.get(p.slug) ?? null;
-    // Mirror the storefront: only a LIVE DB row overlays a curated product.
-    const liveRow = row && row.isLive ? row : null;
+    // Mirror the storefront: an archived tombstone (or non-live row) does NOT
+    // overlay the curated snapshot — only a LIVE row does.
+    const liveRow = row && row.isLive && !row.archivedAt ? row : null;
     const merged = mergeCatalogProduct(p, liveRow);
     const img = getPrimaryImage(merged);
+    // A curated product is archived iff its DB tombstone carries `archivedAt`;
+    // otherwise it is always effectively live (the merge re-applies the code).
+    const status: CatalogStatus = row?.archivedAt ? "archived" : "live";
     productList.push(merged);
     items.push({
       id: merged.id,
@@ -108,7 +116,9 @@ export async function getCatalogInventory(): Promise<CatalogInventory> {
       titleEn: p.title.en || p.slug,
       titleAr: p.title.ar || p.slug,
       source: "legacy",
-      status: "live",
+      status,
+      archivedAt: row?.archivedAt ? row.archivedAt.toISOString() : null,
+      archivedReason: row?.archivedReason ?? null,
       priceMinor: merged.price.amount,
       priceCurrency: merged.price.currency,
       collection: merged.collection ?? null,
@@ -135,7 +145,9 @@ export async function getCatalogInventory(): Promise<CatalogInventory> {
       titleEn: product.title.en || product.slug,
       titleAr: product.title.ar || product.slug,
       source: row.source === "ai_generated" ? "ai" : "legacy",
-      status: row.isLive ? "live" : "unlisted",
+      status: deriveCatalogStatus(row),
+      archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
+      archivedReason: row.archivedReason ?? null,
       priceMinor: product.price.amount,
       priceCurrency: product.price.currency,
       collection: product.collection ?? null,

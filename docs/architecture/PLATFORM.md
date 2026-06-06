@@ -3892,6 +3892,86 @@ archive UI lands in a later PR — a cosmetic gap, no behaviour impact.)
 typecheck clean; `@platform/persistence` 93/93 and `fanaa` 200/200 vitest pass
 (new archive/tombstone/resolver/repo tests included); IDE lints clean on all
 touched files (`next lint` still unconfigured — pre-existing).
+**Post-deploy note:** a production regression after PR B's deploy (AI products
+vanished from `/admin/catalog` + storefront) was diagnosed as **schema drift** —
+the app's regenerated Prisma client expected `archived_*` columns the prod DB
+never physically gained (`_prisma_migrations` recorded `0008` as applied while
+the DDL never ran, so `migrate deploy` reported "no pending migrations"). Fixed
+operationally by executing the idempotent `0008` SQL directly against the DB; no
+code change. Lesson: verify physical schema (`information_schema.columns`), not
+just the migrations ledger.
+
+#### 26.4.27 Product Catalog Management — PR C (archive/restore operator UI, DONE 2026-06-06)
+
+Third PR of the Catalog Management track. PR A shipped the read-only inventory;
+PR B landed the archive **data model + repository primitives + loader** (no UI).
+**PR C exposes the operator-facing Archive / Restore workflow** in `/admin/catalog`
+and invalidates the storefront cache so changes reflect within seconds. **Scope
+matches the approved PR breakdown (§8): Archive/Restore APIs + row & bulk UI +
+cache revalidation + "Where used". NO hard delete, NO Danger Zone (that is PR D).
+No checkout / cart / order / COD / upsell / cross-sell / thank-you / payment /
+Studio changes; no archive/delete *behaviour* changes beyond exposing PR B.**
+
+**Write path (fanaa-local, mirrors PR B repo semantics).** fanaa intentionally
+does NOT depend on `@platform/persistence`, so archive/restore are implemented
+against fanaa's own Prisma client. Pure, unit-tested primitives live in
+`lib/catalog/admin-archive.ts` (`buildArchiveMarker`, `buildTombstoneCreate`,
+`RESTORE_DATA`, `deriveCatalogStatus`, `archiveSourceFor`, `normaliseReason`) and
+are consumed by the server-only `lib/catalog/admin-writes.ts`
+(`archiveProduct`/`restoreProduct`). Semantics are identical to the shared repo:
+archive UPSERTs (existing row → marker only, commerce untouched; curated with no
+row → tombstone `priceMinor=0`, `priceCurrency=""`); restore clears the marker
+and re-lists. `archived_at` is read from the in-memory marker (not the returned
+row) so fanaa's locally-stale Prisma client typechecks before `prisma generate`.
+
+**APIs.** `POST /api/admin/catalog/[slug]/archive` (body `{reason?, source?}`)
+and `POST /api/admin/catalog/[slug]/restore`. Auth inherited from `middleware.ts`
+(`/api/admin/*` JWT gate). `archived_by` is captured best-effort from the session
+cookie via `lib/admin/actor.ts` (`getAdminActor` → JWT `sub`). Both routes guard
+`isAdminDbConfigured` (503 when unset), map `P2025` → 404 on restore, and call
+`revalidateCatalogSurfaces()` on success.
+
+**Cache invalidation.** `lib/catalog/revalidate-catalog.ts` calls
+`revalidatePath` for `/`, `/shop`, `/collections`, `/concerns` (static) and
+`/products/[slug]`, `/collections/[slug]`, `/concerns/[slug]`, `/for/[gender]`
+(dynamic, `type:"page"` → all instances). Chosen over `revalidateTag` to keep the
+loader's caching model untouched (PR C is additive — no read-path change).
+
+**Inventory (read side).** `lib/admin/catalog-inventory.ts` now derives a
+three-state `status` (`live | unlisted | archived`) from `archived_at`: a curated
+product is `archived` iff its DB tombstone carries `archived_at` (and the merge
+no longer overlays an archived/non-live row onto the snapshot); AI rows use
+`deriveCatalogStatus`. Items gained `archivedAt` + `archivedReason`. This closes
+the cosmetic gap PR B noted (archived rows previously showed as "unlisted").
+
+**UI (`CatalogClient.tsx`).** Status filter + summary tile add **Archived**.
+Per-row contextual action: **Archive** (live/unlisted) or **Restore** (archived),
+with inline loading/disabled states. **Bulk**: checkbox column + select-all +
+sticky action bar (Bulk Archive / Bulk Restore — **never bulk delete**). Archive
+goes through a confirmation dialog surfacing the **"Where used"** blast radius
+(inbound upsell/cross-sell refs, order-history count, bespoke landing-page 404)
+plus an optional reason; Restore is a one-click safe action. Success/failure
+**toasts** (`fa-toast`); SWR `mutate()` refreshes after every mutation. All built
+on the existing `fa-*` design system — no new theme, English-only.
+
+**Affected files.** New: `apps/fanaa/lib/catalog/admin-archive.ts`,
+`apps/fanaa/lib/catalog/admin-writes.ts`,
+`apps/fanaa/lib/catalog/revalidate-catalog.ts`, `apps/fanaa/lib/admin/actor.ts`,
+`apps/fanaa/app/api/admin/catalog/[slug]/archive/route.ts`,
+`apps/fanaa/app/api/admin/catalog/[slug]/restore/route.ts`,
+`apps/fanaa/__tests__/catalog-admin-archive.test.ts`. Modified:
+`apps/fanaa/lib/admin/catalog-inventory.ts`,
+`apps/fanaa/app/admin/catalog/CatalogClient.tsx`.
+
+**Out of scope / untouched:** hard delete, Danger Zone, dependency-gate checks,
+typed-slug confirm (all PR D); detail-drawer polish, audit log, pagination (PR E);
+checkout, cart, order flow, COD, upsell/cross-sell business logic, thank-you,
+payments, Studio.
+
+**Validation:** `fanaa` typecheck clean; full `fanaa` vitest suite green
+(212/212, incl. 12 new archive-primitive tests, single-fork to dodge the known
+esbuild-worker flake); IDE lints clean on all touched files (`next lint` still
+unconfigured — pre-existing).
 **Pending:** not yet committed — awaiting review.
 
 ### 26.5 Architecture decisions (Step 3)
