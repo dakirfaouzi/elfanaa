@@ -3974,6 +3974,60 @@ esbuild-worker flake); IDE lints clean on all touched files (`next lint` still
 unconfigured — pre-existing).
 **Pending:** not yet committed — awaiting review.
 
+#### 26.4.28 Browser pixels — runtime ID resolution fix (DONE 2026-06-06)
+
+**Symptom.** On production (`elfanaa.com`) no browser pixel initialised:
+`window.fbq / ttq / snaptr` were `undefined`, no pixel scripts were injected,
+all three Pixel Helpers reported nothing, and Test Events received nothing.
+
+**Root cause (confirmed, not assumed).** `NEXT_PUBLIC_*` are **inlined by
+Webpack at `next build`**. The pixel IDs were provided to the deploy only as
+**runtime** env vars (verified: `env | grep NEXT_PUBLIC` inside the web
+container returns all three), but they were never passed as Docker
+`--build-arg`s, so `apps/fanaa/Dockerfile`'s `ARG`/`ENV` block received empty
+strings at build. The browser bundle therefore baked `process.env.NEXT_PUBLIC_
+*_PIXEL_ID === ""`, `getPixelIds()` returned all `undefined`, and
+`bootPixels()`'s `if (ids.meta)` guards skipped every `initXxxPixel()`. Pure
+deploy/build-config issue — the analytics code was correct. (Same build-time
+inlining class as the `NEXT_PUBLIC_API_BASE_URL` warning in `lib/api.ts`.)
+
+**Fix (surgical, runtime resolution — architecture untouched).** Resolve the
+IDs at REQUEST time from the live container env instead of depending on
+build-arg inlining:
+- New `app/api/public-config/route.ts` (`runtime=nodejs`, `force-dynamic`,
+  `cache-control:no-store`) returns `{ pixels: { meta, tiktok, snapchat } }`
+  read from `process.env` on the server. PUBLIC IDs only — CAPI tokens never
+  exposed. Not gated by `middleware.ts` (matches only `/admin` + `/api/admin`).
+- `lib/pixels/index.ts` adds `resolvePixelIds(override?)` which merges a runtime
+  source OVER the build-time `getPixelIds()` (runtime wins when present, else
+  build-time fallback). `getPixelIds`, `bootPixels`, adapters, the event
+  facade, `eventId` dedup, and all CAPI code are unchanged.
+- `PixelProvider` warms a `fetch("/api/public-config")` on mount and, on the
+  EXISTING first-interaction / 4s deferred trigger, boots with
+  `bootPixels(resolvePixelIds(runtimeIds))`. The defer behaviour, single boot,
+  and idempotency are preserved; only the ID *source* changed.
+
+This works with the runtime env the deploy already has — **no rebuild with
+build-args required** going forward (though passing build-args still works and
+remains the fallback path).
+
+**Affected files.** New: `apps/fanaa/app/api/public-config/route.ts`,
+`apps/fanaa/__tests__/pixels-resolve.test.ts`. Modified:
+`apps/fanaa/lib/pixels/index.ts`,
+`apps/fanaa/components/providers/PixelProvider.tsx`.
+
+**Not changed (per constraints):** analytics architecture, deferred
+first-interaction boot, `PixelProvider` contract, the unified event facade,
+browser/server `event_id` deduplication, and all CAPI logic.
+
+**Validation:** `fanaa` typecheck clean; full vitest green (217/217, incl. 5 new
+`resolvePixelIds` tests); IDE lints clean on touched files.
+**Post-deploy verification (operator):** load `elfanaa.com`, interact once, then
+confirm `window.fbq/ttq/snaptr !== undefined`, the three Pixel Helpers detect the
+pixel, `fbevents.js` / `analytics.tiktok.com` / `sc-static.net` scripts are
+present, and Test Events receive `PageView`. `curl https://elfanaa.com/api/public-config`
+should echo the three IDs.
+
 ### 26.5 Architecture decisions (Step 3)
 
 - **ADR-S3-1 — Targeting is passed as a structured object, not only as
