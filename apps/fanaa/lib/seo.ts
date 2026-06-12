@@ -85,13 +85,11 @@ export function pageMetadata(input: PageMetadataInput = {}): Metadata {
     /*
      * Favicons:
      *
-     * The canonical mark lives at `app/icon.svg`. Next.js's file-based
-     * icon convention auto-injects it as `<link rel="icon">` — DO NOT
-     * pass `icons` here, because the Metadata API would *override* the
-     * file convention and silently drop the SVG.
-     *
-     * To add an apple-touch-icon, drop a 180×180 PNG at
-     * `app/apple-icon.png` (file convention will pick it up).
+     * The canonical mark lives at `app/icon.png` (with `app/apple-icon.png`
+     * for iOS). Next.js's file-based icon convention auto-injects them as
+     * `<link rel="icon">` / `<link rel="apple-touch-icon">` — DO NOT pass
+     * `icons` here, because the Metadata API would *override* the file
+     * convention and silently drop them.
      */
     robots: { index: true, follow: true },
   };

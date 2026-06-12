@@ -1,12 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "@/hooks/useLocale";
 import { siteConfig } from "@/data/site";
 import { pickLocalized } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { BrandMark } from "./BrandMark";
-import { Wordmark } from "./Wordmark";
 import { Flourish } from "./Flourish";
 import {
   DEFAULT_TAGLINE_MODE,
@@ -17,47 +16,66 @@ import {
   type TaglineMode,
 } from "./brand.config";
 
+/**
+ * The brand logo is a horizontal lockup (lotus mark + "فناء" wordmark) in a
+ * single transparent PNG. Its intrinsic pixels drive the aspect ratio; we
+ * fix the rendered HEIGHT per size token and let the width scale, so the
+ * proportions are never stretched or cropped.
+ */
+const LOGO_INTRINSIC = { w: 1024, h: 682 } as const;
+
+/**
+ * Rendered height per size token, responsive (mobile → desktop). Heights
+ * only; width auto-derives from the intrinsic ratio so the lockup is never
+ * stretched or cropped. The header sizes (`md`) stay within the existing
+ * navbar height — bigger logo, same bar.
+ *   • md  → 40px mobile / 56px desktop (header + footer)
+ *   • lg  → 56px mobile / 80px desktop (About / brand moments)
+ */
+const LOGO_DISPLAY: Record<LogoSize, { heightClass: string; sizes: string }> = {
+  sm: { heightClass: "h-8 md:h-9", sizes: "(min-width: 768px) 56px, 48px" },
+  md: { heightClass: "h-10 md:h-14", sizes: "(min-width: 768px) 90px, 64px" },
+  lg: { heightClass: "h-14 md:h-20", sizes: "(min-width: 768px) 124px, 88px" },
+  xl: { heightClass: "h-16 md:h-24", sizes: "(min-width: 768px) 150px, 100px" },
+};
+
+/** The brand logo asset (transparent PNG) — see `public/brand/logo.png`. */
+const BADGE_SRC = "/brand/logo.png";
+
 type Props = {
   /**
    * Brand presentation:
-   *   • `primary`   — mark + wordmark (+ tagline in stacked/inline mode).
-   *                   The "full" lockup. Use in the hero, footer, and any
-   *                   editorial brand moment.
-   *   • `secondary` — wordmark only. Use in the header (paired with the
-   *                   mark via `withMark`), navigation bars, and tight UI.
-   *   • `icon`      — mark only. Use for favicons, app tiles, loading
-   *                   states, and very small surfaces.
+   *   • `primary`   — badge (+ tagline in stacked/inline mode). The "full"
+   *                   lockup. Use in the hero, footer, and editorial moments.
+   *   • `secondary` — badge only. Use in tight nav bars / UI.
+   *   • `icon`      — badge only. Use for app tiles, loading states.
+   *
+   * The brand badge already contains both the mark and the "فناء" wordmark,
+   * so all variants render the same image — the variant only governs whether
+   * the tagline rides alongside it.
    */
   variant?: LogoVariant;
   /** Visual scale — `md` matches the header, `lg/xl` are hero/about. */
   size?: LogoSize;
   /**
    * Override the variant's default tagline placement.
-   *
-   *   • `auto`     — the default for the variant (primary→stacked, others→hidden).
-   *   • `stacked`  — wordmark on top, tagline beneath (Hero pattern).
-   *   • `inline`   — wordmark + flourish + tagline on a single row (Footer pattern).
+   *   • `auto`     — variant default (primary→stacked, others→hidden).
+   *   • `stacked`  — badge on top, tagline beneath (Hero/About pattern).
+   *   • `inline`   — badge + flourish + tagline on a single row (Footer).
    *   • `hidden`   — never show the tagline.
    */
   tagline?: TaglineMode;
-  /**
-   * Optional classes applied to the tagline element. Common pattern:
-   * `"hidden md:inline"` so the tagline rides along on desktop only.
-   */
+  /** Optional classes applied to the tagline element. */
   taglineClassName?: string;
   /**
-   * `light` flips the wordmark to alabaster and softens the mark/tagline
-   * so the lockup reads on dark/photo backgrounds (the homepage hero).
-   * `auto` (default) inherits brand ink for use on alabaster surfaces,
-   * and paints the mark + tagline in rose copper.
+   * `light` softens the tagline so the lockup reads on dark/photo
+   * backgrounds. The badge artwork itself is fixed-colour (rose-gold +
+   * espresso on transparent) and renders identically on any surface.
    */
   tone?: LogoTone;
   /** Render as a non-link — for use inside h1s, OG renders, etc. */
   asStatic?: boolean;
-  /**
-   * Pair the wordmark with the mark, even on the `secondary` variant.
-   * Defaults to `true` for `primary`, `false` for `secondary`.
-   */
+  /** Retained for API compatibility — the badge always carries the mark. */
   withMark?: boolean;
   className?: string;
 };
@@ -65,18 +83,11 @@ type Props = {
 /**
  * The FANAA brand lockup.
  *
- * Why a dedicated component:
- *   • The brand surface needs to feel *identical* across the header,
- *     footer, hero, and OG image. One component = zero drift.
- *   • Locale-aware typography: Amiri (classical Naskh) for Arabic,
- *     Cormorant Garamond (small-caps tracking) for Latin.
- *   • Variant + tagline modes keep the brand-tagline pairing consistent
- *     without forking layout code at the call site.
- *
- * The mark sits on the *optical baseline* of the wordmark — a small
- * detail premium brands always get right. The tagline pairs with a
- * decorative flourish (`<Flourish />`) when stacked, mirroring the
- * master logo's two-rule ornament.
+ * Renders the horizontal brand lockup (`public/brand/logo.png` — lotus +
+ * "فناء") consistently across the header, footer, and About hero so the
+ * brand surface feels identical everywhere — one component, zero drift.
+ * The tagline pairs with a decorative flourish (`<Flourish />`) when
+ * stacked, mirroring the master logo's two-rule ornament.
  */
 export function Logo({
   variant = "primary",
@@ -85,7 +96,7 @@ export function Logo({
   taglineClassName,
   tone = "auto",
   asStatic = false,
-  withMark,
+  withMark: _withMark,
   className,
 }: Props) {
   const { locale } = useLocale();
@@ -94,54 +105,42 @@ export function Logo({
   const taglineText = pickLocalized(siteConfig.tagline, locale);
   const isArabic = locale === "ar";
 
-  // Resolve tagline + mark visibility from variant + explicit overrides.
   const taglineMode: TaglineMode =
     tagline === "auto" ? DEFAULT_TAGLINE_MODE[variant] : tagline;
-  const showMark = withMark ?? variant !== "secondary";
-  const showWordmark = variant !== "icon";
   const showTagline = taglineMode !== "hidden" && variant !== "icon";
 
   const taglineClass = cn(
     "font-medium leading-snug",
     scale.taglineClass,
     tone === "light" ? "text-bg/70" : "text-accent",
-    // Arabic doesn't benefit from uppercase tracking — it actively hurts
-    // legibility. Latin gets the small-caps register.
     isArabic ? "tracking-normal" : "uppercase tracking-[0.16em]"
   );
 
-  const markEl = showMark && (
-    <BrandMark
-      size={scale.markPx}
-      className={tone === "light" ? "text-bg" : "text-accent"}
-      aria-hidden
+  const display = LOGO_DISPLAY[size];
+  const badgeEl = (
+    <Image
+      src={BADGE_SRC}
+      alt={wordmarkText}
+      width={LOGO_INTRINSIC.w}
+      height={LOGO_INTRINSIC.h}
+      sizes={display.sizes}
+      priority={size === "md"}
+      className={cn("inline-block w-auto shrink-0 object-contain", display.heightClass)}
     />
   );
 
   let inner: React.ReactNode;
-  if (showWordmark && taglineMode === "stacked" && showTagline) {
-    // Stacked = the master-logo composition: mark on top, wordmark below,
-    // flourish, then tagline. Aligned to text-start so it sits flush with
-    // the hero copy (left in LTR, right in RTL) — no awkward float against
-    // start-aligned siblings.
+  if (taglineMode === "stacked" && showTagline) {
+    // Stacked = the master-logo composition: badge on top, flourish, tagline.
     inner = (
       <span
         className={cn(
           "inline-flex flex-col items-start leading-none",
-          // Flex-col already maps `gap-*` to row spacing; no need to
-          // rewrite to `gap-y-*`. Keeping the same scale token means
-          // header gap and stacked vertical gap stay in sync.
           scale.gapClass,
           className
         )}
       >
-        {markEl}
-        <Wordmark size={size} tone={tone} />
-        {/*
-          The flourish appears from `md` upward — on tight mobile screens
-          it's visual noise, on desktop it's a brand cue. `taglineClassName`
-          is forwarded so callers can hide tagline + flourish together.
-        */}
+        {badgeEl}
         <Flourish
           width={scale.flourishWidthPx}
           className={cn(
@@ -151,27 +150,18 @@ export function Logo({
           )}
         />
         <span
-          className={cn(
-            scale.taglineSpacingClass,
-            taglineClass,
-            taglineClassName
-          )}
+          className={cn(scale.taglineSpacingClass, taglineClass, taglineClassName)}
         >
           {taglineText}
         </span>
       </span>
     );
-  } else if (showWordmark && taglineMode === "inline" && showTagline) {
-    // Inline = footer pattern. Mark + (wordmark + em-dash + tagline) on a
-    // single row, with the tagline collapsing on small screens via
-    // `taglineClassName` so the em-dash never orphans.
+  } else if (taglineMode === "inline" && showTagline) {
+    // Inline = footer pattern. Badge + (em-dash + tagline) on a single row.
     inner = (
-      <span
-        className={cn("inline-flex items-center", scale.gapClass, className)}
-      >
-        {markEl}
+      <span className={cn("inline-flex items-center", scale.gapClass, className)}>
+        {badgeEl}
         <span className="inline-flex flex-wrap items-baseline gap-x-2 leading-none">
-          <Wordmark size={size} tone={tone} />
           <span
             aria-hidden
             className={cn(
@@ -189,14 +179,10 @@ export function Logo({
       </span>
     );
   } else {
-    // Default = horizontal mark + wordmark (header pattern). When the
-    // wordmark is hidden (icon variant), only the mark renders.
+    // Default = badge only (header pattern, icon variant).
     inner = (
-      <span
-        className={cn("inline-flex items-center", scale.gapClass, className)}
-      >
-        {markEl}
-        {showWordmark && <Wordmark size={size} tone={tone} />}
+      <span className={cn("inline-flex items-center", scale.gapClass, className)}>
+        {badgeEl}
       </span>
     );
   }
